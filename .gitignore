@@ -133,4 +133,7 @@ dmypy.json
 
 # Ignore runtime files
 /volume/dkr/examples/E*
-/volume/dkr/pages/
+/volume/dkr/pages/E*
+# But allow the specific directory "ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe" for pytest
+!/volume/dkr/examples/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe/
+!/volume/dkr/pages/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe/

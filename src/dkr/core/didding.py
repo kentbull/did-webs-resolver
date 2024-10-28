@@ -195,9 +195,21 @@ def toDidWeb(diddoc):
     return diddoc
 
 def fromDidWeb(diddoc):
-    diddoc['id'] = diddoc['id'].replace('did:web', 'did:webs')
-    for verificationMethod in diddoc[VMETH_FIELD]:
-        verificationMethod['controller'] = verificationMethod['controller'].replace('did:web', 'did:webs')
+    # Log the original state of the DID and controller
+    print(f"fromDidWeb() called with id: {diddoc['id']}")
+    initial_controller = diddoc['verificationMethod'][0]['controller']
+    print(f"Initial controller in fromDidWeb: {initial_controller}")
+
+    # Apply the replacement only if necessary
+    if 'did:web' in diddoc['id'] and 'did:webs' not in diddoc['id']:
+        diddoc['id'] = diddoc['id'].replace('did:web', 'did:webs')
+        print(f"Updated id in fromDidWeb: {diddoc['id']}")
+
+    for verificationMethod in diddoc['verificationMethod']:
+        if 'did:web' in verificationMethod['controller'] and 'did:webs' not in verificationMethod['controller']:
+            verificationMethod['controller'] = verificationMethod['controller'].replace('did:web', 'did:webs')
+            print(f"Updated controller in fromDidWeb: {verificationMethod['controller']}")
+
     return diddoc
 
 def desAliases(hby: habbing.Habery, aid: str, reg_name: str=None):

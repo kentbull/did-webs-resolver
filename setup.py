@@ -63,7 +63,7 @@ setup(
     keywords=[
         # eg: 'keyword1', 'keyword2', 'keyword3',
     ],
-    python_requires='>=3.10.13',
+    python_requires='>=3.12.1',
     install_requires=[
                         'aiohttp>=3.7.4',
                         'lmdb>=1.3.0',
@@ -73,7 +73,7 @@ setup(
                         'cbor2>=5.4.3',
                         'multidict>=6.0.2',
                         'ordered-set>=4.1.0',
-                        'keri>=1.1.4',
+                        'keri>=1.1.21',
                         'hio>=0.6.9',
                         'multicommand>=1.0.0',
                         'jsonschema>=4.17.0',
@@ -87,7 +87,8 @@ setup(
                         'cryptography>=39.0.2',
                         'requests>=2.28',
                         'pytest>=6.2.5',
-                        'pytest-timeout>=2.3.1'
+                        'pytest-timeout>=2.3.1',
+                        'simplejson>=3.17.0'
     ],
     extras_require={
     },

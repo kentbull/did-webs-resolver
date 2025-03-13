@@ -83,7 +83,7 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
         print(f"Habery does not have a kever for {did}. Did you parse the keri.cesr file?")
         for kev in hby.kevers:
             print("Known kevers: ", kev)
-        hby.kevers[aid]
+        return None
         
     vms = []
     for idx, verfer in enumerate(kever.verfers):
@@ -189,10 +189,11 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
         return diddoc
 
 def toDidWeb(diddoc):
-    diddoc['id'] = diddoc['id'].replace('did:webs', 'did:web')
-    for verificationMethod in diddoc[VMETH_FIELD]:
-        verificationMethod['controller'] = verificationMethod['controller'].replace('did:webs', 'did:web')
-    return diddoc
+    if diddoc:
+        diddoc['id'] = diddoc['id'].replace('did:webs', 'did:web')
+        for verificationMethod in diddoc[VMETH_FIELD]:
+            verificationMethod['controller'] = verificationMethod['controller'].replace('did:webs', 'did:web')
+        return diddoc
 
 def fromDidWeb(diddoc):
     # Log the original state of the DID and controller

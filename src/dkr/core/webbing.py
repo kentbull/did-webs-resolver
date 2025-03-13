@@ -43,7 +43,7 @@ def setup(app, hby, cf):
     if DD_DIR_CFG in data:
         print(f"Using config property {DD_DIR_CFG} to look for {DID_JSON} files: {data[DD_DIR_CFG]}")
     ddir = data[DD_DIR_CFG] if DD_DIR_CFG in data else DD_DEFAULT_DIR
-    dend = DidJsonResourceEnd(app,ddir)
+    dend = DidJsonResourceEnd(app, ddir)
     
     if KC_DIR_CFG in data:
         print(f"Using config property {KC_DIR_CFG} to look for {KERI_CESR} files: {data[KC_DIR_CFG]}")

@@ -51,7 +51,6 @@ def setup_habs():
         assert wesKvy.kevers[hab.pre].sn == 0  # accepted event
         # assert len(wesKvy.cues) == 2  # queued receipt cue
         rctMsg = wesHab.processCues(wesKvy.cues)  # process cue returns rct msg
-        print(rctMsg)
         assert len(rctMsg) == 626
         rctMsgs.append(rctMsg)
 

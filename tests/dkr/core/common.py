@@ -3,10 +3,6 @@
 import json
 
 import pytest
-<<<<<<< HEAD
-=======
-from dkr.core import didding
->>>>>>> 0570295 (wip - updating to 1.2+ fixing tests and build)
 from keri import kering
 from keri.app import habbing, signing
 from keri.core import coring, eventing, parsing, scheming, signing
@@ -14,11 +10,8 @@ from keri.help import helping
 from keri.vdr import credentialing, verifying
 from keri.vdr.credentialing import Credentialer, proving
 
-<<<<<<< HEAD
 from dkr.core import didding
 
-=======
->>>>>>> 0570295 (wip - updating to 1.2+ fixing tests and build)
 
 @pytest.fixture
 def setup_habs():

@@ -1,18 +1,14 @@
-from keri.core import eventing, coring
-
-from didcomm.common.types import DID, VerificationMethodType, VerificationMaterial, VerificationMaterialFormat
-from didcomm.common.resolvers import SecretsResolver
-from didcomm.did_doc.did_doc import DIDDoc, VerificationMethod, DIDCommService
-from didcomm.did_doc.did_resolver import DIDResolver
-from didcomm.secrets.secrets_resolver_demo import  Secret
-
-
-from typing import Optional, List
-import pysodium
 import base64
 import json
-from pprint import pp
+from typing import Optional, List
 
+import pysodium
+from didcomm.common.resolvers import SecretsResolver
+from didcomm.common.types import DID, VerificationMethodType, VerificationMaterial, VerificationMaterialFormat
+from didcomm.did_doc.did_doc import DIDDoc, VerificationMethod, DIDCommService
+from didcomm.did_doc.did_resolver import DIDResolver
+from didcomm.secrets.secrets_resolver_demo import Secret
+from keri.core import eventing, coring, signing
 
 '''
 Utilities for DIDComm packing and unpacking using did:keri as alternative to Peer DID
@@ -23,7 +19,7 @@ Utilities for DIDComm packing and unpacking using did:keri as alternative to Pee
 '''
 
 def createKeriDid():
-    salt = coring.Salter()
+    salt = signing.Salter()
     signerEd25519 = salt.signer(transferable=True, temp=True)
 
     X25519_pubkey = pysodium.crypto_sign_pk_to_box_pk(signerEd25519.verfer.raw)

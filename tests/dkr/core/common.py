@@ -1,26 +1,24 @@
 # -*- encoding: utf-8 -*-
 
 import json
-import pytest
-from dkr.core import didding
 
-from hio.core import http
-from keri.app import habbing, grouping, signing
-from keri.core import coring, eventing, parsing, scheming
-from keri.db import basing
-from keri.end import ending
+import pytest
+from keri import kering
+from keri.app import habbing, signing
+from keri.core import coring, eventing, parsing, scheming, signing
 from keri.help import helping
-from keri import help, kering
-from keri.peer import exchanging
 from keri.vdr import credentialing, verifying
 from keri.vdr.credentialing import Credentialer, proving
+
+from dkr.core import didding
+
 
 @pytest.fixture
 def setup_habs():
     with habbing.openHby(name="test", temp=True) as hby, habbing.openHby(
-        name="wes", salt=coring.Salter(raw=b"wess-the-witness").qb64, temp=True
+        name="wes", salt=signing.Salter(raw=b"wess-the-witness").qb64, temp=True
     ) as wesHby, habbing.openHby(
-        name="wis", salt=coring.Salter(raw=b"wiss-the-witness").qb64, temp=True
+        name="wis", salt=signing.Salter(raw=b"wiss-the-witness").qb64, temp=True
     ) as wisHby, habbing.openHab(name="agent", temp=True) as (agentHby, agentHab):
         print()
 

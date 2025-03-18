@@ -137,3 +137,4 @@ dmypy.json
 # But allow the specific directory "ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe" for pytest
 !/volume/dkr/examples/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe/
 !/volume/dkr/pages/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe/
+.DS_Store

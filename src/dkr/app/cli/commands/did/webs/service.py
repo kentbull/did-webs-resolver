@@ -88,7 +88,7 @@ def launch(args):
 
     doers = obl.doers + [hbyDoer, httpServerDoer]
 
-    webbing.setup(app, hby=hby, cf=cf)
+    webbing.setup(app, hby=hby)
 
     print(f"Launched web server capable of serving KERI AIDs as did:webs DIDs on: {httpPort}")
     return doers

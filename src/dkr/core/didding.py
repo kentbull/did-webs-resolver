@@ -61,6 +61,7 @@ def parseDIDWebs(did):
 
 
 def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_name=None):
+    print(did, aid)
     if (did and aid) and not did.endswith(aid):
         raise ValueError(f"{did} does not end with {aid}")
     print("Generating DID document for", did, "with aid", aid, "using oobi", oobi, "and metadata", meta, "registry name for creds", reg_name)
@@ -80,11 +81,8 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
     if aid in hby.kevers:
         kever = hby.kevers[aid]
     else:
-        print(f"Habery does not have a kever for {did}. Did you parse the keri.cesr file?")
-        for kev in hby.kevers:
-            print("Known kevers: ", kev)
-        return None
-        
+        raise ValueError(f"unknown {aid}")
+
     vms = []
     for idx, verfer in enumerate(kever.verfers):
         kid = verfer.qb64
@@ -145,9 +143,9 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
     sEnds=[]
     # hab.fetchRoleUrls(hab.pre).get("controller").get("EGadHcyW9IfVIPrFUAa_I0z4dF8QzQAvUvfaUTJk8Jre").get("http") == "http://127.0.0.1:7777"
     if hab and hasattr(hab, 'fetchRoleUrls'):
-        ends = hab.fetchRoleUrls(aid)
+        ends = hab.fetchRoleUrls(cid=aid)
         sEnds.extend(addEnds(ends))
-        ends = hab.fetchWitnessUrls(aid)
+        ends = hab.fetchWitnessUrls(cid=aid)
         sEnds.extend(addEnds(ends))
                 
     # similar to kli vc list --name "$alias" --alias "$alias" --issued --said --schema "${d_alias_schema}")
@@ -186,6 +184,7 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
         )
         return resolutionResult
     else:
+        print(diddoc)
         return diddoc
 
 def toDidWeb(diddoc):
@@ -260,7 +259,7 @@ def addEnds(ends):
     #     wwit2 = wwits[1]
     #     wse2 = wwit2.get("BAjTuhnzPDB0oU0qHXACnvzachJpYjUAtH1N9Tsb_MdE")
     #     assert wse2.get("http") == "http://127.0.0.1:9999"
-    
+
     sEnds=list()
     for role in ends:
         rList = ends.getall(role)

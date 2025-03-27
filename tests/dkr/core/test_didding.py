@@ -4,15 +4,19 @@ tests.core.didding module
 
 """
 import os
-import re
 import sys
 
 import pytest
+from mockito import mock, when, unstub
+from keri.db import basing
+from keri.app import oobiing
+from keri.core import coring
+from dkr.core import didding
+from keri.vdr import credentialing, verifying
 
-from dkr.core import didding, resolving
+from hio.help.hicting import Mict
 
 sys.path.append(os.path.join(os.path.dirname(__file__)))
-from common import issue_desig_aliases, revoke_cred, setup_habs
 
 wdid = "did:webs:127.0.0.1:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
 did = "did:webs:127.0.0.1:ECCoHcHP1jTAW8Dr44rI2kWzfF71_U0sZwvV-J_q4YE7"
@@ -26,14 +30,34 @@ def test_parse_keri_did():
     # Invalid AID in did:keri
     did = "did:keri:Gk0cRxp6U4qKSr4Eb8zg"
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as e:
         _, _ = didding.parseDIDKeri(did)
+
+    assert isinstance(e.value, ValueError)
+    assert str(e.value) == 'Gk0cRxp6U4qKSr4Eb8zg is an invalid AID'
+
+    non_matching_dids = [
+        "did:keri:example:extra",
+        "did:keri:",
+        "did:keri:example:123",
+        "did:keri:example:extra:more",
+        "did:keri:example:extra:evenmore"
+    ]
+
+    for did in non_matching_dids:
+        with pytest.raises(ValueError):
+            didding.parseDIDKeri(did)
+
+        assert isinstance(e.value, ValueError)
 
 
 def test_parse_webs_did():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as e:
         did = "did:webs:127.0.0.1:1234567"
         domain, port, path, aid = didding.parseDIDWebs(did)
+
+    assert isinstance(e.value, ValueError)
+    assert str(e.value) == '1234567 is an invalid AID'
 
     did = "did:webs:127.0.0.1:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
     domain, port, path, aid = didding.parseDIDWebs(did)
@@ -87,9 +111,11 @@ def test_parse_webs_did():
     assert aid, "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
 
 def test_parse_web_did():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as e:
         did = "did:web:127.0.0.1:1234567"
         domain, port, path, aid = didding.parseDIDWebs(did)
+
+    assert isinstance(e.value, ValueError)
 
     did = "did:web:127.0.0.1:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
     domain, port, path, aid = didding.parseDIDWebs(did)
@@ -142,220 +168,244 @@ def test_parse_web_did():
     assert "my:path" == path
     assert aid, "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
 
-@pytest.mark.skip(reason="fixture set up failing")
-def test_gen_did_doc(setup_habs):
-    hby, hab, wesHby, wesHab = setup_habs
-    didDoc = didding.generateDIDDoc(hby, did, hab.pre, oobi=None, meta=False)
-    assert (
-        didDoc["id"]
-        == f"{did}"
-    )
+def test_generate_did_doc_bad_ends_with():
+    hby = mock()
+    did = "did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
+    aid = "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HD"
 
-    assert didDoc[didding.VMETH_FIELD] == [
-        {
-            "id": "#DCQbRBx58zbRPs8R9cXl-MMbPaxH1EPHdWp3ICSdQSyp",
-            "type": "JsonWebKey",
-            "controller": f"{did}",
-            "publicKeyJwk": {
-                "kid": "DCQbRBx58zbRPs8R9cXl-MMbPaxH1EPHdWp3ICSdQSyp",
-                "kty": "OKP",
-                "crv": "Ed25519",
-                "x": "JBtEHHnzNtE-zxH1xeX4wxs9rEfUQ8d1ancgJJ1BLKk",
-            },
-        }
-    ]
+    with pytest.raises(ValueError) as e:
+        didding.generateDIDDoc(hby=hby, aid=aid, did=did)
 
-    assert len(didDoc["service"]) == 6
-    assert didDoc["service"][0] == {
-        "id": f"#{hab.pre}/controller",
-        "type": "controller",
-        "serviceEndpoint": {"http": "http://127.0.0.1:7777"},
+    assert isinstance(e.value, ValueError)
+    assert str(e.value) == ('did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4 does '
+                            'not end with EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HD')
+
+def test_generate_did_doc_single_sig():
+    """
+    single aid
+    no designated aliases
+    no credentials
+    """
+    hby = mock()
+    hab = mock()
+    hab_db = mock()
+    kever = mock()
+    verfer = mock()
+    tholder = mock()
+    db = mock()
+    locs = mock()
+
+    did = "did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
+    aid = "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
+    hab.name = 'test_hab'
+    hab.db = hab_db
+    hby.habs = {aid: hab}
+    sner = mock()
+    sner.num = 0
+    kever.sner = sner
+    hby.kevers = {aid: kever}
+    verfer.raw = bytearray()
+    verfer.qb64 = "DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K"
+    kever.verfers = [verfer]
+    tholder.thold = None
+    kever.tholder = tholder
+    db.locs = locs
+    hby.db = db
+    wits = []
+    kever.wits = wits
+
+    loc = basing.LocationRecord(url="tcp://127.0.0.1:5634/")
+    when(db.locs).getItemIter(keys=(aid, )).thenReturn([((aid, "some_key"), loc)])
+
+    when(hab).fetchRoleUrls(cid=aid).thenReturn(Mict([('controller', Mict([('BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX', Mict([('http', 'http://localhost:8080/witness/wok')]))]))]))
+    when(hab).fetchWitnessUrls(cid=aid).thenReturn(Mict([('witness', Mict([('BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX', Mict([('http', 'http://localhost:8080/witness/wok')]))]))]))
+
+    rgy = mock()
+    issus = mock()
+    schms = mock()
+    rgy.reger = mock()
+    rgy.reger.issus = issus
+    rgy.reger.schms = schms
+    vry = mock()
+
+    when(credentialing).Regery(hby=hby, name='test_hab').thenReturn(rgy)
+    when(verifying).Verifier(hby=hby, reger=rgy.reger).thenReturn(vry)
+
+    when(rgy.reger.issus).get(keys=aid).thenReturn([])
+    when(rgy.reger.issus).get(keys=aid).thenReturn([])
+
+    when(rgy.reger).cloneCreds([], hab_db).thenReturn([])
+
+    diddoc = didding.generateDIDDoc(hby=hby, aid=aid, did=did)
+
+    assert diddoc == {'id': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'verificationMethod': [{'id': '#DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'type': 'JsonWebKey', 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'publicKeyJwk': {'kid': 'DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'kty': 'OKP', 'crv': 'Ed25519', 'x': ''}}], 'service': [{'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/controller', 'type': 'controller', 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'}}, {'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/witness', 'type': 'witness', 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'}}], 'alsoKnownAs': []}
+
+    unstub()
+
+def test_generate_did_doc_multi_sig():
+    """
+    single aid
+    no designated aliases
+    no credentials
+    """
+    hby = mock()
+    hab = mock()
+    hab_db = mock()
+    kever = mock()
+    verfer = mock()
+    verfer_multi = mock()
+    tholder = mock()
+    db = mock()
+    locs = mock()
+
+    did = "did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
+    aid = "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
+    hab.name = 'test_hab'
+    hab.db = hab_db
+    hby.habs = {aid: hab}
+    sner = mock()
+    sner.num = 0
+    kever.sner = sner
+    hby.kevers = {aid: kever}
+    verfer.raw = bytearray()
+    verfer.qb64 = "DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K"
+    verfer_multi.raw = bytearray()
+    verfer_multi.qb64 = "DOZlWGPfDHLMf62zSFzE8thHmnQUOgA3_Y-KpOyF9ScG"
+    kever.verfers = [verfer, verfer_multi]
+    tholder.thold = 2
+    kever.tholder = tholder
+    db.locs = locs
+    hby.db = db
+    wits = []
+    kever.wits = wits
+
+    loc = basing.LocationRecord(url="tcp://127.0.0.1:5634/")
+    when(db.locs).getItemIter(keys=(aid, )).thenReturn([((aid, "some_key"), loc)])
+
+    when(hab).fetchRoleUrls(cid=aid).thenReturn(Mict([('controller', Mict([('BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX', Mict([('http', 'http://localhost:8080/witness/wok')]))]))]))
+    when(hab).fetchWitnessUrls(cid=aid).thenReturn(Mict([('witness', Mict([('BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX', Mict([('http', 'http://localhost:8080/witness/wok')]))]))]))
+
+    rgy = mock()
+    issus = mock()
+    schms = mock()
+    rgy.reger = mock()
+    rgy.reger.issus = issus
+    rgy.reger.schms = schms
+    vry = mock()
+
+    when(credentialing).Regery(hby=hby, name='test_hab').thenReturn(rgy)
+    when(verifying).Verifier(hby=hby, reger=rgy.reger).thenReturn(vry)
+
+    when(rgy.reger.issus).get(keys=aid).thenReturn([])
+    when(rgy.reger.issus).get(keys=aid).thenReturn([])
+
+    when(rgy.reger).cloneCreds([], hab_db).thenReturn([])
+
+    diddoc = didding.generateDIDDoc(hby=hby, aid=aid, did=did)
+
+    assert diddoc == {'id': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'verificationMethod': [{'id': '#DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'type': 'JsonWebKey', 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'publicKeyJwk': {'kid': 'DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'kty': 'OKP', 'crv': 'Ed25519', 'x': ''}}, {'id': '#DOZlWGPfDHLMf62zSFzE8thHmnQUOgA3_Y-KpOyF9ScG', 'type': 'JsonWebKey', 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'publicKeyJwk': {'kid': 'DOZlWGPfDHLMf62zSFzE8thHmnQUOgA3_Y-KpOyF9ScG', 'kty': 'OKP', 'crv': 'Ed25519', 'x': ''}}, {'id': '#EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'type': 'ConditionalProof2022', 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'threshold': 2, 'conditionThreshold': ['#DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', '#DOZlWGPfDHLMf62zSFzE8thHmnQUOgA3_Y-KpOyF9ScG']}], 'service': [{'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/controller', 'type': 'controller', 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'}}, {'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/witness', 'type': 'witness', 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'}}], 'alsoKnownAs': []}
+
+    unstub()
+
+    kever.tholder = coring.Tholder(sith=["1/2", "1/2"])
+
+    when(db.locs).getItemIter(keys=(aid, )).thenReturn([((aid, "some_key"), loc)])
+
+    when(hab).fetchRoleUrls(cid=aid).thenReturn(Mict([('controller', Mict([('BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX', Mict([('http', 'http://localhost:8080/witness/wok')]))]))]))
+    when(hab).fetchWitnessUrls(cid=aid).thenReturn(Mict([('witness', Mict([('BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX', Mict([('http', 'http://localhost:8080/witness/wok')]))]))]))
+    when(credentialing).Regery(hby=hby, name='test_hab').thenReturn(rgy)
+    when(verifying).Verifier(hby=hby, reger=rgy.reger).thenReturn(vry)
+
+    when(rgy.reger.issus).get(keys=aid).thenReturn([])
+    when(rgy.reger.issus).get(keys=aid).thenReturn([])
+
+    when(rgy.reger).cloneCreds([], hab_db).thenReturn([])
+
+    diddoc = didding.generateDIDDoc(hby=hby, aid=aid, did=did)
+
+    assert diddoc == {'id': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'verificationMethod': [{'id': '#DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'type': 'JsonWebKey', 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'publicKeyJwk': {'kid': 'DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'kty': 'OKP', 'crv': 'Ed25519', 'x': ''}}, {'id': '#DOZlWGPfDHLMf62zSFzE8thHmnQUOgA3_Y-KpOyF9ScG', 'type': 'JsonWebKey', 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'publicKeyJwk': {'kid': 'DOZlWGPfDHLMf62zSFzE8thHmnQUOgA3_Y-KpOyF9ScG', 'kty': 'OKP', 'crv': 'Ed25519', 'x': ''}}, {'id': '#EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'type': 'ConditionalProof2022', 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'threshold': 1.0, 'conditionWeightedThreshold': [{'condition': '#DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'weight': 1}, {'condition': '#DOZlWGPfDHLMf62zSFzE8thHmnQUOgA3_Y-KpOyF9ScG', 'weight': 1}]}], 'service': [{'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/controller', 'type': 'controller', 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'}}, {'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/witness', 'type': 'witness', 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'}}], 'alsoKnownAs': []}
+
+def test_generate_did_doc_single_sig_with_oobi():
+    """
+    single aid
+    no designated aliases
+    no credentials
+    """
+    hby = mock()
+    hab = mock()
+    hab_db = mock()
+    db = mock()
+    roobi = mock()
+
+    did = "did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
+    aid = "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
+    hab.name = 'test_hab'
+    hab.db = hab_db
+    hby.habs = {aid: hab}
+    db.roobi = roobi
+    hby.db = db
+
+    when(hby.db.roobi).get(keys=("with_oobi", )).thenReturn(None)
+
+    diddoc = didding.generateDIDDoc(hby=hby, aid=aid, did=did, oobi="with_oobi")
+
+    assert diddoc == b'{"msg": "OOBI resolution for did did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4 failed."}'
+    unstub()
+
+    obr = basing.OobiRecord(state=oobiing.Result.failed)
+    when(hby.db.roobi).get(keys=("with_oobi_2", )).thenReturn(obr)
+
+    diddoc = didding.generateDIDDoc(hby=hby, aid=aid, did=did, oobi="with_oobi_2")
+
+    assert diddoc == b'{"msg": "OOBI resolution for did did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4 failed."}'
+
+    unstub()
+
+def test_to_did_web():
+    diddoc = {
+        'id': 'did:webs:example:123',
+        'verificationMethod': [
+            {'controller': 'did:webs:example:123'}
+        ]
     }
-    assert didDoc["service"][1] == {
-        "id": "#EBErgFZoM3PBQNTpTuK9bax_U8HLJq1Re2RM1cdifaTJ/mailbox",
-        "type": "mailbox",
-        "serviceEndpoint": {"http": "http://127.0.0.1:6666"},
-    }
-    assert didDoc["service"][2] == {
-        "id": "#EBErgFZoM3PBQNTpTuK9bax_U8HLJq1Re2RM1cdifaTJ/registrar",
-        "type": "registrar",
-        "serviceEndpoint": {"http": "http://127.0.0.1:6666"},
-    }
-    assert didDoc["service"][3] == {
-        "id": "#BN8t3n1lxcV0SWGJIIF46fpSUqA7Mqre5KJNN3nbx3mr/witness",
-        "type": "witness",
-        "serviceEndpoint": {"http": "http://127.0.0.1:8888"},
-    }
-    assert didDoc["service"][4] == {
-        "id": "#BAjTuhnzPDB0oU0qHXACnvzachJpYjUAtH1N9Tsb_MdE/witness",
-        "type": "witness",
-        "serviceEndpoint": {"http": "http://127.0.0.1:9999", "tcp": "tcp://127.0.0.1:9991"},
+
+    from dkr.core.didding import toDidWeb
+    result = toDidWeb(diddoc)
+
+    assert result['id'] == 'did:web:example:123'
+    assert result['verificationMethod'][0]['controller'] == 'did:web:example:123'
+
+    unstub()
+
+def test_from_did_web():
+    diddoc = {
+        'id': 'did:web:example:123',
+        'verificationMethod': [
+            {'controller': 'did:web:example:123'}
+        ]
     }
 
-@pytest.mark.skip(reason="fixture set up failing")
-def test_gen_did_doc_with_meta(setup_habs):
-    hby, hab, wesHby, wesHab = setup_habs
-    didDoc = didding.generateDIDDoc(hby, did, hab.pre, oobi=None, meta=True)
-    assert (
-        didDoc[didding.DD_FIELD]["id"]
-        == f"{did}"
-    )
+    from dkr.core.didding import fromDidWeb
+    result = fromDidWeb(diddoc)
 
-    assert didDoc[didding.DD_FIELD][didding.VMETH_FIELD] == [
-        {
-            "id": "#DCQbRBx58zbRPs8R9cXl-MMbPaxH1EPHdWp3ICSdQSyp",
-            "type": "JsonWebKey",
-            "controller": f"{did}",
-            "publicKeyJwk": {
-                "kid": "DCQbRBx58zbRPs8R9cXl-MMbPaxH1EPHdWp3ICSdQSyp",
-                "kty": "OKP",
-                "crv": "Ed25519",
-                "x": "JBtEHHnzNtE-zxH1xeX4wxs9rEfUQ8d1ancgJJ1BLKk",
-            },
-        }
-    ]
+    # Verify the changes
+    assert result['id'] == 'did:webs:example:123'
+    assert result['verificationMethod'][0]['controller'] == 'did:webs:example:123'
 
-    assert len(didDoc[didding.DD_FIELD]["service"]) == 6
-    assert didDoc[didding.DD_FIELD]["service"][0] == {
-        "id": f"#{hab.pre}/controller",
-        "type": "controller",
-        "serviceEndpoint": {"http": "http://127.0.0.1:7777"},
-    }
-    assert didDoc[didding.DD_FIELD]["service"][1] == {
-        "id": "#EBErgFZoM3PBQNTpTuK9bax_U8HLJq1Re2RM1cdifaTJ/mailbox",
-        "type": "mailbox",
-        "serviceEndpoint": {"http": "http://127.0.0.1:6666"},
-    }
-    assert didDoc[didding.DD_FIELD]["service"][2] == {
-        "id": "#EBErgFZoM3PBQNTpTuK9bax_U8HLJq1Re2RM1cdifaTJ/registrar",
-        "type": "registrar",
-        "serviceEndpoint": {"http": "http://127.0.0.1:6666"},
-    }
-    assert didDoc[didding.DD_FIELD]["service"][3] == {
-        "id": "#BN8t3n1lxcV0SWGJIIF46fpSUqA7Mqre5KJNN3nbx3mr/witness",
-        "type": "witness",
-        "serviceEndpoint": {"http": "http://127.0.0.1:8888"},
-    }
-    assert didDoc[didding.DD_FIELD]["service"][4] == {
-        "id": "#BAjTuhnzPDB0oU0qHXACnvzachJpYjUAtH1N9Tsb_MdE/witness",
-        "type": "witness",
-        "serviceEndpoint": {"http": "http://127.0.0.1:9999", "tcp": "tcp://127.0.0.1:9991"},
+    unstub()
+
+def test_from_did_web_no_change():
+    diddoc = {
+        'id': 'did:webs:example:123',
+        'verificationMethod': [
+            {'controller': 'did:webs:example:123'}
+        ]
     }
 
-    assert (
-        re.match(didding.DID_TIME_PATTERN, didDoc[didding.DID_RES_META_FIELD]["retrieved"])
-        != None
-    )
+    from dkr.core.didding import fromDidWeb
+    result = fromDidWeb(diddoc)
 
-@pytest.mark.skip(reason="fixture set up failing")
-def test_gen_did_doc_no_hab(setup_habs):
-    hby, hab, wesHby, wesHab = setup_habs
-    aid = "ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe"
-    did = f"did:web:did-webs-service%3a7676:{aid}"
+    assert result['id'] == 'did:webs:example:123'
+    assert result['verificationMethod'][0]['controller'] == 'did:webs:example:123'
 
-    try:
-        didDoc = didding.generateDIDDoc(hby, did, aid, oobi=None, meta=False)
-    except KeyError as e:
-        assert str(e) == f"'{aid}'"
-        
-    msgs = resolving.loadFile(f"./volume/dkr/pages/{aid}/keri.cesr")
-    hby.psr.parse(ims=msgs)
-        
-    didDoc = didding.generateDIDDoc(hby, did, aid, oobi=None, meta=False)
-    
-    expected = resolving.loadJsonFile(f"./volume/dkr/pages/{aid}/did.json")
-    
-    assert (didDoc["id"] == expected["id"])
-    assert (didDoc["id"].startswith("did:web:"))
-    assert (didDoc["id"].endswith(f"{aid}"))
-    assert didDoc[didding.VMETH_FIELD] == expected[didding.VMETH_FIELD]
-
-    assert len(didDoc["service"]) == 0
-
-@pytest.mark.skip(reason="fixture set up failing")
-def test_gen_desig_aliases(setup_habs, seeder):
-    hby, hab, wesHby, wesHab = setup_habs
-
-    crdntler = issue_desig_aliases(
-        seeder, hby, hab, whby=wesHby, whab=wesHab, registryName="dAliases"
-    )
-
-    didDoc = didding.generateDIDDoc(
-        hby, did, hab.pre, oobi=None, meta=True, reg_name=crdntler.rgy.name
-    )
-    assert (
-        didDoc[didding.DD_FIELD]["id"]
-        == f"{did}"
-    )
-
-    assert didDoc[didding.DD_FIELD][didding.VMETH_FIELD] == [
-        {
-            "id": "#DCQbRBx58zbRPs8R9cXl-MMbPaxH1EPHdWp3ICSdQSyp",
-            "type": "JsonWebKey",
-            "controller": f"{did}",
-            "publicKeyJwk": {
-                "kid": "DCQbRBx58zbRPs8R9cXl-MMbPaxH1EPHdWp3ICSdQSyp",
-                "kty": "OKP",
-                "crv": "Ed25519",
-                "x": "JBtEHHnzNtE-zxH1xeX4wxs9rEfUQ8d1ancgJJ1BLKk",
-            },
-        }
-    ]
-
-    assert didDoc[didding.DD_META_FIELD]["equivalentId"] == [
-        "did:webs:foo.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe"
-    ]
-    assert didDoc[didding.DD_FIELD]["alsoKnownAs"] == [
-        "did:webs:foo.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-        "did:web:example.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe"
-    ]
-
-    assert (
-        re.match(didding.DID_TIME_PATTERN, didDoc[didding.DID_RES_META_FIELD]["retrieved"])
-        != None
-    )
-
-@pytest.mark.skip(reason="fixture set up failing")
-def test_gen_desig_aliases_revoked(setup_habs, seeder):
-    hby, hab, wesHby, wesHab = setup_habs
-
-    crdntler = issue_desig_aliases(
-        seeder, hby, hab, whby=wesHby, whab=wesHab, registryName="dAliases"
-    )
-
-    saiders = crdntler.rgy.reger.schms.get(
-        keys=didding.DES_ALIASES_SCHEMA.encode("utf-8")
-    )
-    creds = crdntler.rgy.reger.cloneCreds(saiders,hab.db)
-
-    revoke_cred(hab, crdntler.rgy, crdntler.rgy.registryByName("dAliases"), creds[0])
-
-    didDoc = didding.generateDIDDoc(
-        hby, did, hab.pre, oobi=None, meta=True
-    )
-    assert (
-        didDoc[didding.DD_FIELD]["id"]
-        == f"{did}"
-    )
-
-    assert didDoc[didding.DD_FIELD][didding.VMETH_FIELD] == [
-        {
-            "id": "#DCQbRBx58zbRPs8R9cXl-MMbPaxH1EPHdWp3ICSdQSyp",
-            "type": "JsonWebKey",
-            "controller": f"{did}",
-            "publicKeyJwk": {
-                "kid": "DCQbRBx58zbRPs8R9cXl-MMbPaxH1EPHdWp3ICSdQSyp",
-                "kty": "OKP",
-                "crv": "Ed25519",
-                "x": "JBtEHHnzNtE-zxH1xeX4wxs9rEfUQ8d1ancgJJ1BLKk",
-            },
-        }
-    ]
-
-    assert didDoc[didding.DD_META_FIELD]["equivalentId"] == []
-    assert didDoc[didding.DD_FIELD]["alsoKnownAs"] == []
-
-    assert (
-        re.match(didding.DID_TIME_PATTERN, didDoc[didding.DID_RES_META_FIELD]["retrieved"])
-        != None
-    )
+    unstub()

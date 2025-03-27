@@ -132,8 +132,7 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
 
     witnesses = []
     for idx, eid in enumerate(kever.wits):
-        keys = (eid,)
-        for (tid, scheme), loc in hby.db.locs.getItemIter(keys):
+        for (tid, scheme), loc in hby.db.locs.getItemIter(keys=(eid,)):
             witnesses.append(dict(
                 idx=idx,
                 scheme=scheme,
@@ -141,14 +140,12 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
             ))
             
     sEnds=[]
-    # hab.fetchRoleUrls(hab.pre).get("controller").get("EGadHcyW9IfVIPrFUAa_I0z4dF8QzQAvUvfaUTJk8Jre").get("http") == "http://127.0.0.1:7777"
     if hab and hasattr(hab, 'fetchRoleUrls'):
         ends = hab.fetchRoleUrls(cid=aid)
         sEnds.extend(addEnds(ends))
         ends = hab.fetchWitnessUrls(cid=aid)
         sEnds.extend(addEnds(ends))
-                
-    # similar to kli vc list --name "$alias" --alias "$alias" --issued --said --schema "${d_alias_schema}")
+
     eq_ids = []
     aka_ids = []
     da_ids = desAliases(hby, aid, reg_name=reg_name)
@@ -159,10 +156,11 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
         
         aka_ids = [s for s in da_ids]
         print(f"Also Known As DIDs: {aka_ids}")
-            
+
+
     didResolutionMetadata = dict(
         contentType="application/did+json",
-        retrieved=datetime.datetime.now(datetime.timezone.utc).strftime(DID_TIME_FORMAT)
+        retrieved=helping.nowUTC().strftime(DID_TIME_FORMAT)
     )
     didDocumentMetadata = dict(
         witnesses=witnesses,
@@ -182,6 +180,7 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
             didResolutionMetadata=didResolutionMetadata,
             didDocumentMetadata=didDocumentMetadata
         )
+        print(resolutionResult)
         return resolutionResult
     else:
         print(diddoc)

@@ -3,6 +3,7 @@
 tests.core.didding module
 
 """
+import datetime
 import os
 import sys
 
@@ -180,12 +181,30 @@ def test_generate_did_doc_bad_ends_with():
     assert str(e.value) == ('did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4 does '
                             'not end with EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HD')
 
+def test_generate_did_doc_unknown_aid():
+    hby = mock()
+    hab = mock()
+    hab_db = mock()
+    kever = mock()
+    db = mock()
+    roobi = mock()
+
+    did = "did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
+    aid = "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
+    hab.name = 'test_hab'
+    hab.db = hab_db
+    hby.habs = {aid: hab}
+    db.roobi = roobi
+    hby.db = db
+    hby.kevers = {"a different aid": kever}
+
+    with pytest.raises(ValueError) as e:
+        didding.generateDIDDoc(hby=hby, aid=aid, did=did)
+
+    assert isinstance(e.value, ValueError)
+    assert str(e.value) == 'unknown EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4'
+
 def test_generate_did_doc_single_sig():
-    """
-    single aid
-    no designated aliases
-    no credentials
-    """
     hby = mock()
     hab = mock()
     hab_db = mock()
@@ -242,12 +261,65 @@ def test_generate_did_doc_single_sig():
 
     unstub()
 
+def test_generate_did_doc_single_sig_meta(mockHelpingNowUTC):
+    hby = mock()
+    hab = mock()
+    hab_db = mock()
+    kever = mock()
+    verfer = mock()
+    tholder = mock()
+    db = mock()
+    locs = mock()
+
+    did = "did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
+    aid = "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
+    hab.name = 'test_hab'
+    hab.db = hab_db
+    hby.habs = {aid: hab}
+    sner = mock()
+    sner.num = 0
+    kever.sner = sner
+    hby.kevers = {aid: kever}
+    verfer.raw = bytearray()
+    verfer.qb64 = "DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K"
+    kever.verfers = [verfer]
+    tholder.thold = None
+    kever.tholder = tholder
+    db.locs = locs
+    hby.db = db
+    kever.wits = ["witness1", "witness2"]
+
+    loc = basing.LocationRecord(url="tcp://127.0.0.1:5632/")
+    when(db.locs).getItemIter(keys=("witness1", )).thenReturn([(("witness1", "some_key_witness1"), loc)])
+    loc = basing.LocationRecord(url="tcp://127.0.0.1:5633/")
+    when(db.locs).getItemIter(keys=("witness2", )).thenReturn([(("witness2", "some_key_witness2"), loc)])
+    loc = basing.LocationRecord(url="tcp://127.0.0.1:5634/")
+    when(db.locs).getItemIter(keys=(aid, )).thenReturn([((aid, "some_key"), loc)])
+
+    when(hab).fetchRoleUrls(cid=aid).thenReturn(Mict([('controller', Mict([('BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX', Mict([('http', 'http://localhost:8080/witness/wok')]))]))]))
+    when(hab).fetchWitnessUrls(cid=aid).thenReturn(Mict([('witness', Mict([('BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX', Mict([('http', 'http://localhost:8080/witness/wok')]))]))]))
+
+    rgy = mock()
+    issus = mock()
+    schms = mock()
+    rgy.reger = mock()
+    rgy.reger.issus = issus
+    rgy.reger.schms = schms
+    vry = mock()
+
+    when(credentialing).Regery(hby=hby, name='test_hab').thenReturn(rgy)
+    when(verifying).Verifier(hby=hby, reger=rgy.reger).thenReturn(vry)
+
+    when(rgy.reger.issus).get(keys=aid).thenReturn([])
+    when(rgy.reger.issus).get(keys=aid).thenReturn([])
+
+    when(rgy.reger).cloneCreds([], hab_db).thenReturn([])
+
+    diddoc = didding.generateDIDDoc(hby=hby, aid=aid, did=did, meta=True)
+
+    assert diddoc == {'didDocument': {'id': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'verificationMethod': [{'id': '#DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'type': 'JsonWebKey', 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'publicKeyJwk': {'kid': 'DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'kty': 'OKP', 'crv': 'Ed25519', 'x': ''}}], 'service': [{'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/controller', 'type': 'controller', 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'}}, {'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/witness', 'type': 'witness', 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'}}], 'alsoKnownAs': []}, 'didResolutionMetadata': {'contentType': 'application/did+json', 'retrieved': '2021-01-01T00:00:00Z'}, 'didDocumentMetadata': {'witnesses': [{'idx': 0, 'scheme': 'some_key_witness1', 'url': 'tcp://127.0.0.1:5632/'}, {'idx': 1, 'scheme': 'some_key_witness2', 'url': 'tcp://127.0.0.1:5633/'}], 'versionId': '0', 'equivalentId': []}}
+
 def test_generate_did_doc_multi_sig():
-    """
-    single aid
-    no designated aliases
-    no credentials
-    """
     hby = mock()
     hab = mock()
     hab_db = mock()
@@ -326,11 +398,6 @@ def test_generate_did_doc_multi_sig():
     assert diddoc == {'id': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'verificationMethod': [{'id': '#DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'type': 'JsonWebKey', 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'publicKeyJwk': {'kid': 'DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'kty': 'OKP', 'crv': 'Ed25519', 'x': ''}}, {'id': '#DOZlWGPfDHLMf62zSFzE8thHmnQUOgA3_Y-KpOyF9ScG', 'type': 'JsonWebKey', 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'publicKeyJwk': {'kid': 'DOZlWGPfDHLMf62zSFzE8thHmnQUOgA3_Y-KpOyF9ScG', 'kty': 'OKP', 'crv': 'Ed25519', 'x': ''}}, {'id': '#EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'type': 'ConditionalProof2022', 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'threshold': 1.0, 'conditionWeightedThreshold': [{'condition': '#DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'weight': 1}, {'condition': '#DOZlWGPfDHLMf62zSFzE8thHmnQUOgA3_Y-KpOyF9ScG', 'weight': 1}]}], 'service': [{'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/controller', 'type': 'controller', 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'}}, {'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/witness', 'type': 'witness', 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'}}], 'alsoKnownAs': []}
 
 def test_generate_did_doc_single_sig_with_oobi():
-    """
-    single aid
-    no designated aliases
-    no credentials
-    """
     hby = mock()
     hab = mock()
     hab_db = mock()

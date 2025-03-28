@@ -58,7 +58,6 @@ def parseDIDWebs(did):
 
 
 def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_name=None):
-    print(did, aid)
     if (did and aid) and not did.endswith(aid):
         raise ValueError(f"{did} does not end with {aid}")
     print("Generating DID document for", did, "with aid", aid, "using oobi", oobi, "and metadata", meta, "registry name for creds", reg_name)
@@ -145,21 +144,11 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
 
     eq_ids = []
     aka_ids = []
-    da_ids = designatedAliases(hby, aid, reg_name=reg_name)
-    if da_ids:
-        dws_pre = "did:webs"
-        eq_ids = [s for s in da_ids if s.startswith(dws_pre)]
-        aka_ids = [s for s in da_ids]
+    for s in designatedAliases(hby, aid, reg_name=reg_name):
+        if s.startswith("did:webs"):
+            eq_ids.append(s)
+        aka_ids.append(s)
 
-    didResolutionMetadata = dict(
-        contentType="application/did+json",
-        retrieved=helping.nowUTC().strftime(DID_TIME_FORMAT)
-    )
-    didDocumentMetadata = dict(
-        witnesses=witnesses,
-        versionId=f"{kever.sner.num}",
-        equivalentId=eq_ids,
-    )
     diddoc = dict(
         id=did,
         verificationMethod=vms,
@@ -168,15 +157,24 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
     )
 
     if meta is True:
+        didResolutionMetadata = dict(
+            contentType="application/did+json",
+            retrieved=helping.nowUTC().strftime(DID_TIME_FORMAT)
+        )
+
+        didDocumentMetadata = dict(
+            witnesses=witnesses,
+            versionId=f"{kever.sner.num}",
+            equivalentId=eq_ids,
+        )
+
         resolutionResult = dict(
             didDocument=diddoc,
             didResolutionMetadata=didResolutionMetadata,
             didDocumentMetadata=didDocumentMetadata
         )
-        print(resolutionResult)
         return resolutionResult
     else:
-        print(diddoc)
         return diddoc
 
 def toDidWeb(diddoc):

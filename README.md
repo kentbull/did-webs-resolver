@@ -4,15 +4,16 @@ Welcome to the `did:webs` reference implementation repository. See the did:webs 
 
 Thank you to Phil Feairheller @pfeairheller from GLEIF who started this work [here](https://github.com/WebOfTrust/did-keri-resolver)
 
+[![CI](https://github.com/GLEIF-IT/did-webs-resolver/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/GLEIF-IT/did-webs-resolver/actions/workflows/main.yml)
 [![codecov](https://codecov.io/gh/GLEIF-IT/did-webs-resolver/branch/main/graph/badge.svg?token=sUADtbanWC)](https://codecov.io/gh/GLEIF-IT/did-webs-resolver)
 
-# Developers - Getting Started
+## Developers - Getting Started
 
 Developers who want to jump into using the `did:webs` reference implementation should follow the [Getting Started](./GETTING_STARTED.md) guide.
 
 Thank you to Markus Sabadello @peacekeeper from DanubeTech who started the original tutorial for IIW37 [here](https://github.com/peacekeeper/did-webs-iiw-tutorial)
 
-# dkr
+## dkr
 
 did:keri/did:webs DID Resolver Reference Implementation
 
@@ -23,9 +24,9 @@ did:keri/did:webs DID Resolver Reference Implementation
 * `dkr did webs resolve`
 * `dkr did webs resolver-service`
 
-## did:keri
+### did:keri
 
-### `dkr did keri resolve`
+#### `dkr did keri resolve`
 
 **Resolve a did:keri DID.**
 

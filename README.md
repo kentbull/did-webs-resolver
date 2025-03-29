@@ -4,6 +4,8 @@ Welcome to the `did:webs` reference implementation repository. See the did:webs 
 
 Thank you to Phil Feairheller @pfeairheller from GLEIF who started this work [here](https://github.com/WebOfTrust/did-keri-resolver)
 
+[![codecov](https://codecov.io/gh/GLEIF-IT/did-webs-resolver/branch/main/graph/badge.svg?token=sUADtbanWC)](https://codecov.io/gh/GLEIF-IT/did-webs-resolver)
+
 # Developers - Getting Started
 
 Developers who want to jump into using the `did:webs` reference implementation should follow the [Getting Started](./GETTING_STARTED.md) guide.

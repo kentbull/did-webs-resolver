@@ -8,14 +8,14 @@ import os
 import sys
 
 import pytest
-from mockito import mock, when, unstub, verify, times
-from keri.db import basing
+from hio.help.hicting import Mict
 from keri.app import oobiing
 from keri.core import coring
-from dkr.core import didding
+from keri.db import basing
 from keri.vdr import credentialing, verifying
+from mockito import mock, unstub, when
 
-from hio.help.hicting import Mict
+from dkr.core import didding
 
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 

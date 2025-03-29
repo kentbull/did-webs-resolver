@@ -7,6 +7,6 @@ COPY . /usr/local/var/webs
 
 WORKDIR /usr/local/var/webs
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install
 
 WORKDIR /usr/local/var/webs/volume/dkr/examples

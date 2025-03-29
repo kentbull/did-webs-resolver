@@ -58,6 +58,15 @@ tag:
 	docker tag $$IMAGE_ID $(IMAGE_NAME):latest; \
 	echo "Successfully tagged $(IMAGE_NAME) ($$IMAGE_ID) as $(IMAGE_NAME):latest"
 
+fmt:
+	@uv tool run ruff check --select I --fix
+	@uv tool run ruff format
+
+# used by ci
+check:
+	uv tool run ruff check --select I
+	uv tool run ruff format --check
+
 RED="\033[0;31m"
 NO_COLOUR="\033[0m"
 export DOCKER_WARNING

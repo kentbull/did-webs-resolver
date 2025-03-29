@@ -138,3 +138,5 @@ dmypy.json
 !/volume/dkr/examples/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe/
 !/volume/dkr/pages/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe/
 .DS_Store
+coverage.xml
+.coverage

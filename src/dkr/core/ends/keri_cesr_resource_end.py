@@ -9,11 +9,11 @@ from keri import kering
 from keri.core import serdering
 
 
-KERI_CESR = "keri.cesr"
-CESR_MIME = "application/cesr"
+KERI_CESR = 'keri.cesr'
+CESR_MIME = 'application/cesr'
+
 
 class KeriCesrResourceEnd:
-
     def __init__(self, hby):
         """
         Parameters:
@@ -23,9 +23,8 @@ class KeriCesrResourceEnd:
         self.hby = hby
         super().__init__()
 
-
     def on_get(self, req, rep, aid):
-        """ GET endpoint for accessing {KERI_CESR} stream for AID
+        """GET endpoint for accessing {KERI_CESR} stream for AID
 
         Parameters:
             req (Request) Falcon HTTP Request object:
@@ -34,17 +33,17 @@ class KeriCesrResourceEnd:
 
         """
         # Read the DID from the parameter extracted from path or manually extract
-        if not req.path.endswith(f"/{KERI_CESR}"):
-            raise falcon.HTTPBadRequest(description=f"invalid {KERI_CESR} DID URL {req.path}")
+        if not req.path.endswith(f'/{KERI_CESR}'):
+            raise falcon.HTTPBadRequest(description=f'invalid {KERI_CESR} DID URL {req.path}')
 
         if aid not in self.hby.kevers:
-            raise falcon.HTTPNotFound(description=f"KERI AID {aid} not found")
+            raise falcon.HTTPNotFound(description=f'KERI AID {aid} not found')
 
         content = bytearray()
         for msg in self.hby.db.clonePreIter(pre=aid):
             serder = serdering.SerderKERI(raw=msg)
-            atc = msg[serder.size:]
-            content = serder.raw.decode("utf-8") + atc.decode("utf-8")
+            atc = msg[serder.size :]
+            content = serder.raw.decode('utf-8') + atc.decode('utf-8')
 
         hab = self.hby.habs[aid]
         msgs = bytearray()
@@ -55,11 +54,11 @@ class KeriCesrResourceEnd:
                 msgs.extend(hab.loadLocScheme(eid=eid) or bytearray())
                 msgs.extend(hab.makeEndRole(eid=eid, role=kering.Roles.witness) or bytearray())
 
-        for (_, erole, eid), _ in self.hby.db.ends.getItemIter(keys=(aid,kering.Roles.mailbox)):
+        for (_, erole, eid), _ in self.hby.db.ends.getItemIter(keys=(aid, kering.Roles.mailbox)):
             msgs.extend(hab.loadLocScheme(eid=eid) or bytearray())
             msgs.extend(hab.loadEndRole(cid=aid, eid=eid, role=erole) or bytearray())
 
-        content += msgs.decode("utf-8")
+        content += msgs.decode('utf-8')
         rep.status = falcon.HTTP_200
         rep.content_type = CESR_MIME
-        rep.data = content.encode("utf-8")
+        rep.data = content.encode('utf-8')

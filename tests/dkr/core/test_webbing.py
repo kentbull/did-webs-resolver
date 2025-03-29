@@ -9,5 +9,5 @@ def test_setup():
 
     setup(app, hby)
 
-    verify(app, times=1).add_route("/{aid}/did.json", any)
-    verify(app, times=1).add_route("/{aid}/keri.cesr", any)
+    verify(app, times=1).add_route('/{aid}/did.json', any)
+    verify(app, times=1).add_route('/{aid}/keri.cesr', any)

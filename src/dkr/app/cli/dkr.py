@@ -3,6 +3,7 @@
 kara.app.commands module
 
 """
+
 import multicommand
 import logging
 
@@ -13,7 +14,7 @@ from keri import help
 
 
 help.ogler.level = logging.CRITICAL
-help.ogler.reopen(name="dkr", temp=True, clear=True)
+help.ogler.reopen(name='dkr', temp=True, clear=True)
 
 
 def main():
@@ -33,5 +34,5 @@ def main():
         raise ex
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

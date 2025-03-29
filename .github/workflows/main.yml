@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  Run tests and coverage:
+  tests-and-coverage:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2

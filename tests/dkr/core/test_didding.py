@@ -235,7 +235,7 @@ def test_generate_did_doc_single_sig():
     loc = basing.LocationRecord(url="tcp://127.0.0.1:5634/")
     when(db.locs).getItemIter(keys=(aid, )).thenReturn([((aid, "some_key"), loc)])
 
-    when(hab).fetchRoleUrls(cid=aid).thenReturn(Mict([('controller', Mict([('BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX', Mict([('http', 'http://localhost:8080/witness/wok')]))]))]))
+    when(hab).fetchRoleUrls(cid=aid).thenReturn(Mict([('controller', Mict([('BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX', Mict([('http', 'http://localhost:8080/witness/wok'), ('tcp', 'tcp://localhost:8080/witness/wok')]))]))]))
     when(hab).fetchWitnessUrls(cid=aid).thenReturn(Mict([('witness', Mict([('BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX', Mict([('http', 'http://localhost:8080/witness/wok')]))]))]))
 
     rgy = mock()
@@ -256,7 +256,7 @@ def test_generate_did_doc_single_sig():
 
     diddoc = didding.generateDIDDoc(hby=hby, aid=aid, did=did)
 
-    assert diddoc == {'id': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'verificationMethod': [{'id': '#DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'type': 'JsonWebKey', 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'publicKeyJwk': {'kid': 'DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'kty': 'OKP', 'crv': 'Ed25519', 'x': ''}}], 'service': [{'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/controller', 'type': 'controller', 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'}}, {'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/witness', 'type': 'witness', 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'}}], 'alsoKnownAs': []}
+    assert diddoc == {'id': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'verificationMethod': [{'id': '#DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'type': 'JsonWebKey', 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', 'publicKeyJwk': {'kid': 'DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'kty': 'OKP', 'crv': 'Ed25519', 'x': ''}}],  'service': [{'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/controller','serviceEndpoint': {'http': 'http://localhost:8080/witness/wok','tcp': 'tcp://localhost:8080/witness/wok'},'type': 'controller'},{'id': '#BKVb58uITf48YoMPz8SBOTVwLgTO9BY4oEXRPoYIOErX/witness','serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'},'type': 'witness'}], 'alsoKnownAs': []}
 
     unstub()
 

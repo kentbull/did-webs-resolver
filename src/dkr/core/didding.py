@@ -11,7 +11,7 @@ import re
 import itertools
 
 from base64 import urlsafe_b64encode
-
+from functools import reduce
 from keri import kering
 from keri.app import oobiing, habbing
 from keri.core import coring,scheming
@@ -229,21 +229,18 @@ def designatedAliases(hby: habbing.Habery, aid: str, reg_name: str=None):
     return list(itertools.chain.from_iterable(da_ids))
 
 def addEnds(ends):
-    sEnds=list()
-    for role in ends:
-        rList = ends.getall(role)
-        for eList in rList:
-            for eid in eList:
-                val = eList[eid]
-                sDict = dict()
-                for proto in val:
-                    host = val[proto]
-                    sDict[proto]=f"{host}"
-                    v = dict(
-                        id=f"#{eid}/{role}",
-                        type=role,
-                        serviceEndpoint=sDict
-                    )
-                    if v not in sEnds:
-                        sEnds.append(v)
-    return sEnds
+    def process_role(role):
+        return reduce(lambda rs, eids: rs + process_eids(eids, role), ends.getall(role), [])
+
+    def process_eids(eids, role):
+        return reduce(lambda es, eid: es + process_eid(eid, eids[eid], role), eids, [])
+
+    def process_eid(eid, val, role):
+        v = dict(
+            id=f"#{eid}/{role}",
+            type=role,
+            serviceEndpoint={proto: f"{host}" for proto, host in val.items()}
+        )
+        return [v]
+
+    return reduce(lambda emit, role: emit + process_role(role), ends, [])

@@ -4,14 +4,13 @@ kara.app.commands module
 
 """
 
-import multicommand
 import logging
 
+import multicommand
+from keri import help
 from keri.app import directing
 
 from dkr.app.cli import commands
-from keri import help
-
 
 help.ogler.level = logging.CRITICAL
 help.ogler.reopen(name='dkr', temp=True, clear=True)

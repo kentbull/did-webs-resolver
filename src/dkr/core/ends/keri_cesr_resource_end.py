@@ -8,7 +8,6 @@ import falcon
 from keri import kering
 from keri.core import serdering
 
-
 KERI_CESR = 'keri.cesr'
 CESR_MIME = 'application/cesr'
 

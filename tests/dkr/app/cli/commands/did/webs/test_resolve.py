@@ -1,21 +1,17 @@
 import json
-
-import falcon
-from falcon import media, http_status
-from hio.base import doing
-
-from dkr.core import didding, resolving, webbing
-
-from hio.base import tyming
-from hio.core import http
-
-from keri.app import configing, habbing
-
 import os
-import pytest
 import queue
 import threading
 import time
+
+import falcon
+import pytest
+from falcon import http_status, media
+from hio.base import doing, tyming
+from hio.core import http
+from keri.app import configing, habbing
+
+from dkr.core import didding, resolving, webbing
 
 
 class PingResource:

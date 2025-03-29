@@ -1,14 +1,14 @@
 import base64
 import json
-from typing import Optional, List
+from typing import List, Optional
 
 import pysodium
 from didcomm.common.resolvers import SecretsResolver
-from didcomm.common.types import DID, VerificationMethodType, VerificationMaterial, VerificationMaterialFormat
-from didcomm.did_doc.did_doc import DIDDoc, VerificationMethod, DIDCommService
+from didcomm.common.types import DID, VerificationMaterial, VerificationMaterialFormat, VerificationMethodType
+from didcomm.did_doc.did_doc import DIDCommService, DIDDoc, VerificationMethod
 from didcomm.did_doc.did_resolver import DIDResolver
 from didcomm.secrets.secrets_resolver_demo import Secret
-from keri.core import eventing, coring, signing
+from keri.core import coring, eventing, signing
 
 """
 Utilities for DIDComm packing and unpacking using did:keri as alternative to Peer DID

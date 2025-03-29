@@ -1,7 +1,7 @@
 import falcon
 import pytest
 from keri.app import habbing
-from mockito import mock, when, unstub
+from mockito import mock, unstub, when
 
 from dkr.core import didding
 from dkr.core.ends.did_webs_resource_end import DIDWebsResourceEnd

@@ -4,20 +4,18 @@ dkr.core.serving module
 
 """
 
-from dkr.core import didding, webbing
-
-import falcon
-from hio.base import doing
-from hio.core import http
-
 import json
-
-from keri.app import habbing
-
 import os
 import queue
-import requests
 import sys
+
+import falcon
+import requests
+from hio.base import doing
+from hio.core import http
+from keri.app import habbing
+
+from dkr.core import didding, webbing
 
 
 def getSrcs(did: str, resq: queue.Queue = None):

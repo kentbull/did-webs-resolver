@@ -6,7 +6,6 @@ https://docs.pytest.org/en/latest/pythonpath.html
 
 """
 
-
 import pytest
 from keri.help import helping
 

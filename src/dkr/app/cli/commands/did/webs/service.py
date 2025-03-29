@@ -10,7 +10,7 @@ import falcon
 import hio
 import hio.core.tcp
 from hio.core import http
-from keri.app import keeping, configing, habbing, oobiing
+from keri.app import configing, habbing, keeping, oobiing
 from keri.app.cli.common import existing
 
 from dkr.core import webbing

@@ -5,15 +5,15 @@ dkr.core.didding module
 """
 
 import datetime
+import itertools
 import json
 import math
 import re
-import itertools
-
 from base64 import urlsafe_b64encode
 from functools import reduce
+
 from keri import kering
-from keri.app import oobiing, habbing
+from keri.app import habbing, oobiing
 from keri.core import coring, scheming
 from keri.help import helping
 from keri.vdr import credentialing, verifying

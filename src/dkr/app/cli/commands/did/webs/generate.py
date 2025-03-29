@@ -9,17 +9,16 @@ import json
 import os
 
 from hio.base import doing
-from keri.core import coring, eventing
 from keri.app import directing, habbing, oobiing
-from keri.app.cli.common import existing
 from keri.app.cli.commands.vc import export
-from keri.vc import proving
-from keri.vdr import credentialing, viring
+from keri.app.cli.common import existing
+from keri.core import coring, eventing
 from keri.db import basing, dbing
 from keri.help import helping
+from keri.vc import proving
+from keri.vdr import credentialing, viring
 
-from dkr.core import didding
-from dkr.core import webbing
+from dkr.core import didding, webbing
 
 parser = argparse.ArgumentParser(description='Generate a did:webs DID document and KEL/TEL file')
 parser.set_defaults(handler=lambda args: handler(args), transferable=True)

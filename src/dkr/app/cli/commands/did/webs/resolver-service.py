@@ -6,7 +6,7 @@ dkr.app.cli.commands module
 
 import argparse
 
-from keri.app import keeping, habbing, directing, configing, oobiing
+from keri.app import configing, directing, habbing, keeping, oobiing
 from keri.app.cli.common import existing
 
 from dkr.core import resolving

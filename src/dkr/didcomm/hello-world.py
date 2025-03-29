@@ -1,10 +1,11 @@
-from utils import createKeriDid, SecretsResolverInMemory, DidKeriResolver, validateLongDid
-from didcomm.message import Message
-from didcomm.unpack import unpack
-from didcomm.common.resolvers import ResolversConfig
-from didcomm.pack_encrypted import pack_encrypted, PackEncryptedConfig
 import asyncio
 import json
+
+from didcomm.common.resolvers import ResolversConfig
+from didcomm.message import Message
+from didcomm.pack_encrypted import PackEncryptedConfig, pack_encrypted
+from didcomm.unpack import unpack
+from utils import DidKeriResolver, SecretsResolverInMemory, createKeriDid, validateLongDid
 
 alice = createKeriDid()
 print("Alice's DID:", alice['did'])

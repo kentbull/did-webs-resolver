@@ -20,10 +20,9 @@ def setup_habs():
     ) as wesHby, habbing.openHby(
         name="wis", salt=signing.Salter(raw=b"wiss-the-witness").qb64, temp=True
     ) as wisHby, habbing.openHab(name="agent", temp=True) as (agentHby, agentHab):
-        print()
-
         wesHab = wesHby.makeHab(name="wes", isith="1", icount=1, transferable=False)
         assert not wesHab.kever.prefixer.transferable
+
         # create non-local kevery for Wes to process nonlocal msgs
         wesKvy = eventing.Kevery(db=wesHab.db, lax=False, local=False)
         
@@ -49,7 +48,7 @@ def setup_habs():
         icpMsg = hab.makeOwnInception()
         rctMsgs = []  # list of receipts from each witness
         parsing.Parser().parse(ims=bytearray(icpMsg), kvy=wesKvy)
-        # assert wesKvy.kevers[hab.pre].sn == 0  # accepted event
+        assert wesKvy.kevers[hab.pre].sn == 0  # accepted event
         # assert len(wesKvy.cues) == 2  # queued receipt cue
         rctMsg = wesHab.processCues(wesKvy.cues)  # process cue returns rct msg
         assert len(rctMsg) == 626

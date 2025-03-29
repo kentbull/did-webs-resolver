@@ -1,4 +1,4 @@
-FROM weboftrust/keri:1.1.21-arm64
+FROM weboftrust/keri:1.2.3
 
 WORKDIR /usr/local/var
 

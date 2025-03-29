@@ -8,6 +8,13 @@ If you're running into trouble in the process below, be sure to check the sectio
 
 Let's get started! We'll use docker to setup and run in a simple environment. If you haven't installed docker on your system yet, first [get it](https://docs.docker.com/get-docker/)
 
+## Run locally
+
+Start your witness pool.
+```
+dkr did webs resolver-service --config-dir=./scripts
+```
+
 ## Run Docker build
 Go the root of did-webs-resolver reference implementation repo on your local machine. Then:
 

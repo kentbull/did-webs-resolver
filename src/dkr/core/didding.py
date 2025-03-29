@@ -8,12 +8,12 @@ import datetime
 import json
 import math
 import re
+import itertools
 
 from base64 import urlsafe_b64encode
-
+from functools import reduce
 from keri import kering
 from keri.app import oobiing, habbing
-from keri.app.cli.common import terming
 from keri.core import coring,scheming
 from keri.help import helping
 from keri.vdr import credentialing, verifying
@@ -26,9 +26,6 @@ DID_TIME_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
 
 DES_ALIASES_SCHEMA="EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5"
 
-DID_RES_META_FIELD='didResolutionMetadata'
-DD_META_FIELD='didDocumentMetadata'
-DD_FIELD='didDocument'
 VMETH_FIELD='verificationMethod'
 
 def parseDIDKeri(did):
@@ -80,11 +77,8 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
     if aid in hby.kevers:
         kever = hby.kevers[aid]
     else:
-        print(f"Habery does not have a kever for {did}. Did you parse the keri.cesr file?")
-        for kev in hby.kevers:
-            print("Known kevers: ", kev)
-        hby.kevers[aid]
-        
+        raise ValueError(f"unknown {aid}")
+
     vms = []
     for idx, verfer in enumerate(kever.verfers):
         kid = verfer.qb64
@@ -134,8 +128,7 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
 
     witnesses = []
     for idx, eid in enumerate(kever.wits):
-        keys = (eid,)
-        for (tid, scheme), loc in hby.db.locs.getItemIter(keys):
+        for (tid, scheme), loc in hby.db.locs.getItemIter(keys=(eid,)):
             witnesses.append(dict(
                 idx=idx,
                 scheme=scheme,
@@ -143,34 +136,19 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
             ))
             
     sEnds=[]
-    # hab.fetchRoleUrls(hab.pre).get("controller").get("EGadHcyW9IfVIPrFUAa_I0z4dF8QzQAvUvfaUTJk8Jre").get("http") == "http://127.0.0.1:7777"
     if hab and hasattr(hab, 'fetchRoleUrls'):
-        ends = hab.fetchRoleUrls(aid)
+        ends = hab.fetchRoleUrls(cid=aid)
         sEnds.extend(addEnds(ends))
-        ends = hab.fetchWitnessUrls(aid)
+        ends = hab.fetchWitnessUrls(cid=aid)
         sEnds.extend(addEnds(ends))
-                
-    # similar to kli vc list --name "$alias" --alias "$alias" --issued --said --schema "${d_alias_schema}")
+
     eq_ids = []
     aka_ids = []
-    da_ids = desAliases(hby, aid, reg_name=reg_name)
-    if da_ids:
-        dws_pre = "did:webs"
-        eq_ids = [s for s in da_ids if s.startswith(dws_pre)]
-        print(f"Equivalent DIDs: {eq_ids}")
-        
-        aka_ids = [s for s in da_ids]
-        print(f"Also Known As DIDs: {aka_ids}")
-            
-    didResolutionMetadata = dict(
-        contentType="application/did+json",
-        retrieved=datetime.datetime.now(datetime.timezone.utc).strftime(DID_TIME_FORMAT)
-    )
-    didDocumentMetadata = dict(
-        witnesses=witnesses,
-        versionId=f"{kever.sner.num}",
-        equivalentId=eq_ids,
-    )
+    for s in designatedAliases(hby, aid, reg_name=reg_name):
+        if s.startswith("did:webs"):
+            eq_ids.append(s)
+        aka_ids.append(s)
+
     diddoc = dict(
         id=did,
         verificationMethod=vms,
@@ -179,6 +157,17 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
     )
 
     if meta is True:
+        didResolutionMetadata = dict(
+            contentType="application/did+json",
+            retrieved=helping.nowUTC().strftime(DID_TIME_FORMAT)
+        )
+
+        didDocumentMetadata = dict(
+            witnesses=witnesses,
+            versionId=f"{kever.sner.num}",
+            equivalentId=eq_ids,
+        )
+
         resolutionResult = dict(
             didDocument=diddoc,
             didResolutionMetadata=didResolutionMetadata,
@@ -189,10 +178,11 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
         return diddoc
 
 def toDidWeb(diddoc):
-    diddoc['id'] = diddoc['id'].replace('did:webs', 'did:web')
-    for verificationMethod in diddoc[VMETH_FIELD]:
-        verificationMethod['controller'] = verificationMethod['controller'].replace('did:webs', 'did:web')
-    return diddoc
+    if diddoc:
+        diddoc['id'] = diddoc['id'].replace('did:webs', 'did:web')
+        for verificationMethod in diddoc["verificationMethod"]:
+            verificationMethod['controller'] = verificationMethod['controller'].replace('did:webs', 'did:web')
+        return diddoc
 
 def fromDidWeb(diddoc):
     # Log the original state of the DID and controller
@@ -212,7 +202,7 @@ def fromDidWeb(diddoc):
 
     return diddoc
 
-def desAliases(hby: habbing.Habery, aid: str, reg_name: str=None):
+def designatedAliases(hby: habbing.Habery, aid: str, reg_name: str=None):
     """
     Returns the credentialer for the des-aliases schema, or None if it doesn't exist.
     """
@@ -224,57 +214,33 @@ def desAliases(hby: habbing.Habery, aid: str, reg_name: str=None):
         vry = verifying.Verifier(hby=hby, reger=rgy.reger)
         
         saids = rgy.reger.issus.get(keys=aid)
-        scads = rgy.reger.schms.get(keys=DES_ALIASES_SCHEMA.encode("utf-8"))
+        scads = rgy.reger.schms.get(keys=DES_ALIASES_SCHEMA)
         # self-attested, there is no issuee, and schmea is designated aliases
         saids = [saider for saider in saids if saider.qb64 in [saider.qb64 for saider in scads]]
 
-        # for saider in saiders:
         creds = rgy.reger.cloneCreds(saids,hby.habs[aid].db)
 
         for idx, cred in enumerate(creds):
             sad = cred['sad']
             status = cred["status"]
-            schema = sad['s']
-            scraw = vry.resolver.resolve(schema)
-            schemer = scheming.Schemer(raw=scraw)
-            print(f"Credential #{idx+1}: {sad['d']}")
-            print(f"    Type: {schemer.sed['title']}")
             if status['et'] == 'iss' or status['et'] == 'bis':
-                print(f"    Status: Issued {terming.Colors.OKGREEN}{terming.Symbols.CHECKMARK}{terming.Colors.ENDC}")
-                da_ids = sad['a']['ids']
-            elif status['et'] == 'rev' or status['et'] == 'brv':
-                print(f"    Status: Revoked {terming.Colors.FAIL}{terming.Symbols.FAILED}{terming.Colors.ENDC}")
-            else:
-                print(f"    Status: Unknown")
-            print(f"    Issued by {sad['i']}")
-            print(f"    Issued on {status['dt']}")
+                da_ids.append(sad['a']['ids'])
 
-    return da_ids
+    return list(itertools.chain.from_iterable(da_ids))
 
 def addEnds(ends):
-    # wurls = hab.fetchWitnessUrls(hab.pre)
-    #     wwits = wurls.getall("witness")
-    #     wwit1 = wwits[0].get("BN8t3n1lxcV0SWGJIIF46fpSUqA7Mqre5KJNN3nbx3mr")
-    #     assert wwit1.get("http") == "http://127.0.0.1:8888"
-    #     wwit2 = wwits[1]
-    #     wse2 = wwit2.get("BAjTuhnzPDB0oU0qHXACnvzachJpYjUAtH1N9Tsb_MdE")
-    #     assert wse2.get("http") == "http://127.0.0.1:9999"
-    
-    sEnds=list()
-    for role in ends:
-        rList = ends.getall(role)
-        for eList in rList:
-            for eid in eList:
-                val = eList[eid]
-                sDict = dict()
-                for proto in val:
-                    host = val[proto]
-                    sDict[proto]=f"{host}"
-                    v = dict(
-                        id=f"#{eid}/{role}",
-                        type=role,
-                        serviceEndpoint=sDict
-                    )
-                    if v not in sEnds:
-                        sEnds.append(v)
-    return sEnds
+    def process_role(role):
+        return reduce(lambda rs, eids: rs + process_eids(eids, role), ends.getall(role), [])
+
+    def process_eids(eids, role):
+        return reduce(lambda es, eid: es + process_eid(eid, eids[eid], role), eids, [])
+
+    def process_eid(eid, val, role):
+        v = dict(
+            id=f"#{eid}/{role}",
+            type=role,
+            serviceEndpoint={proto: f"{host}" for proto, host in val.items()}
+        )
+        return [v]
+
+    return reduce(lambda emit, role: emit + process_role(role), ends, [])

@@ -109,7 +109,11 @@ class Generator(doing.DoDoer):
 
         #generate did doc
         result = didding.generateDIDDoc(self.hby, did=self.did, aid=aid, oobi=None, reg_name=self.da_reg, meta=self.meta)
-        
+
+        if not result:
+            self.remove(self.toRemove)
+            return False
+
         diddoc = result
         if(self.meta):
             diddoc = result["didDocument"]

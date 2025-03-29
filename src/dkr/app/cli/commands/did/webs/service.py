@@ -56,13 +56,6 @@ def launch(args):
     configFile = args.configFile
     configDir = args.configDir
 
-    ks = keeping.Keeper(name=name,
-                        base=base,
-                        temp=False,
-                        reopen=True)
-
-    aeid = ks.gbls.get('aeid')
-
     cf = configing.Configer(name=configFile,
                             base=base,
                             headDirPath=configDir,
@@ -70,12 +63,7 @@ def launch(args):
                             reopen=True,
                             clear=False)
 
-    if aeid is None:
-        print(f"Creating new habery {name} {base} {bran} {cf}")
-        hby = habbing.Habery(name=name, base=base, bran=bran, cf=cf)
-    else:
-        print(f"Loading existing habery {name} {base} {bran} {cf}")
-        hby = existing.setupHby(name=name, base=base, bran=bran, cf=cf)
+    hby = existing.setupHby(name=name, base=base, bran=bran, cf=cf)
 
     hbyDoer = habbing.HaberyDoer(habery=hby)  # setup doer
     obl = oobiing.Oobiery(hby=hby)
@@ -100,7 +88,7 @@ def launch(args):
 
     doers = obl.doers + [hbyDoer, httpServerDoer]
 
-    webbing.setup(app, hby=hby, cf=cf)
+    webbing.setup(app, hby=hby)
 
     print(f"Launched web server capable of serving KERI AIDs as did:webs DIDs on: {httpPort}")
     return doers

@@ -39,4 +39,4 @@ dev = [
 ]
 
 [tool.uv.sources]
-viking = { path = "../viking" }
+viking = { git = "https://github.com/GLEIF-IT/viking" }

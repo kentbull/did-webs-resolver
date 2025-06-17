@@ -200,7 +200,7 @@ requires-dist = [
     { name = "keri", specifier = "==1.2.6" },
     { name = "multicommand", specifier = ">=1.0.0" },
     { name = "requests", specifier = ">=2.28" },
-    { name = "viking", directory = "../viking" },
+    { name = "viking", git = "https://github.com/GLEIF-IT/viking" },
 ]
 
 [package.metadata.requires-dev]
@@ -609,20 +609,9 @@ wheels = [
 [[package]]
 name = "viking"
 version = "0.1.0"
-source = { directory = "../viking" }
+source = { git = "https://github.com/GLEIF-IT/viking#31c89d4d7cf741bc6f13a74761ae13d5f56649aa" }
 dependencies = [
     { name = "keri" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "keri", specifier = "==1.2.6" }]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "coverage", specifier = ">=7.8.0" },
-    { name = "mockito", specifier = ">=1.5.4" },
-    { name = "pytest", specifier = ">=8.3.5" },
-    { name = "pytest-cov", specifier = ">=6.1.1" },
 ]
 
 [[package]]

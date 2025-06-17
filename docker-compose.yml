@@ -24,7 +24,7 @@ services:
         build:
             context: .
             dockerfile: ./images/webs.dockerfile
-        image: 2byrds/webs:latest
+        image: gleif/webs:latest
         entrypoint: tail -f /dev/null
         tty: true
         volumes:

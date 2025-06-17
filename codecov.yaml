@@ -1,7 +1,7 @@
 coverage:
   status:
     project:
-      default:   # default is the status check's name, not default settings
+      default:
         target: auto
         threshold: 5
         base: auto
@@ -9,9 +9,12 @@ coverage:
           - unit
         paths:
           - "src"
-        # advanced settings
         branches:
           - main
-        if_ci_failed: error #success, failure, error, ignore
+        if_ci_failed: error
         informational: false
         only_pulls: false
+        ignore:
+          - "src/dkr/didcomm/**/*"
+          - "src/dkr/app/cli/**/*"
+          - "tests/**/*"

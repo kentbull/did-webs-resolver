@@ -1,264 +1,56 @@
 # Introduction
 
-Welcome to the `did:webs` reference implementation repository. See the did:webs [specification](https://trustoverip.github.io/tswg-did-method-webs-specification/) for more information.
-
-Thank you to Phil Feairheller @pfeairheller from GLEIF who started this work [here](https://github.com/WebOfTrust/did-keri-resolver)
+A demonstration of a `did:webs` service and resolver. Implements the
+`did:webs` [specification](https://trustoverip.github.io/tswg-did-method-webs-specification/).
 
 [![CI](https://github.com/GLEIF-IT/did-webs-resolver/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/GLEIF-IT/did-webs-resolver/actions/workflows/main.yml)
 [![codecov](https://codecov.io/gh/GLEIF-IT/did-webs-resolver/branch/main/graph/badge.svg?token=sUADtbanWC)](https://codecov.io/gh/GLEIF-IT/did-webs-resolver)
 
-## Developers - Getting Started
+### Developers - Getting Started
 
-Developers who want to jump into using the `did:webs` reference implementation should follow the [Getting Started](./GETTING_STARTED.md) guide.
+Developers who want to jump into using the `did:webs` reference implementation should follow
+the [Getting Started](docs/getting_started) guide.
 
-Thank you to Markus Sabadello @peacekeeper from DanubeTech who started the original tutorial for IIW37 [here](https://github.com/peacekeeper/did-webs-iiw-tutorial)
+A breakdown of the commands can be found [here](./docs/commands.md).
 
-## dkr
+#### did:webs service
 
-did:keri/did:webs DID Resolver Reference Implementation
+For a `did:webs` service to operate securely it should only sever AIDs whose KELs have been processed into the service's database.
 
-* `dkr did keri resolve`
-* `dkr did keri resolver-service`
-* `dkr did webs generate`
-* `dkr did webs service`
-* `dkr did webs resolve`
-* `dkr did webs resolver-service`
+There are two methods to do this:
 
-### did:keri
+1. Local only support - start the serivce using an existing local keystore.
 
-#### `dkr did keri resolve`
+This is useful for development and can be done by provide an existing named keystore to the `did:webs` service.
 
-**Resolve a did:keri DID.**
+For example, to start the service using the `multisig1` keystore (https://github.com/WebOfTrust/keripy/blob/v1.2.4/scripts/demo/basic/multisig.sh)
 
-Example:
-```
-dkr did keri resolve --name dkr --did did:keri:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6 --oobi http://witnesshost:5642/oobi/EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
-```
- 
-```
-        did:keri:123, oobi    ---------------------------------            ---------------------
-   O    ----------------->   |                                 |          |                     |
-  -|-   <-----------------   |  dkr did keri resolve           |  <---->  |  KERI WATCHER POOL  |
-  / \    diddoc, metadata    |                                 |          |                     |
-                              ---------------------------------            ---------------------
+```bash
+dkr did webs service --name multisig1
 ```
 
-### `dkr did keri resolver-service`
+2. Import supported - start the service using an empty local keystore, and import AID KELs. The following workflow can be applied to start the service, export an existing keystore and import it to the service.
 
-**Expose did:keri resolver as an HTTP web service.** (Can be deployed as Universal Resolver driver)
-
-Example:
-```
-dkr did keri resolver-service --name dkr --port 7678
+```bash
+dkr did webs service --name dkr
 ```
 
-```
-                              ---------------------------------            ---------------------
-                             |                                 |          |                     |
-                             |  dkr did keri resolver-service  |  <---->  |  KERI WATCHER POOL  |
-                             |                                 |          |                     |
-                              ---------------------------------            ---------------------
-                                            HTTPS
-                              HTTP GET      ^   |  200 OK
-                              did:keri:123  |   |  diddoc
-                              oobi          |   v  metadata
-
-                                              o
-                                             -|-
-                                             / \
+```bash
+kli export --name multisig1 --files 
 ```
 
-## did:webs
+to import an AID to the service securely we use a IPEX Grant to present the exported KEL to the service.
 
-### `dkr did webs generate`
-
-**Generate a did:webs DID document and KEL/TEL file.**
-
-Example:
-```
-dkr did webs generate --name dkr --did did:webs:danubetech.com:example:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6
+```bash
+kli grant 
 ```
 
-```
-                              ---------------------------------
-      did.json, keri.cesr    |                                 |
-    --------------------->   |  ANY WEB SERVER  /123/did.json  |
-   |                         |                  /123/keri.cesr |
-   |    UPLOAD                ---------------------------------
-   |
-   |      
-         did:webs:dom:123     ---------------------------------            ---------------------
-   O    ----------------->   |                                 |          |                     |
-  -|-   <-----------------   |  dkr did webs generate          |  <---->  |  KERI WATCHER POOL  |
-  / \   did.json, keri.cesr  |                                 |          |                     |
-                              ---------------------------------            ---------------------
-```
 
-### `dkr did webs service`
+#### Bootstrapping
 
-**Launch web server capable of serving KERI AIDs as did:webs and did:web DIDs.**
+### Prior art
 
-Example:
-```
-dkr did webs service --name dkr --port 7676
-```
+did:keri resolver by Philip Feairheller @pfeairheller [here](https://github.com/WebOfTrust/did-keri-resolver)
 
-```
-                              ---------------------------------            ---------------------
-                             |                                 |          |                     |
-                             |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
-                             |                                 |          |                     |
-                              ---------------------------------            ---------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                             /123/keri.cesr |   v  keri.cesr
-
-         did:webs:dom:123     ---------------------------------
-   O    ----------------->   |                                 |
-  -|-   <-----------------   |  ANY DID:WEBS RESOLVER          |  <-----  (verify did.json/keri.cesr)
-  / \    diddoc, metadata    |                                 |
-                              ---------------------------------
-```
-
-```
-                              ---------------------------------            ---------------------
-                             |                                 |          |                     |
-                             |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
-                             |                                 |          |                     |
-                              ---------------------------------            ---------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                                            |   v          
-
-         did:web:dom:123      ---------------------------------
-   O    ----------------->   |                                 |
-  -|-   <-----------------   |  ANY DID:WEB RESOLVER           |
-  / \         diddoc         |                                 |
-                              ---------------------------------
-```
-
-### `dkr did webs resolve`
-
-**Resolve a did:webs DID.**
-
-Example:
-```
-dkr did webs resolve --name dkr --did did:webs:danubetech.com:example:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6
-```
-
-```
-                              ---------------------------------            ---------------------
-                             |                                 |          |                     |
-                             |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
-                             |                                 |          |                     |
-                              ---------------------------------            ---------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                             /123/keri.cesr |   v  keri.cesr
-
-         did:webs:dom:123     ---------------------------------
-   O    ----------------->   |                                 |
-  -|-   <-----------------   |  dkr did webs resolve           |  <-----  (verify did.json/keri.cesr)
-  / \    diddoc, metadata    |                                 |
-                              ---------------------------------
-```
-
-```
-                              ---------------------------------
-                             |                                 |
-                             |  ANY WEB SERVER  /123/did.json  |
-                             |                  /123/keri.cesr |
-                              ---------------------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                             /123/keri.cesr |   v  keri.cesr
-
-         did:webs:dom:123     ---------------------------------
-   O    ----------------->   |                                 |
-  -|-   <-----------------   |  dkr did webs resolve           |  <-----  (verify did.json/keri.cesr)
-  / \    diddoc, metadata    |                                 |
-                              ---------------------------------
-```
-
-```
-                              ---------------------------------
-                             |                                 |
-                             |  ANY WEB SERVER  /123/did.json  |
-                             |                  /123/keri.cesr |
-                              ---------------------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                                            |   v
-
-         did:web:dom:123     ---------------------------------
-   O    ----------------->   |                                 |
-  -|-   <-----------------   |  ANY DID:WEB RESOLVER           |
-  / \         diddoc         |                                 |
-                              ---------------------------------
-```
-
-### `dkr did webs resolver-service`
-
-**Expose did:webs resolver as an HTTP web service.** (Can be deployed as Universal Resolver driver)
-
-Example:
-```
-dkr did keri resolve --name dkr --port 7677
-```
-
-```
-                              ---------------------------------            ---------------------
-                             |                                 |          |                     |
-                             |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
-                             |                                 |          |                     |
-                              ---------------------------------            ---------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                             /123/keri.cesr |   v  keri.cesr
-
-                              ---------------------------------
-                             |                                 |
-                             |  dkr did webs resolver-service  |  <-----  (verify did.json/keri.cesr)
-                             |                                 |
-                              ---------------------------------
-                                            HTTPS
-                              HTTP GET      ^   |  200 OK
-                              did:webs:123  |   |  diddoc
-                              oobi          |   v  metadata
-
-                                              o
-                                             -|-
-                                             / \
-```
-
-```
-                              ---------------------------------
-                             |                                 |
-                             |  ANY WEB SERVER  /123/did.json  |
-                             |                  /123/keri.cesr |
-                              ---------------------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                             /123/keri.cesr |   v  keri.cesr
-
-                              ---------------------------------
-                             |                                 |
-                             |  dkr did webs resolver-service  |  <-----  (verify did.json/keri.cesr)
-                             |                                 |
-                              ---------------------------------
-                                            HTTPS
-                              HTTP GET      ^   |  200 OK
-                              did:webs:123  |   |  diddoc
-                                            |   v  metadata
-
-                                              o
-                                             -|-
-                                             / \
-```
+Thank you to Markus Sabadello @peacekeeper from DanubeTech who started the original tutorial for
+IIW37 [here](https://github.com/peacekeeper/did-webs-iiw-tutorial)

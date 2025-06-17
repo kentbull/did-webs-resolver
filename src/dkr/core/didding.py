@@ -136,8 +136,6 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
             )
         )
 
-    x = [(keys[1], loc.url) for keys, loc in hby.db.locs.getItemIter(keys=(aid,)) if loc.url]
-
     witnesses = []
     for idx, eid in enumerate(kever.wits):
         for (tid, scheme), loc in hby.db.locs.getItemIter(keys=(eid,)):

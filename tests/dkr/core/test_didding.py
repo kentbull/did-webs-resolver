@@ -322,7 +322,7 @@ def test_generate_did_doc_single_sig():
     unstub()
 
 
-def test_generate_did_doc_single_sig_with_designated_alias(mockHelpingNowUTC):
+def test_generate_did_doc_single_sig_with_designated_alias(mock_helping_now_utc):
     hby = mock()
     hab = mock()
     hab_db = mock()
@@ -533,7 +533,7 @@ def test_generate_did_doc_single_sig_with_designated_alias(mockHelpingNowUTC):
     }
 
 
-def test_generate_did_doc_single_sig_meta(mockHelpingNowUTC):
+def test_generate_did_doc_single_sig_meta(mock_helping_now_utc):
     hby = mock()
     hab = mock()
     hab_db = mock()

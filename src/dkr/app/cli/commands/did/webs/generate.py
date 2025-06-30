@@ -149,7 +149,7 @@ class Generator(doing.DoDoer):
         preb = kever.prefixer.qb64b
 
         kel = []
-        for fn, dig in self.hby.db.getFelItemPreIter(preb, fn=0):
+        for _, fn, dig in self.hby.db.getFelItemPreIter(preb, fn=0):
             try:
                 event = eventing.loadEvent(self.hby.db, preb, dig)
             except ValueError as e:
@@ -159,7 +159,7 @@ class Generator(doing.DoDoer):
 
         key = dbing.snKey(pre=pre, sn=0)
         # load any partially witnessed events for this prefix
-        for ekey, edig in self.hby.db.getPweItemsNextIter(key=key):
+        for ekey, edig in self.hby.db.getPweItemIter(key=key):
             pre, sn = dbing.splitKeySN(ekey)  # get pre and sn from escrow item
             try:
                 kel.append(eventing.loadEvent(self.hby.db, pre, edig))
@@ -167,7 +167,7 @@ class Generator(doing.DoDoer):
                 raise e
 
         # load any partially signed events from this prefix
-        for ekey, edig in self.hby.db.getPseItemsNextIter(key=key):
+        for ekey, edig in self.hby.db.getPseItemIter(key=key):
             pre, sn = dbing.splitKeySN(ekey)  # get pre and sn from escrow item
             try:
                 kel.append(eventing.loadEvent(self.hby.db, pre, edig))

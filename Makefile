@@ -1,4 +1,4 @@
-VERSION=0.2.0
+VERSION=0.2.1
 
 define DOCKER_WARNING
 In order to use the multi-platform build enable the containerd image store
@@ -10,7 +10,10 @@ To enable the feature for Docker Desktop:
 endef
 
 build-webs: .warn
-	@docker build --platform=linux/amd64,linux/arm64 -f images/webs.dockerfile -t gleif/webs:$(VERSION) .
+	@docker build \
+		--platform=linux/amd64,linux/arm64 \
+		-f images/webs.dockerfile \
+		-t gleif/webs:$(VERSION) .
 
 publish-webs:
 	@docker push gleif/webs:$(VERSION)
@@ -21,7 +24,11 @@ tag-webs-latest:
 tag-latest: tag-webs-latest tag-did-webs-service-latest tag-did-webs-resolver-service-latest
 
 build-did-webs-service: .warn
-	@docker build --platform=linux/amd64,linux/arm64 -f images/did-webs-service.dockerfile -t gleif/did-webs-service:latest -t gleif/did-webs-service:$(VERSION) .
+	@docker build \
+		--platform=linux/amd64,linux/arm64 \
+		-f images/did-webs-service.dockerfile \
+		-t gleif/did-webs-service:latest \
+		-t gleif/did-webs-service:$(VERSION) .
 
 publish-did-webs-service:
 	@docker push gleif/did-webs-service:$(VERSION)
@@ -30,7 +37,11 @@ tag-did-webs-service-latest:
 	@$(MAKE) tag IMAGE_NAME=gleif/did-webs-service VERSION=$(VERSION)
 
 build-did-webs-resolver-service: .warn
-	@docker build --platform=linux/amd64,linux/arm64 -f images/did-webs-resolver-service.dockerfile -t gleif/did-webs-resolver-service:latest -t gleif/did-webs-resolver-service:$(VERSION) .
+	@docker build \
+		--platform=linux/amd64,linux/arm64 \
+		-f images/did-webs-resolver-service.dockerfile \
+		-t gleif/did-webs-resolver-service:latest \
+		-t gleif/did-webs-resolver-service:$(VERSION) .
 
 publish-did-webs-resolver-service:
 	@docker push gleif/did-webs-resolver-service:$(VERSION)

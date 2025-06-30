@@ -28,6 +28,9 @@ DID_TIME_PATTERN = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z')
 
 DES_ALIASES_SCHEMA = 'EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5'
 
+DID_RES_META_FIELD = 'didResolutionMetadata'
+DD_META_FIELD = 'didDocumentMetadata'
+DD_FIELD = 'didDocument'
 VMETH_FIELD = 'verificationMethod'
 
 

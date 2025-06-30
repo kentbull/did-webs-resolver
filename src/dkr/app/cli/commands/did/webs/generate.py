@@ -18,7 +18,7 @@ from keri.help import helping
 from keri.vc import proving
 from keri.vdr import credentialing, viring
 
-from dkr.core import didding, webbing
+from dkr.core import didding, ends
 
 parser = argparse.ArgumentParser(description='Generate a did:webs DID document and KEL/TEL file')
 parser.set_defaults(handler=lambda args: handler(args), transferable=True)
@@ -114,7 +114,7 @@ class Generator(doing.DoDoer):
             os.makedirs(kc_dir_path)
 
         # File path
-        kc_file_path = os.path.join(kc_dir_path, f'{webbing.KERI_CESR}')
+        kc_file_path = os.path.join(kc_dir_path, f'{ends.KERI_CESR}')
         kcf = open(kc_file_path, 'w')
         tmsg = msgs.decode('utf-8')
         print(f'Writing CESR events to {kc_file_path}: \n{tmsg}')
@@ -137,7 +137,7 @@ class Generator(doing.DoDoer):
         if not os.path.exists(dd_dir_path):
             os.makedirs(dd_dir_path)
 
-        dd_file_path = os.path.join(dd_dir_path, f'{webbing.DID_JSON}')
+        dd_file_path = os.path.join(dd_dir_path, f'{ends.DID_JSON}')
         ddf = open(dd_file_path, 'w')
         json.dump(didding.toDidWeb(diddoc), ddf)
 

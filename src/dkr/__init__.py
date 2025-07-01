@@ -3,9 +3,10 @@ import logging
 
 from hio.help import ogling
 
-ogler = ogling.initOgler(prefix='dkr', syslogged=False)
+log_name='dkr'
+ogler = ogling.initOgler(prefix=log_name, syslogged=False)
 ogler.level = logging.INFO
-ogler.reopen(name='dkr', temp=True, clear=True)
+ogler.reopen(name=log_name, temp=True, clear=True)
 
 # Versioning
 __version__ = '0.2.1'  # also change in pyproject.toml

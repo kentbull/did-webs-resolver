@@ -6,21 +6,20 @@ dkr.app.cli.commands module
 
 import argparse
 import json
+import logging
 import os
 
 from hio.base import doing
-from keri.app import directing, habbing, oobiing
-from keri.app.cli.commands.vc import export
+from keri.app import habbing, oobiing
 from keri.app.cli.common import existing
-from keri.core import coring, eventing
-from keri.db import basing, dbing
-from keri.help import helping
-from keri.vc import proving
+from keri.core import eventing
+from keri.db import dbing
 from keri.vdr import credentialing, viring
 
+import dkr
 from dkr.core import didding, ends
 
-parser = argparse.ArgumentParser(description='Generate a did:webs DID document and KEL/TEL file')
+parser = argparse.ArgumentParser(description='Generate a did:webs DID document and KEL, TEL, and ACDC CESR stream file')
 parser.set_defaults(handler=lambda args: handler(args), transferable=True)
 parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
 parser.add_argument(
@@ -36,7 +35,7 @@ parser.add_argument(
     '--da_reg',
     required=False,
     default=None,
-    help='Name of regery to find designated aliases attestation. Default is None.',
+    help='Name of Regery to find designated aliases attestation. Default is None.',
 )
 parser.add_argument(
     '--meta',
@@ -46,68 +45,85 @@ parser.add_argument(
     required=False,
     default=False,
 )
+parser.add_argument("--loglevel", action="store", required=False, default="CRITICAL",
+                    help="Set log level to DEBUG | INFO | WARNING | ERROR | CRITICAL. Default is CRITICAL")
+
+logger = dkr.ogler.getLogger(dkr.log_name)
 
 
-def handler(args):
-    gen = Generator(
+def handler(args: argparse.Namespace) -> list[doing.Doer]:
+    dkr.ogler.level = logging.getLevelName(args.loglevel.upper())
+    logger.setLevel(dkr.ogler.level)
+    gen = DIDGenerator(
         name=args.name, base=args.base, bran=args.bran, did=args.did, oobi=None, da_reg=args.da_reg, meta=args.meta
     )
     return [gen]
 
 
-class Generator(doing.DoDoer):
+class DIDGenerator(doing.DoDoer):
+    """
+    Generates a did:webs DID document and the associated CESR stream for the {AID}.json and keri.cesr files.
+    - {AID}.json contains the DID document
+    - keri.cesr contains the CESR event stream for the KELs, TELs, and ACDCs associated with the DID.
+    """
+
     def __init__(self, name, base, bran, did, oobi, da_reg, meta=False):
+        """
+        Initializes the did:webs DID file generator.
+
+        Parameters:
+            name (str): Name of the controller.
+            base (str): Base path for the KERI keystore.
+            bran (str): Passcode for the KERI keystore.
+            did (str): The did:webs DID to generate.
+            oobi (str): OOBI to use for resolving the AID (not currently used).
+            da_reg (str): Name of the Regery to find designated aliases attestation.
+            meta (bool): Whether to include metadata in the DID document generation.
+        """
         self.name = name
         self.base = base
         self.bran = bran
         self.hby = existing.setupHby(name=name, base=base, bran=bran)
+        self.rgy = credentialing.Regery(hby=self.hby, name=self.hby.name, base=self.hby.base)
         self.bran = bran
         hbyDoer = habbing.HaberyDoer(habery=self.hby)  # setup doer
         obl = oobiing.Oobiery(hby=self.hby)
         self.did = did
-        # self.oobi = oobi
+        self.oobi = oobi
         self.da_reg = da_reg
         self.meta = meta
-        print(
-            'Generate DID document command', did, 'using oobi', oobi, 'and metadata', meta, 'registry name for creds', da_reg
-        )
 
         self.toRemove = [hbyDoer] + obl.doers
-        doers = list(self.toRemove) + [doing.doify(self.generate)]
-        super(Generator, self).__init__(doers=doers)
+        doers = list(self.toRemove)
+        super(DIDGenerator, self).__init__(doers=doers)
 
-    def generate(self, tymth, tock=0.0, **opts):
-        self.wind(tymth)
-        self.tock = tock
-        _ = yield self.tock
+    def recur(self, tock=0.0, **opts):
+        """DoDoer lifecycle function that calls the underlying DID generation function. Runs once"""
+        self.generate_did()
+        return True  # run once and then stop
 
-        domain, port, path, aid = didding.parseDIDWebs(self.did)
-
-        msgs = bytearray()
+    def retrieve_kel_via_oobi(self):
         # if self.oobi is not None or self.oobi == "":
-        #     print(f"Using oobi {self.oobi} to get CESR event stream")
+        #     logger.info(f"Using oobi {self.oobi} to get CESR event stream")
         #     obr = basing.OobiRecord(date=helping.nowIso8601())
         #     obr.cid = aid
         #     self.hby.db.oobis.pin(keys=(self.oobi,), val=obr)
 
-        #     print(f"Resolving OOBI {self.oobi}")
+        #     logger.info(f"Resolving OOBI {self.oobi}")
         #     roobi = self.hby.db.roobi.get(keys=(self.oobi,))
         #     while roobi is None or roobi.state != oobiing.Result.resolved:
         #         roobi = self.hby.db.roobi.get(keys=(self.oobi,))
         #         _ = yield tock
-        #     print(f"OOBI {self.oobi} resolved {roobi}")
+        #     logger.info(f"OOBI {self.oobi} resolved {roobi}")
 
         #     oobiHab = self.hby.habs[aid]
-        #     print(f"Loading hab for OOBI {self.oobi}:\n {oobiHab}")
+        #     logger.info(f"Loading hab for OOBI {self.oobi}:\n {oobiHab}")
         #     msgs = oobiHab.replyToOobi(aid=aid, role="controller", eids=None)
-        #     print(f"OOBI {self.oobi} CESR event stream {msgs.decode('utf-8')}")
+        #     logger.info(f"OOBI {self.oobi} CESR event stream {msgs.decode('utf-8')}")
+        pass
 
-        print(f'Generating CESR event stream data from hab')
-        # add KEL
-        self.genKelCesr(aid, msgs)
-        # add designated aliases TELs and ACDCs
-        self.genCredCesr(aid, didding.DES_ALIASES_SCHEMA, msgs)
-
+    def generate_keri_cesr(self, aid: str, msgs: bytearray):
+        """Generate the keri.cesr file and any needed directories."""
         # Create the directory (and any intermediate directories in the given path) if it doesn't already exist
         kc_dir_path = f'{aid}'
         if not os.path.exists(kc_dir_path):
@@ -117,20 +133,22 @@ class Generator(doing.DoDoer):
         kc_file_path = os.path.join(kc_dir_path, f'{ends.KERI_CESR}')
         kcf = open(kc_file_path, 'w')
         tmsg = msgs.decode('utf-8')
-        print(f'Writing CESR events to {kc_file_path}: \n{tmsg}')
+        logger.info(f'Writing CESR events to {kc_file_path}: \n{tmsg}')
         kcf.write(tmsg)
 
-        # generate did doc
-        result = didding.generateDIDDoc(self.hby, did=self.did, aid=aid, oobi=None, reg_name=self.da_reg, meta=self.meta)
+    def generate_did_doc(self, aid: str):
+        gen_doc = didding.generateDIDDoc(
+            self.hby, did=self.did, aid=aid, oobi=None,
+            reg_name=self.da_reg, meta=self.meta)
 
-        if not result:
+        if not gen_doc:
             self.remove(self.toRemove)
             return False
 
-        diddoc = result
+        diddoc = gen_doc
         if self.meta:
-            diddoc = result['didDocument']
-            print('Generated metadata for DID document', result['didDocumentMetadata'])
+            diddoc = gen_doc['didDocument']
+            logger.info('Generated metadata for DID document', gen_doc['didDocumentMetadata'])
 
         # Create the directory (and any intermediate directories in the given path) if it doesn't already exist
         dd_dir_path = f'{aid}'
@@ -140,11 +158,32 @@ class Generator(doing.DoDoer):
         dd_file_path = os.path.join(dd_dir_path, f'{ends.DID_JSON}')
         ddf = open(dd_file_path, 'w')
         json.dump(didding.toDidWeb(diddoc), ddf)
+        return diddoc
+
+
+    def generate_did(self):
+        """Drive did:webs did.json and keri.cesr generation"""
+        logger.info((
+            f'\nGenerate DID doc for: {self.did}'
+            f'\nusing OOBI          : {self.oobi}'
+            f'\nand metadata        : {self.meta}'
+            f'\nregistry name       : {self.da_reg}'
+        ))
+        domain, port, path, aid = didding.parseDIDWebs(self.did)
+
+        logger.info(f'Generating CESR event stream data from local Habery keystore')
+        msgs = bytearray()
+        # self.retrieve_kel_via_oobi() # not currently used; an alternative to relying on a local KEL keystore
+        msgs.extend(self.genKelCesr(aid))           # add KEL CESR stream
+        msgs.extend(self.gen_des_aliases_cesr(aid)) # add designated aliases TELs and ACDCs
+        self.generate_keri_cesr(aid, msgs)
+
+        # generate did doc
+        diddoc = self.generate_did_doc(aid)
 
         kever = self.hby.kevers[aid]
 
         # construct the KEL
-
         pre = kever.prefixer.qb64
         preb = kever.prefixer.qb64b
 
@@ -174,39 +213,68 @@ class Generator(doing.DoDoer):
             except ValueError as e:
                 raise e
         state = kever.state()._asdict()
-        result = dict(didDocument=diddoc, pre=pre, state=state, kel=kel)
-        didData = json.dumps(result, indent=2)
+        gen_doc = dict(didDocument=diddoc, pre=pre, state=state, kel=kel)
+        didData = json.dumps(gen_doc, indent=2)
 
-        print(didData)
+        logger.info(didData)
         self.remove(self.toRemove)
         return True
 
-    def genKelCesr(self, pre: str, msgs: bytearray):
-        print(f'Generating {pre} KEL CESR events')
+    def genKelCesr(self, pre: str) -> bytearray:
+        """Return a bytearray of the CESR stream of all KEL events for a given prefix."""
+        msgs = bytearray()
+        logger.info(f'Generating {pre} KEL CESR events')
         for msg in self.hby.db.clonePreIter(pre=pre):
             msgs.extend(msg)
+        return msgs
 
-    def genTelCesr(self, reger: viring.Reger, regk: str, msgs: bytearray):
-        print(f'Generating {regk} TEL CESR events')
+    def genTelCesr(self, reger: viring.Reger, regk: str) -> bytearray:
+        """Get the CESR stream of TEL events for a given registry."""
+        msgs = bytearray()
+        logger.info(f'Generating {regk} TEL CESR events')
         for msg in reger.clonePreIter(pre=regk):
             msgs.extend(msg)
+        return msgs
 
-    def genAcdcCesr(self, aid, creder, msgs: bytearray):
-        # print(f"Generating {creder.crd['d']} ACDC CESR events, issued by {creder.crd['i']}")
-        cmsg = self.hby.habs[aid].endorse(creder)
-        msgs.extend(cmsg)
+    def genAcdcCesr(self, aid, creder) -> bytearray:
+        """???"""
+        # logger.info(f"Generating {creder.crd['d']} ACDC CESR events, issued by {creder.crd['i']}")
+        return self.hby.habs[aid].endorse(creder)
 
-    def genCredCesr(self, aid: str, schema: str, msgs: bytearray):
-        rgy = credentialing.Regery(hby=self.hby, name=self.hby.name, base=self.hby.base)
-        saids = rgy.reger.issus.get(keys=aid)
-        scads = rgy.reger.schms.get(keys=schema.encode('utf-8'))
+    def gen_des_aliases_cesr(self, aid: str, schema: str = didding.DES_ALIASES_SCHEMA) -> bytearray:
+        return self.genCredCesr(aid, schema)
+
+    def get_self_issued_acdcs(self, aid: str,
+                              rgy: credentialing.Regery,
+                              schema: str = didding.DES_ALIASES_SCHEMA):
+        """Get self issued ACDCs filtered by schema"""
+        creds_issued = rgy.reger.issus.get(keys=aid)
+        creds_by_schema = rgy.reger.schms.get(keys=schema.encode('utf-8'))
 
         # self-attested, there is no issuee, and schema is designated aliases
-        saiders = [saider for saider in saids if saider.qb64 in [saider.qb64 for saider in scads]]
-        for saider in saiders:
-            creder, *_ = rgy.reger.cloneCred(said=saider.qb64)
+        return [cred_issued for cred_issued in creds_issued
+                if cred_issued.qb64 in [
+                    cred_by_schm.qb64 for cred_by_schm in creds_by_schema]]
 
+    def genCredCesr(self, aid: str, schema: str):
+        """
+        Select a specific ACDC from the local registry (Regery), if it exists, to generate the
+        CESR stream
+        Args:
+            aid: AID prefix to retrieve the ACDC for
+            schema: the schema to use to select the target ACDC from the local registry
+
+        Returns:
+            bytearray: CESR stream of locally stored ACDC events for the specified AID and schema
+        """
+        # self-attested, there is no issuee, and schema is designated aliases
+        local_creds = self.get_self_issued_acdcs(aid, self.rgy, schema)
+
+        msgs = bytearray()
+        for cred in local_creds:
+            creder, *_ = self.rgy.reger.cloneCred(said=cred.qb64)
             if creder.regi is not None:
-                self.genTelCesr(rgy.reger, creder.regi, msgs)
-                self.genTelCesr(rgy.reger, creder.said, msgs)
-            self.genAcdcCesr(aid, creder, msgs)
+                msgs.extend(self.genTelCesr(self.rgy.reger, creder.regi))
+                msgs.extend(self.genTelCesr(self.rgy.reger, creder.said))
+            msgs.extend(self.genAcdcCesr(aid, creder))
+        return msgs

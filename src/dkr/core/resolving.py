@@ -15,7 +15,7 @@ from hio.base import doing
 from hio.core import http
 from keri.app import habbing
 
-from dkr.core import didding, webbing
+from dkr.core import didding, ends
 
 
 def getSrcs(did: str, resq: queue.Queue = None):
@@ -27,13 +27,13 @@ def getSrcs(did: str, resq: queue.Queue = None):
     base_url = f'http://{domain}{opt_port}{opt_path}/{aid}'
 
     # Load the did doc
-    dd_url = f'{base_url}/{webbing.DID_JSON}'
+    dd_url = f'{base_url}/{ends.DID_JSON}'
     print(f'Loading DID Doc from {dd_url}')
     dd_res = loadUrl(dd_url, resq=resq)
     print(f'Got DID doc: {dd_res.content.decode("utf-8")}')
 
     # Load the KERI CESR
-    kc_url = f'{base_url}/{webbing.KERI_CESR}'
+    kc_url = f'{base_url}/{ends.KERI_CESR}'
     print(f'Loading KERI CESR from {kc_url}')
     kc_res = loadUrl(kc_url, resq=resq)
     print(f'Got KERI CESR: {kc_res.content.decode("utf-8")}')

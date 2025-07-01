@@ -4,16 +4,10 @@ kara.app.commands module
 
 """
 
-import logging
-
 import multicommand
-from keri import help
 from keri.app import directing
 
 from dkr.app.cli import commands
-
-help.ogler.level = logging.CRITICAL
-help.ogler.reopen(name='dkr', temp=True, clear=True)
 
 
 def main():
@@ -22,15 +16,22 @@ def main():
 
     if not hasattr(args, 'handler'):
         parser.print_help()
-        return
+        return 0
 
     try:
         doers = args.handler(args)
-        # print(f"doers={doers}")
         directing.runController(doers=doers, expire=0.0)
-
+        return 0
     except Exception as ex:
-        raise ex
+        import os
+
+        if os.getenv('DEBUG_DKR'):
+            import traceback
+
+            traceback.print_exc()
+        else:
+            print(f'ERR: {ex}')
+        return -1
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@ from keri.app import directing
 
 from dkr.app.cli import commands
 
+
 def main():
     parser = multicommand.create_parser(commands)
     args = parser.parse_args()
@@ -23,11 +24,13 @@ def main():
         return 0
     except Exception as ex:
         import os
+
         if os.getenv('DEBUG_DKR'):
             import traceback
+
             traceback.print_exc()
         else:
-            print(f"ERR: {ex}")
+            print(f'ERR: {ex}')
         return -1
 
 

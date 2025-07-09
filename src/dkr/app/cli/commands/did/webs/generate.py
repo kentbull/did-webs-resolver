@@ -21,41 +21,31 @@ from dkr.core import didding, ends
 
 parser = argparse.ArgumentParser(description='Generate a did:webs DID document and KEL, TEL, and ACDC CESR stream file')
 parser.set_defaults(handler=lambda args: handler(args), transferable=True)
-parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
-parser.add_argument(
-    '--base', '-b', help='additional optional prefix to file location of KERI keystore', required=False, default=''
-)
-parser.add_argument(
-    '--passcode', help='22 character encryption passcode for keystore (is not saved)', dest='bran', default=None
-)  # passcode => bran
-parser.add_argument('--did', '-d', help='DID to generate (did:webs method)', required=True)
+parser.add_argument('-n', '--name', action='store', default='dkr',
+                    help='Name of controller. Default is dkr.')
+parser.add_argument('-b', '--base', required=False, default='',
+                    help='additional optional prefix to file location of KERI keystore')
+parser.add_argument('-p', '--passcode', dest='bran', default=None,
+                    help='22 character encryption passcode for keystore (is not saved)')  # passcode => bran
+parser.add_argument('-o', '--output-dir', required=False, default='.',
+                    help='Directory to output the generated files. Default is current directory.')
 # parser.add_argument("--oobi", "-o", help="OOBI to use for resolving the AID", required=False)
-parser.add_argument(
-    '-da',
-    '--da_reg',
-    required=False,
-    default=None,
-    help='Name of Regery to find designated aliases attestation. Default is None.',
-)
-parser.add_argument(
-    '--meta',
-    '-m',
-    help='Whether to include metadata (True), or only return the DID document (False)',
-    type=bool,
-    required=False,
-    default=False,
-)
+parser.add_argument('-da', '--da_reg', required=False, default=None,
+    help='Name of Regery to find designated aliases attestation. Default is None.')
+parser.add_argument('-m', '--meta', type=bool, required=False, default=False,
+                    help='Whether to include metadata (True), or only return the DID document (False)')
+parser.add_argument('-d', '--did', required=True,
+                    help='DID to generate (did:webs method)')
 parser.add_argument("--loglevel", action="store", required=False, default="CRITICAL",
                     help="Set log level to DEBUG | INFO | WARNING | ERROR | CRITICAL. Default is CRITICAL")
 
 logger = dkr.ogler.getLogger(dkr.log_name)
 
-
 def handler(args: argparse.Namespace) -> list[doing.Doer]:
     dkr.ogler.level = logging.getLevelName(args.loglevel.upper())
     logger.setLevel(dkr.ogler.level)
     gen = DIDGenerator(
-        name=args.name, base=args.base, bran=args.bran, did=args.did, oobi=None, da_reg=args.da_reg, meta=args.meta
+        name=args.name, base=args.base, bran=args.bran, did=args.did, oobi=None, da_reg=args.da_reg, meta=args.meta, output_dir=args.output_dir
     )
     return [gen]
 
@@ -67,18 +57,19 @@ class DIDGenerator(doing.DoDoer):
     - keri.cesr contains the CESR event stream for the KELs, TELs, and ACDCs associated with the DID.
     """
 
-    def __init__(self, name, base, bran, did, oobi, da_reg, meta=False):
+    def __init__(self, name, base, bran, did, oobi, da_reg, meta=False, output_dir='.'):
         """
         Initializes the did:webs DID file generator.
 
         Parameters:
-            name (str): Name of the controller.
-            base (str): Base path for the KERI keystore.
-            bran (str): Passcode for the KERI keystore.
-            did (str): The did:webs DID to generate.
+            name (str): Name of the controller keystore (Habery) to use for generating the DID document.
+            base (str): Base path (namespace for local file tree) for the KERI keystore (Habery) to use for generating the DID document.
+            bran (str): Passcode for the controller of the local KERI keystore.
+            did (str): The did:webs DID showing the domain and AID to generate the DID document and CESR stream for.
             oobi (str): OOBI to use for resolving the AID (not currently used).
-            da_reg (str): Name of the Regery to find designated aliases attestation.
-            meta (bool): Whether to include metadata in the DID document generation.
+            da_reg (str): Name of the local registry (Regery) to use find designated aliases self-attestation (issued locally).
+            meta (bool): Whether to include metadata in the DID document generation. Defaults to False.
+            output_dir (str): Directory to output the generated files. Default is current directory.
         """
         self.name = name
         self.base = base
@@ -92,6 +83,7 @@ class DIDGenerator(doing.DoDoer):
         self.oobi = oobi
         self.da_reg = da_reg
         self.meta = meta
+        self.output_dir = output_dir
 
         self.toRemove = [hbyDoer] + obl.doers
         doers = list(self.toRemove)
@@ -122,10 +114,11 @@ class DIDGenerator(doing.DoDoer):
         #     logger.info(f"OOBI {self.oobi} CESR event stream {msgs.decode('utf-8')}")
         pass
 
-    def generate_keri_cesr(self, aid: str, msgs: bytearray):
+    def generate_keri_cesr(self, output_dir: str, aid: str, msgs: bytearray):
         """Generate the keri.cesr file and any needed directories."""
         # Create the directory (and any intermediate directories in the given path) if it doesn't already exist
-        kc_dir_path = f'{aid}'
+        kc_dir_path = os.path.join(output_dir, aid)
+        logger.debug(f'Creating directory for KERI CESR events: {kc_dir_path}')
         if not os.path.exists(kc_dir_path):
             os.makedirs(kc_dir_path)
 
@@ -136,7 +129,8 @@ class DIDGenerator(doing.DoDoer):
         logger.info(f'Writing CESR events to {kc_file_path}: \n{tmsg}')
         kcf.write(tmsg)
 
-    def generate_did_doc(self, aid: str):
+    def generate_did_doc(self, aid: str, output_dir: str):
+        """Generate the did:webs DID document and save it to a file at output_dir/{aid}/{AID}.json."""
         gen_doc = didding.generateDIDDoc(
             self.hby, did=self.did, aid=aid, oobi=None,
             reg_name=self.da_reg, meta=self.meta)
@@ -151,7 +145,7 @@ class DIDGenerator(doing.DoDoer):
             logger.info('Generated metadata for DID document', gen_doc['didDocumentMetadata'])
 
         # Create the directory (and any intermediate directories in the given path) if it doesn't already exist
-        dd_dir_path = f'{aid}'
+        dd_dir_path = os.path.join(output_dir, aid)
         if not os.path.exists(dd_dir_path):
             os.makedirs(dd_dir_path)
 
@@ -176,10 +170,10 @@ class DIDGenerator(doing.DoDoer):
         # self.retrieve_kel_via_oobi() # not currently used; an alternative to relying on a local KEL keystore
         msgs.extend(self.genKelCesr(aid))           # add KEL CESR stream
         msgs.extend(self.gen_des_aliases_cesr(aid)) # add designated aliases TELs and ACDCs
-        self.generate_keri_cesr(aid, msgs)
+        self.generate_keri_cesr(self.output_dir, aid, msgs)
 
         # generate did doc
-        diddoc = self.generate_did_doc(aid)
+        diddoc = self.generate_did_doc(aid, self.output_dir)
 
         kever = self.hby.kevers[aid]
 
@@ -216,7 +210,7 @@ class DIDGenerator(doing.DoDoer):
         gen_doc = dict(didDocument=diddoc, pre=pre, state=state, kel=kel)
         didData = json.dumps(gen_doc, indent=2)
 
-        logger.info(didData)
+        logger.debug(didData)
         self.remove(self.toRemove)
         return True
 

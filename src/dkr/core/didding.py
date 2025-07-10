@@ -17,7 +17,7 @@ from keri.core import coring, scheming
 from keri.help import helping
 from keri.vdr import credentialing, verifying
 
-from dkr import ogler, log_name
+from dkr import log_name, ogler
 
 logger = ogler.getLogger(log_name)
 

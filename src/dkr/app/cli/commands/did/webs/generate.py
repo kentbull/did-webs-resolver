@@ -16,7 +16,7 @@ from keri.core import eventing
 from keri.db import dbing
 from keri.vdr import credentialing, viring
 
-import dkr
+from dkr import log_name, ogler
 from dkr.core import didding, ends
 
 parser = argparse.ArgumentParser(description='Generate a did:webs DID document and KEL, TEL, and ACDC CESR stream file')
@@ -60,7 +60,8 @@ parser.add_argument(
     help='Set log level to DEBUG | INFO | WARNING | ERROR | CRITICAL. Default is CRITICAL',
 )
 
-logger = dkr.ogler.getLogger(dkr.log_name)
+logger = ogler.getLogger(log_name)
+
 
 def handler(args: argparse.Namespace) -> list[doing.Doer]:
     """

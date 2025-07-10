@@ -67,14 +67,15 @@ class KeriResolver(doing.DoDoer):
         self.meta = meta
 
         self.toRemove = [hbyDoer] + obl.doers
-        doers = list(self.toRemove) + [doing.doify(self.resolve)]
+        doers = list(self.toRemove)
         super(KeriResolver, self).__init__(doers=doers)
 
-    def resolve(self, tymth, tock=0.0, **opts):
-        self.wind(tymth)
-        self.tock = tock
-        _ = yield self.tock
+    def recur(self, tock=0.0, **opts):
+        res = self.resolve(tock)
+        logger.info(f'did:keri Resolution result: {res}')
+        return True
 
+    def resolve(self, tock=0.0):
         aid = didding.parseDIDKeri(self.did)
         logger.error(f'From arguments got aid: {aid}')
         logger.error(f'From arguments got oobi: {self.oobi}')

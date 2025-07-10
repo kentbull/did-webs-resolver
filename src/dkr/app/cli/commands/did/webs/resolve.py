@@ -61,15 +61,19 @@ class WebsResolver(doing.DoDoer):
         self.did = did
         self.meta = meta
 
-        self.toRemove = [hbyDoer] + obl.doers
-        doers = list(self.toRemove) + [doing.doify(self.resolve)]
+        self.toRemove = [hbyDoer] + oobiery.doers
+        doers = list(self.toRemove)
         super(WebsResolver, self).__init__(doers=doers)
 
-    def resolve(self, tymth, tock=0.125, **opts):
-        self.wind(tymth)
-        self.tock = tock
-        _ = yield self.tock
+    def recur(self, tock=0.0, **opts):
+        self.resolve()
+        return True
 
-        resolving.resolve(hby=self.hby, did=self.did, meta=self.meta)
-
+    def resolve(self):
+        """Resolve the did:webs DID."""
+        resolved, resolution = resolving.resolve(hby=self.hby, did=self.did, meta=self.meta)
+        if resolved:
+            print(f'Verification success for {self.did}')
+        else:
+            print(f'Verification failure for {self.did}\nResolution: {json.dumps(resolution, indent=2)}')
         self.remove(self.toRemove)

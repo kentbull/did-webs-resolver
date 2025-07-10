@@ -16,19 +16,20 @@ parser = argparse.ArgumentParser(description='Resolve a did:webs DID')
 parser.set_defaults(handler=lambda args: handler(args), transferable=True)
 parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
 parser.add_argument(
-    '--base', '-b', help='additional optional prefix to file location of KERI keystore', required=False, default=''
+    '-b', '--base', required=False, default='', help='additional optional prefix to file location of KERI keystore'
 )
+# passcode => bran
 parser.add_argument(
-    '--passcode', help='22 character encryption passcode for keystore (is not saved)', dest='bran', default=None
-)  # passcode => bran
-parser.add_argument('--did', '-d', help='DID to resolve', required=True)
+    '--passcode', dest='bran', default=None, help='22 character encryption passcode for keystore (is not saved)'
+)
+parser.add_argument('-d', '--did', required=True, help='DID to resolve')
 parser.add_argument(
-    '--meta',
     '-m',
-    help='Whether to include metadata (True), or only return the DID document (False)',
+    '--meta',
     type=bool,
     required=False,
     default=None,
+    help='Whether to include metadata (True), or only return the DID document (False)',
 )
 
 

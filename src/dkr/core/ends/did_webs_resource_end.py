@@ -35,7 +35,7 @@ class DIDWebsResourceEnd:
 
         # 404 if AID not recognized
         if aid not in self.hby.kevers:
-            raise falcon.HTTPNotFound(description='KERI AID {aid} not found')
+            raise falcon.HTTPNotFound(description=f'KERI AID {aid} not found')
 
         path = os.path.normpath(req.path).replace(f'/{DID_JSON}', '').replace('/', ':')
         port = ''

@@ -120,13 +120,9 @@ def generateVerificationMethods(verfers, thold, did, aid):
     if isinstance(thold, int):
         if thold > 1:
             conditions = [vm.get('id') for vm in vms]
-            vms.append(
-                generateThresholdProof2022(aid, did, thold, conditions)
-            )
+            vms.append(generateThresholdProof2022(aid, did, thold, conditions))
     elif isinstance(thold, list):
-        vms.append(
-            generateWeightedThresholdProof(thold, verfers, vms, did, aid)
-        )
+        vms.append(generateWeightedThresholdProof(thold, verfers, vms, did, aid))
     return vms
 
 
@@ -214,12 +210,7 @@ def genDidDocument(did, vms, serviceEndpoints, alsoKnownAs):
     Returns:
         dict: A basic DID document structure.
     """
-    return dict(
-        id=did,
-        verificationMethod=vms,
-        service=serviceEndpoints,
-        alsoKnownAs=alsoKnownAs
-    )
+    return dict(id=did, verificationMethod=vms, service=serviceEndpoints, alsoKnownAs=alsoKnownAs)
 
 
 def genDidResolutionResult(witnessList, seqNo, equivalentIds, did, vms, servEnds, akaIds):
@@ -240,14 +231,12 @@ def genDidResolutionResult(witnessList, seqNo, equivalentIds, did, vms, servEnds
     """
     return dict(
         didDocument=genDidDocument(did, vms, servEnds, akaIds),
-        didResolutionMetadata=dict(
-            contentType='application/did+json',
-            retrieved=helping.nowUTC().strftime(DID_TIME_FORMAT)),
+        didResolutionMetadata=dict(contentType='application/did+json', retrieved=helping.nowUTC().strftime(DID_TIME_FORMAT)),
         didDocumentMetadata=dict(
             witnesses=witnessList,
             versionId=f'{seqNo}',
             equivalentId=equivalentIds,
-        )
+        ),
     )
 
 
@@ -276,11 +265,13 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
     """
     if (did and aid) and not did.endswith(aid):
         raise ValueError(f'{did} does not end with {aid}')
-    log_str = (f"Generating DID document for\n\t{did}"
-               f"\nwith aid\n\t{aid}"
-               f"\nusing oobi\n\t{oobi}"
-               f"\nand metadata\n\t{meta}"
-               f"\nregistry name for creds\n\t{reg_name}")
+    log_str = (
+        f'Generating DID document for\n\t{did}'
+        f'\nwith aid\n\t{aid}'
+        f'\nusing oobi\n\t{oobi}'
+        f'\nand metadata\n\t{meta}'
+        f'\nregistry name for creds\n\t{reg_name}'
+    )
     logger.info(log_str)
 
     hab = None
@@ -329,7 +320,7 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
             did=did,
             vms=vms,
             servEnds=servEnds,
-            akaIds=akaIds
+            akaIds=akaIds,
         )
     else:
         return genDidDocument(did, vms, servEnds, akaIds)

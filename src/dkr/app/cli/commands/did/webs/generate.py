@@ -21,36 +21,67 @@ from dkr.core import didding, ends
 
 parser = argparse.ArgumentParser(description='Generate a did:webs DID document and KEL, TEL, and ACDC CESR stream file')
 parser.set_defaults(handler=lambda args: handler(args), transferable=True)
-parser.add_argument('-n', '--name', action='store', default='dkr',
-                    help='Name of controller. Default is dkr.')
-parser.add_argument('-b', '--base', required=False, default='',
-                    help='additional optional prefix to file location of KERI keystore')
-parser.add_argument('-p', '--passcode', dest='bran', default=None,
-                    help='22 character encryption passcode for keystore (is not saved)')  # passcode => bran
-parser.add_argument('-o', '--output-dir', required=False, default='.',
-                    help='Directory to output the generated files. Default is current directory.')
+parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
+parser.add_argument(
+    '-b', '--base', required=False, default='', help='additional optional prefix to file location of KERI keystore'
+)
+parser.add_argument(
+    '-p', '--passcode', dest='bran', default=None, help='22 character encryption passcode for keystore (is not saved)'
+)  # passcode => bran
+parser.add_argument(
+    '-o',
+    '--output-dir',
+    required=False,
+    default='.',
+    help='Directory to output the generated files. Default is current directory.',
+)
 # parser.add_argument("--oobi", "-o", help="OOBI to use for resolving the AID", required=False)
-parser.add_argument('-da', '--da_reg', required=False, default=None,
-    help='Name of Regery to find designated aliases attestation. Default is None.')
-parser.add_argument('-m', '--meta', type=bool, required=False, default=False,
-                    help='Whether to include metadata (True), or only return the DID document (False)')
-parser.add_argument('-d', '--did', required=True,
-                    help='DID to generate (did:webs method)')
-parser.add_argument("--loglevel", action="store", required=False, default="CRITICAL",
-                    help="Set log level to DEBUG | INFO | WARNING | ERROR | CRITICAL. Default is CRITICAL")
+parser.add_argument(
+    '-da',
+    '--da_reg',
+    required=False,
+    default=None,
+    help='Name of Regery to find designated aliases attestation. Default is None.',
+)
+parser.add_argument(
+    '-m',
+    '--meta',
+    type=bool,
+    required=False,
+    default=False,
+    help='Whether to include metadata (True), or only return the DID document (False)',
+)
+parser.add_argument('-d', '--did', required=True, help='DID to generate (did:webs method)')
+parser.add_argument(
+    '--loglevel',
+    action='store',
+    required=False,
+    default='CRITICAL',
+    help='Set log level to DEBUG | INFO | WARNING | ERROR | CRITICAL. Default is CRITICAL',
+)
 
 logger = dkr.ogler.getLogger(dkr.log_name)
 
 def handler(args: argparse.Namespace) -> list[doing.Doer]:
-    dkr.ogler.level = logging.getLevelName(args.loglevel.upper())
-    logger.setLevel(dkr.ogler.level)
-    gen = DIDGenerator(
-        name=args.name, base=args.base, bran=args.bran, did=args.did, oobi=None, da_reg=args.da_reg, meta=args.meta, output_dir=args.output_dir
+    """
+    Perform did:webs artifact generation for the DID document and keri.cesr CESR stream and then shut down.
+    """
+    ogler.level = logging.getLevelName(args.loglevel.upper())
+    logger.setLevel(ogler.level)
+    gen = DIDArtifactGenerator(
+        name=args.name,
+        base=args.base,
+        bran=args.bran,
+        did=args.did,
+        oobi=None,
+        da_reg=args.da_reg,
+        meta=args.meta,
+        output_dir=args.output_dir,
     )
     return [gen]
 
 
-class DIDGenerator(doing.DoDoer):
+class DIDArtifactGenerator(doing.DoDoer):
     """
     Generates a did:webs DID document and the associated CESR stream for the {AID}.json and keri.cesr files.
     - {AID}.json contains the DID document
@@ -87,7 +118,7 @@ class DIDGenerator(doing.DoDoer):
 
         self.toRemove = [hbyDoer] + obl.doers
         doers = list(self.toRemove)
-        super(DIDGenerator, self).__init__(doers=doers)
+        super(DIDArtifactGenerator, self).__init__(doers=doers)
 
     def recur(self, tock=0.0, **opts):
         """DoDoer lifecycle function that calls the underlying DID generation function. Runs once"""
@@ -131,9 +162,7 @@ class DIDGenerator(doing.DoDoer):
 
     def generate_did_doc(self, aid: str, output_dir: str):
         """Generate the did:webs DID document and save it to a file at output_dir/{aid}/{AID}.json."""
-        gen_doc = didding.generateDIDDoc(
-            self.hby, did=self.did, aid=aid, oobi=None,
-            reg_name=self.da_reg, meta=self.meta)
+        gen_doc = didding.generateDIDDoc(self.hby, did=self.did, aid=aid, oobi=None, reg_name=self.da_reg, meta=self.meta)
 
         if not gen_doc:
             self.remove(self.toRemove)
@@ -154,22 +183,23 @@ class DIDGenerator(doing.DoDoer):
         json.dump(didding.toDidWeb(diddoc), ddf)
         return diddoc
 
-
     def generate_did(self):
         """Drive did:webs did.json and keri.cesr generation"""
-        logger.info((
-            f'\nGenerate DID doc for: {self.did}'
-            f'\nusing OOBI          : {self.oobi}'
-            f'\nand metadata        : {self.meta}'
-            f'\nregistry name       : {self.da_reg}'
-        ))
+        logger.info(
+            (
+                f'\nGenerate DID doc for: {self.did}'
+                f'\nusing OOBI          : {self.oobi}'
+                f'\nand metadata        : {self.meta}'
+                f'\nregistry name       : {self.da_reg}'
+            )
+        )
         domain, port, path, aid = didding.parseDIDWebs(self.did)
 
         logger.info(f'Generating CESR event stream data from local Habery keystore')
         msgs = bytearray()
         # self.retrieve_kel_via_oobi() # not currently used; an alternative to relying on a local KEL keystore
-        msgs.extend(self.genKelCesr(aid))           # add KEL CESR stream
-        msgs.extend(self.gen_des_aliases_cesr(aid)) # add designated aliases TELs and ACDCs
+        msgs.extend(self.genKelCesr(aid))  # add KEL CESR stream
+        msgs.extend(self.gen_des_aliases_cesr(aid))  # add designated aliases TELs and ACDCs
         self.generate_keri_cesr(self.output_dir, aid, msgs)
 
         # generate did doc
@@ -238,17 +268,17 @@ class DIDGenerator(doing.DoDoer):
     def gen_des_aliases_cesr(self, aid: str, schema: str = didding.DES_ALIASES_SCHEMA) -> bytearray:
         return self.genCredCesr(aid, schema)
 
-    def get_self_issued_acdcs(self, aid: str,
-                              rgy: credentialing.Regery,
-                              schema: str = didding.DES_ALIASES_SCHEMA):
+    def get_self_issued_acdcs(self, aid: str, rgy: credentialing.Regery, schema: str = didding.DES_ALIASES_SCHEMA):
         """Get self issued ACDCs filtered by schema"""
         creds_issued = rgy.reger.issus.get(keys=aid)
         creds_by_schema = rgy.reger.schms.get(keys=schema.encode('utf-8'))
 
         # self-attested, there is no issuee, and schema is designated aliases
-        return [cred_issued for cred_issued in creds_issued
-                if cred_issued.qb64 in [
-                    cred_by_schm.qb64 for cred_by_schm in creds_by_schema]]
+        return [
+            cred_issued
+            for cred_issued in creds_issued
+            if cred_issued.qb64 in [cred_by_schm.qb64 for cred_by_schm in creds_by_schema]
+        ]
 
     def genCredCesr(self, aid: str, schema: str):
         """

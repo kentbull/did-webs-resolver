@@ -22,12 +22,13 @@ parser.add_argument(
 )
 parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
 parser.add_argument(
-    '--base', '-b', help='additional optional prefix to file location of KERI keystore', required=False, default=''
+    '-b', '--base', required=False, default='', help='additional optional prefix to file location of KERI keystore'
 )
+# passcode => bran
 parser.add_argument(
-    '--passcode', help='22 character encryption passcode for keystore (is not saved)', dest='bran', default=None
-)  # passcode => bran
-parser.add_argument('--config-dir', '-c', dest='configDir', help='directory override for configuration data', default=None)
+    '--passcode', dest='bran', default=None, help='22 character encryption passcode for keystore (is not saved)'
+)
+parser.add_argument('-c', '--config-dir', dest='configDir', default=None, help='directory override for configuration data')
 parser.add_argument('--config-file', dest='configFile', action='store', default=None, help='configuration filename override')
 
 
@@ -39,6 +40,7 @@ def launch(args, expire=0.0):
 
     configFile = args.configFile
     configDir = args.configDir
+    staticFilesDir = args.staticFilesDir
 
     ks = keeping.Keeper(name=name, base=base, temp=False, reopen=True)
 

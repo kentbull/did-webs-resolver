@@ -5,7 +5,7 @@ from hio.help import ogling
 
 from dkr.app.logs import TruncatedFormatter
 
-log_name='dws' # name of this project that shows up in log messages
+log_name = 'dws'  # name of this project that shows up in log messages
 
 ogler = ogling.initOgler(prefix=log_name, syslogged=False)
 ogler.level = logging.INFO

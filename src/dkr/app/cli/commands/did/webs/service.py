@@ -5,16 +5,17 @@ dkr.app.cli.commands module
 """
 
 import argparse
+import logging
 
 import falcon
 import hio
 import hio.core.tcp
 import viking
 from hio.core import http
-from keri.app import configing, habbing, notifying, oobiing
+from keri.app import configing, habbing, oobiing
 from keri.app.cli.common import existing
-from keri.vdr import viring
 
+from dkr import log_name, ogler
 from dkr.core import webbing
 
 parser = argparse.ArgumentParser(description='Launch web server capable of serving KERI AIDs as did:webs and did:web DIDs')
@@ -33,9 +34,20 @@ parser.add_argument('--config-file', dest='configFile', action='store', default=
 parser.add_argument('--keypath', action='store', required=False, default=None)
 parser.add_argument('--certpath', action='store', required=False, default=None)
 parser.add_argument('--cafilepath', action='store', required=False, default=None)
+parser.add_argument(
+    '--loglevel',
+    action='store',
+    required=False,
+    default='CRITICAL',
+    help='Set log level to DEBUG | INFO | WARNING | ERROR | CRITICAL. Default is CRITICAL',
+)
+
+logger = ogler.getLogger(log_name)
 
 
 def launch(args):
+    ogler.level = logging.getLevelName(args.loglevel.upper())
+    logger.setLevel(ogler.level)
     name = args.name
     alias = args.alias
     base = args.base
@@ -75,5 +87,5 @@ def launch(args):
     doers = obl.doers + [hbyDoer, httpServerDoer]
     doers.extend(voodoers)
 
-    print(f'Launched web server capable of serving KERI AIDs as did:webs DIDs on: {httpPort}')
+    logger.info(f'Launched did:webs artifact webserver: {httpPort}')
     return doers

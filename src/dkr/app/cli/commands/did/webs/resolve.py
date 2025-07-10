@@ -5,11 +5,14 @@ dkr.app.cli.commands module
 """
 
 import argparse
+import json
+import logging
 
 from hio.base import doing
 from keri.app import habbing, oobiing
 from keri.app.cli.common import existing
 
+from dkr import log_name, ogler
 from dkr.core import resolving
 
 parser = argparse.ArgumentParser(description='Resolve a did:webs DID')
@@ -31,9 +34,20 @@ parser.add_argument(
     default=None,
     help='Whether to include metadata (True), or only return the DID document (False)',
 )
+parser.add_argument(
+    '--loglevel',
+    action='store',
+    required=False,
+    default='CRITICAL',
+    help='Set log level to DEBUG | INFO | WARNING | ERROR | CRITICAL. Default is CRITICAL',
+)
+
+logger = ogler.getLogger(log_name)
 
 
 def handler(args):
+    ogler.level = logging.getLevelName(args.loglevel.upper())
+    logger.setLevel(ogler.level)
     hby = existing.setupHby(name=args.name, base=args.base, bran=args.bran)
     hbyDoer = habbing.HaberyDoer(habery=hby)  # setup doer
     obl = oobiing.Oobiery(hby=hby)

@@ -34,13 +34,13 @@ def getSources(did: str, resq: queue.Queue = None):
     dd_url = f'{base_url}/{ends.DID_JSON}'
     logger.info(f'Loading DID Doc from {dd_url}')
     dd_res = loadUrl(dd_url, resq=resq)
-    logger.info(f'Got DID doc: {dd_res.content.decode("utf-8")}')
+    logger.debug(f'Got DID doc: {dd_res.content.decode("utf-8")}')
 
     # Load the KERI CESR
     kc_url = f'{base_url}/{ends.KERI_CESR}'
     logger.info(f'Loading KERI CESR from {kc_url}')
     kc_res = loadUrl(kc_url, resq=resq)
-    logger.info(f'Got KERI CESR: {kc_res.content.decode("utf-8")}')
+    logger.debug(f'Got KERI CESR: {kc_res.content.decode("utf-8")}')
 
     if resq is not None:
         resq.put(aid)
@@ -50,7 +50,7 @@ def getSources(did: str, resq: queue.Queue = None):
 
 
 def saveCesr(hby: habbing.Habery, kc_res: requests.Response, aid: str = None):
-    logger.info('Saving KERI CESR to hby', kc_res.content.decode('utf-8'))
+    logger.info('Saving KERI CESR to hby: %s', kc_res.content.decode('utf-8'))
     hby.psr.parse(ims=bytearray(kc_res.content))
     if aid:
         assert aid in hby.kevers, f'KERI CESR parsing failed, KERI AID {aid} not found in habery'

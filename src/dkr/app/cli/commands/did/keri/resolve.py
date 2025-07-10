@@ -6,7 +6,7 @@ dkr.app.cli.commands module
 
 import argparse
 import json
-import sys
+import logging
 
 from hio.base import doing
 from keri.app import habbing, oobiing
@@ -14,6 +14,7 @@ from keri.app.cli.common import existing
 from keri.db import basing
 from keri.help import helping
 
+from dkr import log_name, ogler
 from dkr.core import didding
 
 parser = argparse.ArgumentParser(description='Resolve a did:keri DID')
@@ -35,9 +36,20 @@ parser.add_argument(
     required=False,
     default=None,
 )
+parser.add_argument(
+    '--loglevel',
+    action='store',
+    required=False,
+    default='CRITICAL',
+    help='Set log level to DEBUG | INFO | WARNING | ERROR | CRITICAL. Default is CRITICAL',
+)
+
+logger = ogler.getLogger(log_name)
 
 
 def handler(args):
+    ogler.level = logging.getLevelName(args.loglevel.upper())
+    logger.setLevel(ogler.level)
     hby = existing.setupHby(name=args.name, base=args.base, bran=args.bran)
     hbyDoer = habbing.HaberyDoer(habery=hby)  # setup doer
     obl = oobiing.Oobiery(hby=hby)
@@ -46,6 +58,8 @@ def handler(args):
 
 
 class KeriResolver(doing.DoDoer):
+    """Resolve did:keri DID document from the KEL retrieved during OOBI resolution of the provided OOBI."""
+
     def __init__(self, hby, hbyDoer, obl, did, oobi, meta):
         self.hby = hby
         self.did = did
@@ -62,8 +76,8 @@ class KeriResolver(doing.DoDoer):
         _ = yield self.tock
 
         aid = didding.parseDIDKeri(self.did)
-        print(f'From arguments got aid: {aid}', file=sys.stderr)
-        print(f'From arguments got oobi: {self.oobi}', file=sys.stderr)
+        logger.error(f'From arguments got aid: {aid}')
+        logger.error(f'From arguments got oobi: {self.oobi}')
 
         obr = basing.OobiRecord(date=helping.nowIso8601())
         obr.cid = aid
@@ -77,6 +91,6 @@ class KeriResolver(doing.DoDoer):
         result = didresult if self.meta else dd
         data = json.dumps(result, indent=2)
 
-        print(data)
+        logger.info(f'did:keri Resolution data: {data}')
         self.remove(self.toRemove)
         return result

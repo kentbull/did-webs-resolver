@@ -15,4 +15,8 @@ class TruncatedFormatter(logging.Formatter):
         record.module = (record.module[:mod_chars] + ' ' * mod_chars)[:mod_chars]
         record.funcName = (record.funcName[:fn_chars] + ' ' * fn_chars)[:fn_chars]
         record.lineno = str(record.lineno).rjust(5)  # Ensure line number is right-aligned
-        return super().format(record)
+        try:
+            return super().format(record)
+        except Exception as e:
+            logging.error(f'Error formatting log record: {e}')
+            raise e

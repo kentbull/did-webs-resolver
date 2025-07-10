@@ -11,9 +11,8 @@ import re
 from base64 import urlsafe_b64encode
 from functools import reduce
 
-from keri import kering
 from keri.app import habbing, oobiing
-from keri.core import coring, scheming
+from keri.core import coring
 from keri.help import helping
 from keri.vdr import credentialing, verifying
 
@@ -265,14 +264,13 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
     """
     if (did and aid) and not did.endswith(aid):
         raise ValueError(f'{did} does not end with {aid}')
-    log_str = (
+    logger.debug(
         f'Generating DID document for\n\t{did}'
         f'\nwith aid\n\t{aid}'
         f'\nusing oobi\n\t{oobi}'
         f'\nand metadata\n\t{meta}'
         f'\nregistry name for creds\n\t{reg_name}'
     )
-    logger.info(log_str)
 
     hab = None
     if aid in hby.habs:
@@ -336,19 +334,19 @@ def toDidWeb(diddoc):
 
 def fromDidWeb(diddoc):
     # Log the original state of the DID and controller
-    print(f'fromDidWeb() called with id: {diddoc["id"]}')
+    logger.debug(f'fromDidWeb() called with id: {diddoc["id"]}')
     initial_controller = diddoc['verificationMethod'][0]['controller']
-    print(f'Initial controller in fromDidWeb: {initial_controller}')
+    logger.debug(f'Initial controller in fromDidWeb: {initial_controller}')
 
     # Apply the replacement only if necessary
     if 'did:web' in diddoc['id'] and 'did:webs' not in diddoc['id']:
         diddoc['id'] = diddoc['id'].replace('did:web', 'did:webs')
-        print(f'Updated id in fromDidWeb: {diddoc["id"]}')
+        logger.debug(f'Updated id in fromDidWeb: {diddoc["id"]}')
 
     for verificationMethod in diddoc['verificationMethod']:
         if 'did:web' in verificationMethod['controller'] and 'did:webs' not in verificationMethod['controller']:
             verificationMethod['controller'] = verificationMethod['controller'].replace('did:web', 'did:webs')
-            print(f'Updated controller in fromDidWeb: {verificationMethod["controller"]}')
+            logger.debug(f'Updated controller in fromDidWeb: {verificationMethod["controller"]}')
 
     return diddoc
 

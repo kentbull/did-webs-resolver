@@ -56,116 +56,134 @@ def saveCesr(hby: habbing.Habery, kc_res: requests.Response, aid: str = None):
         assert aid in hby.kevers, f'KERI CESR parsing failed, KERI AID {aid} not found in habery'
 
 
-def getComp(hby: habbing.Habery, did: str, aid: str, dd_res: requests.Response, kc_res: requests.Response):
-    dd = didding.generateDIDDoc(hby, did=did, aid=aid, oobi=None, meta=True)
-    dd[didding.DD_META_FIELD]['didDocUrl'] = dd_res.url
-    dd[didding.DD_META_FIELD]['keriCesrUrl'] = kc_res.url
+def getComparison(hby: habbing.Habery, did: str, aid: str, meta: bool, dd_res: requests.Response, kc_res: requests.Response):
+    dd = didding.generateDIDDoc(hby, did=did, aid=aid, oobi=None, meta=meta)
+    if meta:
+        dd[didding.DD_META_FIELD]['didDocUrl'] = dd_res.url
+        dd[didding.DD_META_FIELD]['keriCesrUrl'] = kc_res.url
 
     dd_actual = didding.fromDidWeb(json.loads(dd_res.content.decode('utf-8')))
-    logger.info(f'Got DID Doc: {dd_actual}')
+    logger.debug(f'Got DID Doc: {dd_actual}')
 
     return dd, dd_actual
 
 
-def verify(dd, dd_actual, meta: bool = False):
-    dd_exp = dd
+def error_resolution_response(meta: bool, error_message: str):
+    didresult = dict()
+    didresult[didding.DD_FIELD] = None
+    if didding.DID_RES_META_FIELD not in didresult:
+        didresult[didding.DID_RES_META_FIELD] = dict()
+    didresult[didding.DID_RES_META_FIELD]['error'] = 'notVerified'
+    didresult[didding.DID_RES_META_FIELD]['errorMessage'] = error_message
+    result = didresult
+    return result
+
+
+def verify(dd_expected: dict, dd_actual: dict, meta: bool = False) -> (bool, dict):
+    """
+    Verify the DID document against the KERI event stream.
+
+    Returns:
+         tuple(bool, dict): (verified, dd) where verified is a boolean indicating verification status
+    """
+    dd_exp = dd_expected
     if didding.DD_FIELD in dd_exp:
-        dd_exp = dd[didding.DD_FIELD]
+        dd_exp = dd_expected[didding.DD_FIELD]
     # TODO verify more than verificationMethod
     verified = _verifyDidDocs(dd_exp[didding.VMETH_FIELD], dd_actual[didding.VMETH_FIELD])
 
-    result = None
     if verified:
-        result = dd if meta else dd[didding.DD_FIELD]
-        logger.info(f'DID verified')
+        logger.info(f'DID document verified')
+        return (True, dd_expected[didding.DD_FIELD]) if meta else (True, dd_expected)
     else:
-        didresult = dict()
-        didresult[didding.DD_FIELD] = None
-        if didding.DID_RES_META_FIELD not in didresult:
-            didresult[didding.DID_RES_META_FIELD] = dict()
-        didresult[didding.DID_RES_META_FIELD]['error'] = 'notVerified'
-        didresult[didding.DID_RES_META_FIELD]['errorMessage'] = (
-            'The DID document could not be verified against the KERI event stream'
+        logger.info(f'DID document verification failed')
+        return (
+            False,
+            error_resolution_response(
+                meta=meta, error_message='The DID document could not be verified against the KERI event stream'
+            ),
         )
-        result = didresult
-        logger.info(f'DID verification failed')
-
-    return result
 
 
 def _verifyDidDocs(expected, actual):
     # TODO determine what to do with BADA RUN things like services (witnesses) etc.
-    if expected != actual:
-        logger.info('DID Doc does not verify', file=sys.stderr)
-        _compare_dicts(expected, actual)
+    if (
+        expected != actual
+    ):  # Python != and == perform a deep object value comparison; this is not reference equality, it is value equality
+        differences = _compare_dicts(expected, actual)
+        logger.error(f'Differences found in DID Doc verification: {differences}')
         return False
     else:
-        logger.info('DID Doc verified', file=sys.stderr)
         return True
 
 
 def _compare_dicts(expected, actual, path=''):
-    logger.info(f'Comparing dictionaries:\nexpected:\n{expected}\n \nand\n \nactual:\n{actual}', file=sys.stderr)
+    """Recursively compare two dictionaries and return differences."""
+    logger.error(f'Comparing dictionaries:\nexpected:\n{expected}\n \nand\n \nactual:\n{actual}')
+    differences = []
 
-    """Recursively compare two dictionaries and print differences."""
     if isinstance(expected, dict):
         for k in expected.keys():
             # Construct current path
             current_path = f'{path}.{k}' if path else k
-            logger.info(f'Comparing key {current_path}', file=sys.stderr)
+            logger.error(f'Comparing key {current_path}')
 
             # Key not present in the actual dictionary
             if k not in actual:
-                logger.info(f'Key {current_path} not found in the actual dictionary', file=sys.stderr)
+                differences.append((current_path, expected[k], None))
+                logger.error(f'Key {current_path} not found in the actual dictionary')
                 continue
 
             # If value in expected is a dictionary but not in actual
             if isinstance(expected[k], dict) and not isinstance(actual[k], dict):
-                logger.info(f'{current_path} is a dictionary in expected, but not in actual', file=sys.stderr)
+                differences.append((current_path, expected[k], actual[k]))
+                logger.error(f'{current_path} is a dictionary in expected, but not in actual')
                 continue
 
             # If value in actual is a dictionary but not in expected
             if isinstance(actual[k], dict) and not isinstance(expected[k], dict):
-                logger.info(f'{current_path} is a dictionary in actual, but not in expected', file=sys.stderr)
+                differences.append((current_path, expected[k], actual[k]))
+                logger.error(f'{current_path} is a dictionary in actual, but not in expected')
                 continue
 
             # If value is another dictionary, recurse
             if isinstance(expected[k], dict) and isinstance(actual[k], dict):
-                _compare_dicts(expected[k], actual[k], current_path)
+                differences.append(_compare_dicts(expected[k], actual[k], current_path))
             # Compare non-dict values
             elif expected[k] != actual[k]:
-                logger.info(
-                    f'Different values for key {current_path}: {expected[k]} (expected) vs. {actual[k]} (actual)',
-                    file=sys.stderr,
-                )
+                differences.append((current_path, expected[k], actual[k]))
+                logger.error(f'Different values for key {current_path}: {expected[k]} (expected) vs. {actual[k]} (actual)')
 
         if isinstance(actual, dict):
             # Check for keys in actual that are not present in expected
             for k in actual.keys():
                 current_path = f'{path}.{k}' if path else k
                 if k not in expected:
-                    logger.info(f'Key {current_path} not found in the expected dictionary', file=sys.stderr)
+                    differences.append((current_path, None, actual[k]))
+                    logger.error(f'Key {current_path} not found in the expected dictionary')
         else:
-            logger.info(f'Expecting actual did document to contain dictionary {expected}', file=sys.stderr)
+            differences.append((path, expected, None))
+            logger.error(f'Expecting actual did document to contain dictionary {expected}')
     elif isinstance(expected, list):
         if len(expected) != len(actual):
-            logger.info(f'Expected list {expected} and actual list {actual} are not the same length', file=sys.stderr)
+            differences.append((path, expected, actual))
+            logger.error(f'Expected list {expected} and actual list {actual} are not the same length')
         else:
             for i in range(len(expected)):
-                _compare_dicts(expected[i], actual[i], path)
+                differences.append(_compare_dicts(expected[i], actual[i], path))
     else:
         if expected != actual:
-            logger.info(f'Different values for key {path}: {expected} (expected) vs. {actual} (actual)', file=sys.stderr)
+            differences.append((path, expected, actual))
+            logger.error(f'Different values for key {path}: {expected} (expected) vs. {actual} (actual)')
+    return differences
 
 
 def resolve(hby, did, meta=False, resq: queue.Queue = None):
     """Resolve a did:webs DID and returl the verification result."""
     aid, dd_res, kc_res = getSources(did=did, resq=resq)
     saveCesr(hby=hby, kc_res=kc_res, aid=aid)
-    dd, dd_actual = getComp(hby=hby, did=did, aid=aid, dd_res=dd_res, kc_res=kc_res)
-    vresult = verify(dd, dd_actual, meta=meta)
-    logger.info('Resolution result: ', vresult)
-    return vresult
+    dd, dd_actual = getComparison(hby=hby, did=did, aid=aid, meta=meta, dd_res=dd_res, kc_res=kc_res)
+    return verify(dd, dd_actual, meta=meta)
 
 
 # # Test with the provided dictionaries

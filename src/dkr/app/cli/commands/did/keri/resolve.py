@@ -87,7 +87,7 @@ class KeriResolver(doing.DoDoer):
         while self.hby.db.roobi.get(keys=(self.oobi,)) is None:
             _ = yield tock
 
-        didresult = didding.generateDIDDoc(self.hby, did=self.did, aid=aid, oobi=self.oobi, meta=True)
+        didresult = didding.generateDIDDoc(self.hby, did=self.did, aid=aid, oobi=self.oobi, meta=self.meta)
         dd = didresult[didding.DD_FIELD]
         result = didresult if self.meta else dd
         data = json.dumps(result, indent=2)

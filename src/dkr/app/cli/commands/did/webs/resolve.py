@@ -31,7 +31,7 @@ parser.add_argument(
     '--meta',
     type=bool,
     required=False,
-    default=None,
+    default=False,
     help='Whether to include metadata (True), or only return the DID document (False)',
 )
 parser.add_argument(
@@ -50,13 +50,18 @@ def handler(args):
     logger.setLevel(ogler.level)
     hby = existing.setupHby(name=args.name, base=args.base, bran=args.bran)
     hbyDoer = habbing.HaberyDoer(habery=hby)  # setup doer
-    obl = oobiing.Oobiery(hby=hby)
-    res = WebsResolver(hby=hby, hbyDoer=hbyDoer, obl=obl, did=args.did, meta=args.meta)
+    oobiery = oobiing.Oobiery(hby=hby)
+    res = WebsResolver(hby=hby, hbyDoer=hbyDoer, oobiery=oobiery, did=args.did, meta=args.meta)
     return [res]
 
 
 class WebsResolver(doing.DoDoer):
-    def __init__(self, hby, hbyDoer, obl, did, meta):
+    """Resolve did:webs DID document from the KERI database."""
+
+    def __init__(self, hby: habbing.Habery, hbyDoer: habbing.HaberyDoer, oobiery: oobiing.Oobiery, did: str, meta: bool):
+        """
+        Initialize the WebsResolver.
+        """
         self.hby = hby
         self.did = did
         self.meta = meta

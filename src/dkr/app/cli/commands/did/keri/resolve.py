@@ -61,37 +61,36 @@ class KeriResolver(doing.DoDoer):
     """Resolve did:keri DID document from the KEL retrieved during OOBI resolution of the provided OOBI."""
 
     def __init__(self, hby, hbyDoer, obl, did, oobi, meta):
-        self.hby = hby
-        self.did = did
-        self.oobi = oobi
-        self.meta = meta
+        self.hby: habbing.Habery = hby
+        self.did: str = did
+        self.oobi: str = oobi
+        self.meta: bool = meta
 
+        self.result: dict = {}
         self.toRemove = [hbyDoer] + obl.doers
         doers = list(self.toRemove)
         super(KeriResolver, self).__init__(doers=doers)
 
     def recur(self, tock=0.0, **opts):
-        res = self.resolve(tock)
-        logger.info(f'did:keri Resolution result: {res}')
+        self.resolve(hby=self.hby, did=self.did, oobi=self.oobi, meta=self.meta, tock=tock)
         return True
 
-    def resolve(self, tock=0.0):
-        aid = didding.parseDIDKeri(self.did)
-        logger.error(f'From arguments got aid: {aid}')
-        logger.error(f'From arguments got oobi: {self.oobi}')
-
+    def resolve_oobi(self, hby: habbing.Habery, aid: str, oobi: str, tock=0.0):
+        """Resolve the OOBI to retrieve the KEL."""
         obr = basing.OobiRecord(date=helping.nowIso8601())
         obr.cid = aid
-        self.hby.db.oobis.pin(keys=(self.oobi,), val=obr)
+        hby.db.oobis.pin(keys=(oobi,), val=obr)
 
-        while self.hby.db.roobi.get(keys=(self.oobi,)) is None:
+        while hby.db.roobi.get(keys=(oobi,)) is None:
             _ = yield tock
 
-        didresult = didding.generateDIDDoc(self.hby, did=self.did, aid=aid, oobi=self.oobi, meta=self.meta)
-        dd = didresult[didding.DD_FIELD]
-        result = didresult if self.meta else dd
-        data = json.dumps(result, indent=2)
+    def resolve(self, hby: habbing.Habery, did: str, oobi: str, meta: bool, tock=0.0):
+        aid = didding.parseDIDKeri(did)
+        self.resolve_oobi(hby=hby, aid=aid, oobi=oobi, tock=tock)
 
-        logger.info(f'did:keri Resolution data: {data}')
+        didresult = didding.generateDIDDoc(hby, did=did, aid=aid, oobi=oobi, meta=meta)
+        dd = didresult[didding.DD_FIELD]
+        result = didresult if meta else dd
+        self.result = result
+        logger.info(f'did:keri Resolution result: {result}')
         self.remove(self.toRemove)
-        return result

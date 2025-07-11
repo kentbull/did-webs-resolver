@@ -14,9 +14,10 @@ import falcon
 import requests
 from hio.base import doing
 from hio.core import http
-from keri.app import habbing
+from keri.app import habbing, directing
 
 from dkr import log_name, ogler
+from dkr.app.cli.commands.did.keri.resolve import KeriResolver
 from dkr.core import didding, ends
 
 logger = ogler.getLogger(log_name)
@@ -250,8 +251,7 @@ def loadEnds(app, *, hby, hbyDoer, oobiery, staticFilesDir):
 
 class ResolveResource(doing.DoDoer):
     """
-    Resource for managing OOBIs
-
+    Resource for resolving did:webs and did:keri DIDs
     """
 
     def __init__(self, hby, hbyDoer, oobiery):
@@ -259,7 +259,8 @@ class ResolveResource(doing.DoDoer):
 
         Parameters:
             hby (Habery): identifier database environment
-
+            hbyDoer (HaberyDoer): Doer for the identifier database environment
+            oobiery (Oobiery): OOBI management environment
         """
         self.hby = hby
         self.hbyDoer = hbyDoer
@@ -292,18 +293,12 @@ class ResolveResource(doing.DoDoer):
         else:
             oobi = None
 
-        if did.startswith('did:webs:'):
-            # res = WebsResolver(hby=self.hby, hbyDoer=self.hbyDoer, obl=self.obl, did=did)
-            # tymth = None # ???
-            # data = res.resolve(tymth)
+        if did.startswith('did:webs'):
             data = resolve(hby=self.hby, did=did, meta=meta)
         elif did.startswith('did:keri'):
-            # res = KeriResolver(hby=self.hby, hbyDoer=self.hbyDoer, obl=self.obl, did=did, oobi=oobi, metadata=False)
-            # tymth = None # ???
-            # data = res.resolve(tymth)
-            cmd = f'dkr did keri resolve --name dkr --did {did} --oobi {oobi} --meta {meta}'
-            stream = os.popen(cmd)
-            data = stream.read()
+            resolver = KeriResolver(hby=self.hby, hbyDoer=self.hbyDoer, obl=self.oobiery, did=did, oobi=oobi, meta=meta)
+            directing.runController(doers=[resolver], expire=0.0)
+            data = resolver.result
         else:
             rep.status = falcon.HTTP_400
             rep.media = {'error': "invalid 'did'"}

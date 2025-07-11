@@ -66,7 +66,9 @@ def handler(args):
 class WebsResolver(doing.DoDoer):
     """Resolve did:webs DID document from the KERI database."""
 
-    def __init__(self, hby: habbing.Habery, hbyDoer: habbing.HaberyDoer, oobiery: oobiing.Oobiery, did: str, meta: bool, verbose: bool):
+    def __init__(
+        self, hby: habbing.Habery, hbyDoer: habbing.HaberyDoer, oobiery: oobiing.Oobiery, did: str, meta: bool, verbose: bool
+    ):
         """
         Initialize the WebsResolver.
         """

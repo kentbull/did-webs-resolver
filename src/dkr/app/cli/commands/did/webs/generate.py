@@ -34,10 +34,12 @@ parser.add_argument(
     default='.',
     help='Directory to output the generated files. Default is current directory.',
 )
-parser.add_argument( "-o", "--oobi",
+parser.add_argument(
+    '-o',
+    '--oobi',
     required=False,
     default=None,
-    help="OOBI to use for resolving the AID",
+    help='OOBI to use for resolving the AID',
 )
 parser.add_argument(
     '-da',
@@ -223,7 +225,7 @@ class DIDArtifactGenerator(doing.DoDoer):
         # generate did doc
         diddoc = self.generate_did_doc(aid)
         if diddoc is None:
-            logger.error("DID document failed to generate")
+            logger.error('DID document failed to generate')
             self.remove(self.toRemove)
             return None
 
@@ -269,8 +271,8 @@ class DIDArtifactGenerator(doing.DoDoer):
         didData = json.dumps(gen_doc, indent=2)
 
         if self.verbose:
-            print(f"keri.cesr:\n{keri_cesr.decode()}\n")
-            print(f"did.json:\n{json.dumps(diddoc, indent=2)}")
+            print(f'keri.cesr:\n{keri_cesr.decode()}\n')
+            print(f'did.json:\n{json.dumps(diddoc, indent=2)}')
         logger.debug(didData)
         self.remove(self.toRemove)
         return True

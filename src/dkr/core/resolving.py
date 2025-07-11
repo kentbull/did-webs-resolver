@@ -7,14 +7,12 @@ dkr.core.serving module
 import json
 import os
 import queue
-import sys
-import urllib.parse
 
 import falcon
 import requests
 from hio.base import doing
 from hio.core import http
-from keri.app import habbing, directing
+from keri.app import directing, habbing
 
 from dkr import log_name, ogler
 from dkr.app.cli.commands.did.keri.resolve import KeriResolver

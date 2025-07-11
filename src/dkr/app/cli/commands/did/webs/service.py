@@ -60,7 +60,7 @@ def launch(args):
     try:
         httpPort = int(httpPort)
     except ValueError:
-        logger.error(f"Invalid port number: {httpPort}. Must be an integer.")
+        logger.error(f'Invalid port number: {httpPort}. Must be an integer.')
         return []
 
     configFile = args.configFile

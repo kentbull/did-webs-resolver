@@ -35,6 +35,14 @@ parser.add_argument(
     help='Whether to include metadata (True), or only return the DID document (False)',
 )
 parser.add_argument(
+    '-v',
+    '--verbose',
+    action='store_true',
+    required=False,
+    default=False,
+    help='Show the verbose output of DID resolution',
+)
+parser.add_argument(
     '--loglevel',
     action='store',
     required=False,
@@ -51,20 +59,21 @@ def handler(args):
     hby = existing.setupHby(name=args.name, base=args.base, bran=args.bran)
     hbyDoer = habbing.HaberyDoer(habery=hby)  # setup doer
     oobiery = oobiing.Oobiery(hby=hby)
-    res = WebsResolver(hby=hby, hbyDoer=hbyDoer, oobiery=oobiery, did=args.did, meta=args.meta)
+    res = WebsResolver(hby=hby, hbyDoer=hbyDoer, oobiery=oobiery, did=args.did, meta=args.meta, verbose=args.verbose)
     return [res]
 
 
 class WebsResolver(doing.DoDoer):
     """Resolve did:webs DID document from the KERI database."""
 
-    def __init__(self, hby: habbing.Habery, hbyDoer: habbing.HaberyDoer, oobiery: oobiing.Oobiery, did: str, meta: bool):
+    def __init__(self, hby: habbing.Habery, hbyDoer: habbing.HaberyDoer, oobiery: oobiing.Oobiery, did: str, meta: bool, verbose: bool):
         """
         Initialize the WebsResolver.
         """
         self.hby = hby
         self.did = did
         self.meta = meta
+        self.verbose = verbose
 
         self.toRemove = [hbyDoer] + oobiery.doers
         doers = list(self.toRemove)
@@ -78,6 +87,8 @@ class WebsResolver(doing.DoDoer):
         """Resolve the did:webs DID."""
         resolved, resolution = resolving.resolve(hby=self.hby, did=self.did, meta=self.meta)
         if resolved:
+            if self.verbose:
+                print(f'Resolution result for {self.did}: {json.dumps(resolution, indent=2)}')
             print(f'Verification success for {self.did}')
         else:
             print(f'Verification failure for {self.did}\nResolution: {json.dumps(resolution, indent=2)}')

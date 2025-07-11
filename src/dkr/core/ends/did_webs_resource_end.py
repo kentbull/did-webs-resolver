@@ -9,6 +9,10 @@ DID_JSON = 'did.json'
 
 
 class DIDWebsResourceEnd:
+    """
+    did.json HTTP resource for accessing did:webs DID documents for KERI AIDs.
+    """
+
     def __init__(self, hby):
         """
         Parameters:

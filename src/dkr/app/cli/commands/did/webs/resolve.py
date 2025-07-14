@@ -29,7 +29,7 @@ parser.add_argument('-d', '--did', required=True, help='DID to resolve')
 parser.add_argument(
     '-m',
     '--meta',
-    type=bool,
+    action='store_true',
     required=False,
     default=False,
     help='Whether to include metadata (True), or only return the DID document (False)',
@@ -92,6 +92,10 @@ class WebsResolver(doing.DoDoer):
             if self.verbose:
                 print(f'Resolution result for {self.did}: {json.dumps(resolution, indent=2)}')
             print(f'Verification success for {self.did}')
+            self.success = True
         else:
             print(f'Verification failure for {self.did}\nResolution: {json.dumps(resolution, indent=2)}')
+            self.success = False
         self.remove(self.toRemove)
+        if not self.success:
+            raise ValueError(f'Verification failure for {self.did}')

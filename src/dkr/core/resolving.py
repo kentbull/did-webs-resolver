@@ -63,7 +63,7 @@ def compare_did_docs(
         dd[didding.DD_META_FIELD]['didDocUrl'] = dd_res.url
         dd[didding.DD_META_FIELD]['keriCesrUrl'] = kc_res.url
 
-    dd_actual = didding.from_did_web(json.loads(dd_res.content.decode('utf-8')))
+    dd_actual = didding.from_did_web(json.loads(dd_res.content.decode('utf-8')), meta)
     logger.debug(f'Got DID Doc: {dd_actual}')
 
     return dd, dd_actual

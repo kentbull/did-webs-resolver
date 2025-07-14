@@ -324,20 +324,33 @@ def generate_did_doc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_n
         return gen_did_document(did, vms, serv_ends, aka_ids)
 
 
-def to_did_web(diddoc):
+def to_did_web(diddoc: dict, meta=False):
+    """
+    Convert DID schemes for did.json DID document from did:webs did:web.
+
+    If metadata is present then the didDocument field is replaced with the converted DID document.
+    """
     if diddoc:
-        diddoc['id'] = diddoc['id'].replace('did:webs', 'did:web')
-        for verificationMethod in diddoc['verificationMethod']:
-            verificationMethod['controller'] = verificationMethod['controller'].replace('did:webs', 'did:web')
-        return diddoc
+        if meta:
+            replaced = diddoc_to_did_web(diddoc[DD_FIELD])
+            diddoc[DD_FIELD] = replaced
+            return diddoc
+        else:
+            return diddoc_to_did_web(diddoc)
+    else:
+        return {}
 
 
-def from_did_web(diddoc):
-    # Log the original state of the DID and controller
-    logger.debug(f'fromDidWeb() called with id: {diddoc["id"]}')
-    initial_controller = diddoc['verificationMethod'][0]['controller']
-    logger.debug(f'Initial controller in fromDidWeb: {initial_controller}')
+def diddoc_to_did_web(diddoc: dict):
+    """Converts all did:webs DIDs in the 'id' property and verification method 'controller' properties to did:web"""
+    diddoc['id'] = diddoc['id'].replace('did:webs', 'did:web')
+    for verificationMethod in diddoc['verificationMethod']:
+        verificationMethod['controller'] = verificationMethod['controller'].replace('did:webs', 'did:web')
+    return diddoc
 
+
+def diddoc_to_did_webs(diddoc: dict):
+    """Converts all did:web DIDs in the 'id' property and verification method 'controller' properties to did:webs"""
     # Apply the replacement only if necessary
     if 'did:web' in diddoc['id'] and 'did:webs' not in diddoc['id']:
         diddoc['id'] = diddoc['id'].replace('did:web', 'did:webs')
@@ -351,7 +364,25 @@ def from_did_web(diddoc):
     return diddoc
 
 
-def designated_aliases(hby: habbing.Habery, aid: str, reg_name: str = None):
+def from_did_web(did_json: dict, meta: bool = False):
+    """
+    Convert DID schemes in did.json DID document from did:web to did:webs.
+
+    If metadata is present then the didDocument field is replaced with the converted DID document.
+    """
+    # Log the original state of the DID and controller
+    if meta and DD_FIELD not in did_json:
+        logger.debug(f'DID resolution metadata did not contain {DD_FIELD}:\n{json.dumps(did_json, indent=2)}')
+        raise ValueError(f"Expected '{DD_FIELD}' in did.json when indicating resolution metadata in use.")
+    diddoc = did_json if not meta else did_json[DD_FIELD]
+    logger.debug(f'fromDidWeb() called with id: {diddoc["id"]}')
+    initial_controller = diddoc['verificationMethod'][0]['controller']
+    logger.debug(f'Initial controller in fromDidWeb: {initial_controller}')
+
+    return diddoc_to_did_webs(diddoc)
+
+
+def designated_aliases(hby: habbing.Habery, aid: str, reg_name: str = None, schema: str = DES_ALIASES_SCHEMA):
     """
     Returns the credentialer for the des-aliases schema, or None if it doesn't exist.
     """
@@ -363,7 +394,7 @@ def designated_aliases(hby: habbing.Habery, aid: str, reg_name: str = None):
         vry = verifying.Verifier(hby=hby, reger=rgy.reger)
 
         saids = rgy.reger.issus.get(keys=aid)
-        scads = rgy.reger.schms.get(keys=DES_ALIASES_SCHEMA)
+        scads = rgy.reger.schms.get(keys=schema)
         # self-attested, there is no issuee, and schmea is designated aliases
         saids = [saider for saider in saids if saider.qb64 in [saider.qb64 for saider in scads]]
 

@@ -51,7 +51,7 @@ parser.add_argument(
 parser.add_argument(
     '-m',
     '--meta',
-    type=bool,
+    action='store_true',
     required=False,
     default=False,
     help='Whether to include metadata (True), or only return the DID document (False)',
@@ -60,7 +60,7 @@ parser.add_argument('-d', '--did', required=True, help='DID to generate (did:web
 parser.add_argument(
     '-v',
     '--verbose',
-    action='store',
+    action='store_true',
     required=False,
     default=False,
     help='Show the verbose output of DID generation artifacts.',
@@ -192,24 +192,11 @@ class DIDArtifactGenerator(doing.DoDoer):
         return dd_dir_path
 
     @staticmethod
-    def write_did_json_file(dd_dir_path: str, diddoc: dict):
+    def write_did_json_file(dd_dir_path: str, diddoc: dict, meta: bool = False):
         """save did.json to a file at output_dir/{aid}/{AID}.json"""
         dd_file_path = os.path.join(dd_dir_path, f'{ends.DID_JSON}')
         with open(dd_file_path, 'w') as ddf:
-            json.dump(didding.to_did_web(diddoc), ddf)
-
-    def generate_did_doc(self, aid: str):
-        """Generate the did:webs DID document and return it"""
-        gen_doc = didding.generate_did_doc(self.hby, did=self.did, aid=aid, oobi=None, reg_name=self.da_reg, meta=self.meta)
-
-        if not gen_doc:
-            return None
-
-        diddoc = gen_doc
-        if self.meta:
-            diddoc = gen_doc['didDocument']
-            logger.info('Generated metadata for DID document', gen_doc['didDocumentMetadata'])
-        return diddoc
+            json.dump(didding.to_did_web(diddoc, meta), ddf)
 
     def generate_artifacts(self):
         """Drive did:webs did.json and keri.cesr generation"""
@@ -231,7 +218,7 @@ class DIDArtifactGenerator(doing.DoDoer):
         self.write_keri_cesr_file(self.output_dir, aid, keri_cesr)
 
         # generate did doc
-        diddoc = self.generate_did_doc(aid)
+        diddoc = didding.generate_did_doc(self.hby, did=self.did, aid=aid, oobi=None, reg_name=self.da_reg, meta=self.meta)
         if diddoc is None:
             logger.error('DID document failed to generate')
             self.remove(self.toRemove)
@@ -239,7 +226,7 @@ class DIDArtifactGenerator(doing.DoDoer):
 
         # Create the directory (and any intermediate directories in the given path) if it doesn't already exist
         dd_dir_path = self.make_did_json_path(self.output_dir, aid)
-        self.write_did_json_file(dd_dir_path, diddoc)
+        self.write_did_json_file(dd_dir_path, diddoc, self.meta)
 
         if self.verbose:
             print(f'keri.cesr:\n{keri_cesr.decode()}\n')

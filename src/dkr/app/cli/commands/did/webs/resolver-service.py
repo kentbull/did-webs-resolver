@@ -30,11 +30,11 @@ parser.add_argument(
 parser.add_argument(
     '--passcode', dest='bran', default=None, help='22 character encryption passcode for keystore (is not saved)'
 )
-parser.add_argument('-c', '--config-dir', dest='configDir', default=None, help='directory override for configuration data')
-parser.add_argument('--config-file', dest='configFile', action='store', default=None, help='configuration filename override')
+parser.add_argument('-c', '--config-dir', dest='config_dir', default=None, help='directory override for configuration data')
+parser.add_argument('--config-file', dest='config_file', action='store', default=None, help='configuration filename override')
 parser.add_argument(
     '--static-files-dir',
-    dest='staticFilesDir',
+    dest='static_files_dir',
     action='store',
     default='static',
     help='static files directory to use for serving the did.json and keri.cesr files. Default is "static"',
@@ -60,29 +60,29 @@ def launch(args, expire=0.0):
     name = args.name
     base = args.base
     bran = args.bran
-    httpPort = args.http
+    http_port = args.http
 
-    configFile = args.configFile
-    configDir = args.configDir
-    staticFilesDir = args.staticFilesDir
+    config_file = args.configFile
+    config_dir = args.configDir
+    static_files_dir = args.staticFilesDir
 
     ks = keeping.Keeper(name=name, base=base, temp=False, reopen=True)
 
     aeid = ks.gbls.get('aeid')
 
     cf = None
-    if configFile is not None:
-        cf = configing.Configer(name=configFile, base=base, headDirPath=configDir, temp=False, reopen=True, clear=False)
+    if config_file is not None:
+        cf = configing.Configer(name=config_file, base=base, headDirPath=config_dir, temp=False, reopen=True, clear=False)
     if aeid is None:
         hby = habbing.Habery(name=name, base=base, bran=bran, cf=cf)
     else:
         hby = existing.setupHby(name=name, base=base, bran=bran, cf=cf)
 
-    hbyDoer = habbing.HaberyDoer(habery=hby)  # setup doer
-    obl = oobiing.Oobiery(hby=hby)
+    hby_doer = habbing.HaberyDoer(habery=hby)  # setup doer
+    oobiery = oobiing.Oobiery(hby=hby)
 
-    doers = obl.doers + [hbyDoer]
-    doers += resolving.setup(hby, hbyDoer, obl, httpPort=httpPort, cf=cf, staticFilesDir=staticFilesDir)
+    doers = oobiery.doers + [hby_doer]
+    doers += resolving.setup(hby, hby_doer, oobiery, http_port=http_port, cf=cf, static_files_dir=static_files_dir)
 
-    logger.info(f'Launched did:webs resolver on {httpPort}')
+    logger.info(f'Launched did:webs resolver on {http_port}')
     return doers

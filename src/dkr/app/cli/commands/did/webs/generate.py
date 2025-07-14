@@ -124,8 +124,8 @@ class DIDArtifactGenerator(doing.DoDoer):
         self.hby = existing.setupHby(name=name, base=base, bran=bran)
         self.rgy = credentialing.Regery(hby=self.hby, name=self.hby.name, base=self.hby.base)
         self.bran = bran
-        hbyDoer = habbing.HaberyDoer(habery=self.hby)  # setup doer
-        obl = oobiing.Oobiery(hby=self.hby)
+        hby_doer = habbing.HaberyDoer(habery=self.hby)  # setup doer
+        oobiery = oobiing.Oobiery(hby=self.hby)
         self.did = did
         self.oobi = oobi
         self.da_reg = da_reg
@@ -133,7 +133,7 @@ class DIDArtifactGenerator(doing.DoDoer):
         self.verbose = verbose
         self.output_dir = output_dir
 
-        self.toRemove = [hbyDoer] + obl.doers
+        self.toRemove = [hby_doer] + oobiery.doers
         doers = list(self.toRemove)
         super(DIDArtifactGenerator, self).__init__(doers=doers)
 
@@ -196,11 +196,11 @@ class DIDArtifactGenerator(doing.DoDoer):
         """save did.json to a file at output_dir/{aid}/{AID}.json"""
         dd_file_path = os.path.join(dd_dir_path, f'{ends.DID_JSON}')
         with open(dd_file_path, 'w') as ddf:
-            json.dump(didding.toDidWeb(diddoc), ddf)
+            json.dump(didding.to_did_web(diddoc), ddf)
 
     def generate_did_doc(self, aid: str):
         """Generate the did:webs DID document and return it"""
-        gen_doc = didding.generateDIDDoc(self.hby, did=self.did, aid=aid, oobi=None, reg_name=self.da_reg, meta=self.meta)
+        gen_doc = didding.generate_did_doc(self.hby, did=self.did, aid=aid, oobi=None, reg_name=self.da_reg, meta=self.meta)
 
         if not gen_doc:
             return None
@@ -219,14 +219,14 @@ class DIDArtifactGenerator(doing.DoDoer):
             f'\nand metadata        : {self.meta}'
             f'\nregistry name       : {self.da_reg}'
         )
-        domain, port, path, aid = didding.parseDIDWebs(self.did)
+        domain, port, path, aid = didding.parse_did_webs(self.did)
 
         logger.info(f'Generating CESR event stream data from local Habery keystore')
         hab = self.hby.habs[aid]
         reger = self.rgy.reger
         keri_cesr = bytearray()
         # self.retrieve_kel_via_oobi() # not currently used; an alternative to relying on a local KEL keystore
-        keri_cesr.extend(self.genKelCesr(self.hby.db, aid))  # add KEL CESR stream
+        keri_cesr.extend(self.gen_kel_cesr(self.hby.db, aid))  # add KEL CESR stream
         keri_cesr.extend(self.gen_des_aliases_cesr(hab, reger, aid))  # add designated aliases TELs and ACDCs
         self.write_keri_cesr_file(self.output_dir, aid, keri_cesr)
 
@@ -248,7 +248,7 @@ class DIDArtifactGenerator(doing.DoDoer):
         return True
 
     @staticmethod
-    def genKelCesr(db: basing.Baser, pre: str) -> bytearray:
+    def gen_kel_cesr(db: basing.Baser, pre: str) -> bytearray:
         """Return a bytearray of the CESR stream of all KEL events for a given prefix."""
         msgs = bytearray()
         logger.info(f'Generating {pre} KEL CESR events')
@@ -257,7 +257,7 @@ class DIDArtifactGenerator(doing.DoDoer):
         return msgs
 
     @staticmethod
-    def genTelCesr(reger: viring.Reger, regk: str) -> bytearray:
+    def gen_tel_cesr(reger: viring.Reger, regk: str) -> bytearray:
         """Get the CESR stream of TEL events for a given registry."""
         msgs = bytearray()
         logger.info(f'Generating {regk} TEL CESR events')
@@ -266,7 +266,7 @@ class DIDArtifactGenerator(doing.DoDoer):
         return msgs
 
     @staticmethod
-    def genAcdcCesr(hab: habbing.Hab, creder: serdering.SerderACDC) -> bytearray:
+    def gen_acdc_cesr(hab: habbing.Hab, creder: serdering.SerderACDC) -> bytearray:
         """Add the CESR stream of the self attestation ACDCs for the given AID including signatures."""
         logger.info(f'Generating {creder.sad["d"]} ACDC CESR events, issued by {creder.sad["i"]}')
         return hab.endorse(creder)
@@ -294,9 +294,9 @@ class DIDArtifactGenerator(doing.DoDoer):
             creder, *_ = reger.cloneCred(said=cred.qb64)
             if creder.regi is not None:
                 # TODO check if this works if we only get the regi CESR stream once
-                msgs.extend(self.genTelCesr(reger, creder.regi))
-                msgs.extend(self.genTelCesr(reger, creder.said))
-            msgs.extend(self.genAcdcCesr(hab, creder))
+                msgs.extend(self.gen_tel_cesr(reger, creder.regi))
+                msgs.extend(self.gen_tel_cesr(reger, creder.said))
+            msgs.extend(self.gen_acdc_cesr(hab, creder))
         return msgs
 
     @staticmethod

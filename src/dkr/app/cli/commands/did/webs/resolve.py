@@ -57,9 +57,9 @@ def handler(args):
     ogler.level = logging.getLevelName(args.loglevel.upper())
     logger.setLevel(ogler.level)
     hby = existing.setupHby(name=args.name, base=args.base, bran=args.bran)
-    hbyDoer = habbing.HaberyDoer(habery=hby)  # setup doer
+    hby_doer = habbing.HaberyDoer(habery=hby)  # setup doer
     oobiery = oobiing.Oobiery(hby=hby)
-    res = WebsResolver(hby=hby, hbyDoer=hbyDoer, oobiery=oobiery, did=args.did, meta=args.meta, verbose=args.verbose)
+    res = WebsResolver(hby=hby, hby_doer=hby_doer, oobiery=oobiery, did=args.did, meta=args.meta, verbose=args.verbose)
     return [res]
 
 
@@ -67,7 +67,7 @@ class WebsResolver(doing.DoDoer):
     """Resolve did:webs DID document from the KERI database."""
 
     def __init__(
-        self, hby: habbing.Habery, hbyDoer: habbing.HaberyDoer, oobiery: oobiing.Oobiery, did: str, meta: bool, verbose: bool
+        self, hby: habbing.Habery, hby_doer: habbing.HaberyDoer, oobiery: oobiing.Oobiery, did: str, meta: bool, verbose: bool
     ):
         """
         Initialize the WebsResolver.
@@ -77,7 +77,7 @@ class WebsResolver(doing.DoDoer):
         self.meta = meta
         self.verbose = verbose
 
-        self.toRemove = [hbyDoer] + oobiery.doers
+        self.toRemove = [hby_doer] + oobiery.doers
         doers = list(self.toRemove)
         super(WebsResolver, self).__init__(doers=doers)
 

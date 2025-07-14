@@ -29,8 +29,8 @@ parser.add_argument(
 parser.add_argument(
     '--passcode', help='22 character encryption passcode for keystore (is not saved)', dest='bran', default=None
 )  # passcode => bran
-parser.add_argument('--config-dir', '-c', dest='configDir', help='directory override for configuration data', default=None)
-parser.add_argument('--config-file', dest='configFile', action='store', default='dkr', help='configuration filename override')
+parser.add_argument('--config-dir', '-c', dest='config_dir', help='directory override for configuration data', default=None)
+parser.add_argument('--config-file', dest='config_file', action='store', default='dkr', help='configuration filename override')
 parser.add_argument('--keypath', action='store', required=False, default=None)
 parser.add_argument('--certpath', action='store', required=False, default=None)
 parser.add_argument('--cafilepath', action='store', required=False, default=None)
@@ -52,23 +52,23 @@ def launch(args):
     alias = args.alias
     base = args.base
     bran = args.bran
-    httpPort = args.http
+    http_port = args.http
     keypath = args.keypath
     certpath = args.certpath
     cafilepath = args.cafilepath
 
     try:
-        httpPort = int(httpPort)
+        http_port = int(http_port)
     except ValueError:
-        logger.error(f'Invalid port number: {httpPort}. Must be an integer.')
+        logger.error(f'Invalid port number: {http_port}. Must be an integer.')
         return []
 
-    configFile = args.configFile
-    configDir = args.configDir
+    config_file = args.config_file
+    config_dir = args.config_dir
 
-    cf = configing.Configer(name=configFile, base=base, headDirPath=configDir, temp=False, reopen=True, clear=False)
+    cf = configing.Configer(name=config_file, base=base, headDirPath=config_dir, temp=False, reopen=True, clear=False)
     hby = existing.setupHby(name=name, base=base, bran=bran, cf=cf)
-    hbyDoer = habbing.HaberyDoer(habery=hby)  # setup doer
+    hby_doer = habbing.HaberyDoer(habery=hby)  # setup doer
     oobiery = oobiing.Oobiery(hby=hby)
 
     app = falcon.App(
@@ -81,16 +81,16 @@ def launch(args):
 
     if keypath is not None:
         servant = hio.core.tcp.ServerTls(
-            certify=False, keypath=keypath, certpath=certpath, cafilepath=cafilepath, port=httpPort
+            certify=False, keypath=keypath, certpath=certpath, cafilepath=cafilepath, port=http_port
         )
     else:
         servant = None
 
-    server = http.Server(port=httpPort, app=app, servant=servant)
-    httpServerDoer = http.ServerDoer(server=server)
+    server = http.Server(port=http_port, app=app, servant=servant)
+    http_server_doer = http.ServerDoer(server=server)
 
-    doers = oobiery.doers + [hbyDoer, httpServerDoer]
+    doers = oobiery.doers + [hby_doer, http_server_doer]
     doers.extend(voodoers)
 
-    logger.info(f'Launched did:webs artifact webserver: {httpPort}')
+    logger.info(f'Launched did:webs artifact webserver: {http_port}')
     return doers

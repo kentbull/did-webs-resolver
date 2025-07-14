@@ -21,9 +21,9 @@ from dkr.core import didding, ends
 logger = ogler.getLogger(log_name)
 
 
-def getSources(did: str, resq: queue.Queue = None):
+def get_sources(did: str, resq: queue.Queue = None):
     logger.info(f'Parsing DID {did}')
-    domain, port, path, aid = didding.parseDIDWebs(did=did)
+    domain, port, path, aid = didding.parse_did_webs(did=did)
 
     opt_port = f':{port}' if port is not None else ''
     opt_path = f'/{path.replace(":", "/")}' if path is not None else ''
@@ -32,13 +32,13 @@ def getSources(did: str, resq: queue.Queue = None):
     # Load the did doc
     dd_url = f'{base_url}/{ends.DID_JSON}'
     logger.info(f'Loading DID Doc from {dd_url}')
-    dd_res = loadUrl(dd_url, resq=resq)
+    dd_res = load_url(dd_url, resq=resq)
     logger.debug(f'Got DID doc: {dd_res.content.decode("utf-8")}')
 
     # Load the KERI CESR
     kc_url = f'{base_url}/{ends.KERI_CESR}'
     logger.info(f'Loading KERI CESR from {kc_url}')
-    kc_res = loadUrl(kc_url, resq=resq)
+    kc_res = load_url(kc_url, resq=resq)
     logger.debug(f'Got KERI CESR: {kc_res.content.decode("utf-8")}')
 
     if resq is not None:
@@ -48,26 +48,29 @@ def getSources(did: str, resq: queue.Queue = None):
     return aid, dd_res, kc_res
 
 
-def saveCesr(hby: habbing.Habery, kc_res: requests.Response, aid: str = None):
+def save_cesr(hby: habbing.Habery, kc_res: requests.Response, aid: str = None):
     logger.info('Saving KERI CESR to hby: %s', kc_res.content.decode('utf-8'))
     hby.psr.parse(ims=bytearray(kc_res.content))
     if aid:
         assert aid in hby.kevers, f'KERI CESR parsing failed, KERI AID {aid} not found in habery'
 
 
-def getComparison(hby: habbing.Habery, did: str, aid: str, meta: bool, dd_res: requests.Response, kc_res: requests.Response):
-    dd = didding.generateDIDDoc(hby, did=did, aid=aid, oobi=None, meta=meta)
+def compare_did_docs(hby: habbing.Habery, did: str, aid: str, meta: bool, dd_res: requests.Response, kc_res: requests.Response):
+    dd = didding.generate_did_doc(hby, did=did, aid=aid, oobi=None, meta=meta)
     if meta:
         dd[didding.DD_META_FIELD]['didDocUrl'] = dd_res.url
         dd[didding.DD_META_FIELD]['keriCesrUrl'] = kc_res.url
 
-    dd_actual = didding.fromDidWeb(json.loads(dd_res.content.decode('utf-8')))
+    dd_actual = didding.from_did_web(json.loads(dd_res.content.decode('utf-8')))
     logger.debug(f'Got DID Doc: {dd_actual}')
 
     return dd, dd_actual
 
 
 def error_resolution_response(meta: bool, error_message: str):
+    """
+    Generate an error response for DID resolution.
+    """
     didresult = dict()
     didresult[didding.DD_FIELD] = None
     if didding.DID_RES_META_FIELD not in didresult:
@@ -89,7 +92,7 @@ def verify(dd_expected: dict, dd_actual: dict, meta: bool = False) -> (bool, dic
     if didding.DD_FIELD in dd_exp:
         dd_exp = dd_expected[didding.DD_FIELD]
     # TODO verify more than verificationMethod
-    verified = _verifyDidDocs(dd_exp[didding.VMETH_FIELD], dd_actual[didding.VMETH_FIELD])
+    verified = _verify_did_docs(dd_exp[didding.VMETH_FIELD], dd_actual[didding.VMETH_FIELD])
 
     if verified:
         logger.info(f'DID document verified')
@@ -104,7 +107,7 @@ def verify(dd_expected: dict, dd_actual: dict, meta: bool = False) -> (bool, dic
         )
 
 
-def _verifyDidDocs(expected, actual):
+def _verify_did_docs(expected, actual):
     # TODO determine what to do with BADA RUN things like services (witnesses) etc.
     if (
         expected != actual
@@ -179,9 +182,9 @@ def _compare_dicts(expected, actual, path=''):
 
 def resolve(hby, did, meta=False, resq: queue.Queue = None):
     """Resolve a did:webs DID and returl the verification result."""
-    aid, dd_res, kc_res = getSources(did=did, resq=resq)
-    saveCesr(hby=hby, kc_res=kc_res, aid=aid)
-    dd, dd_actual = getComparison(hby=hby, did=did, aid=aid, meta=meta, dd_res=dd_res, kc_res=kc_res)
+    aid, dd_res, kc_res = get_sources(did=did, resq=resq)
+    save_cesr(hby=hby, kc_res=kc_res, aid=aid)
+    dd, dd_actual = compare_did_docs(hby=hby, did=did, aid=aid, meta=meta, dd_res=dd_res, kc_res=kc_res)
     return verify(dd, dd_actual, meta=meta)
 
 
@@ -204,47 +207,49 @@ def resolve(hby, did, meta=False, resq: queue.Queue = None):
 # compare_dicts(expected_dict, actual_dict)
 
 
-def setup(hby, hbyDoer, oobiery, *, httpPort, cf=None, staticFilesDir='dws'):
+def setup(hby, hby_doer, oobiery, *, http_port, cf=None, static_files_dir='dws'):
     """Setup serving package and endpoints
 
     Parameters:
         hby (Habery): identifier database environment
-        hbyDoer (HaberyDoer): Doer for the identifier database environment
+        hby_doer (HaberyDoer): Doer for the identifier database environment
         oobiery (Oobiery): OOBI management environment
-        httpPort (int): external port to listen on for HTTP messages
+        http_port (int): external port to listen on for HTTP messages
+        cf (Configer): configuration object for the serving package
+        static_files_dir (str): directory to serve static files from, default is 'dws'
     Returns:
         list: list of Doers to run in the Tymist
     """
-    logger.info(f'Setting up Resolver HTTP server Doers on port {httpPort}')
+    logger.info(f'Setting up Resolver HTTP server Doers on port {http_port}')
     app = falcon.App(
         middleware=falcon.CORSMiddleware(
             allow_origins='*', allow_credentials='*', expose_headers=['cesr-attachment', 'cesr-date', 'content-type']
         )
     )
 
-    server = http.Server(port=httpPort, app=app)
-    httpServerDoer = http.ServerDoer(server=server)
+    server = http.Server(port=http_port, app=app)
+    http_server_doer = http.ServerDoer(server=server)
 
-    loadEnds(app, hby=hby, hbyDoer=hbyDoer, oobiery=oobiery, staticFilesDir=staticFilesDir)
+    load_ends(app, hby=hby, hby_doer=hby_doer, oobiery=oobiery, static_files_dir=static_files_dir)
 
-    doers = [httpServerDoer]
+    doers = [http_server_doer]
 
     return doers
 
 
-def loadEnds(app, *, hby, hbyDoer, oobiery, staticFilesDir):
+def load_ends(app, *, hby, hby_doer, oobiery, static_files_dir):
     # Set up static file serving for did.json and keri.cesr files
     did_doc_dir = hby.cf.get().get('did.doc.dir', 'dws')
     if not os.path.isabs(did_doc_dir):
-        did_doc_dir = os.path.join(os.path.abspath(staticFilesDir), did_doc_dir)
+        did_doc_dir = os.path.join(os.path.abspath(static_files_dir), did_doc_dir)
     if not os.path.isabs(did_doc_dir):
         did_doc_dir = os.path.join(os.getcwd(), did_doc_dir)
     logger.info(f'Serving static files from {did_doc_dir}')
     app.add_static_route('/dws', did_doc_dir)
 
-    resolveEnd = ResolveResource(hby=hby, hbyDoer=hbyDoer, oobiery=oobiery)
-    app.add_route('/1.0/identifiers/{did}', resolveEnd)
-    return [resolveEnd]
+    resolve_end = ResolveResource(hby=hby, hby_doer=hby_doer, oobiery=oobiery)
+    app.add_route('/1.0/identifiers/{did}', resolve_end)
+    return [resolve_end]
 
 
 class ResolveResource(doing.DoDoer):
@@ -252,16 +257,16 @@ class ResolveResource(doing.DoDoer):
     Resource for resolving did:webs and did:keri DIDs
     """
 
-    def __init__(self, hby, hbyDoer, oobiery):
+    def __init__(self, hby, hby_doer, oobiery):
         """Create Endpoints for discovery and resolution of OOBIs
 
         Parameters:
             hby (Habery): identifier database environment
-            hbyDoer (HaberyDoer): Doer for the identifier database environment
+            hby_doer (HaberyDoer): Doer for the identifier database environment
             oobiery (Oobiery): OOBI management environment
         """
         self.hby = hby
-        self.hbyDoer = hbyDoer
+        self.hby_doer = hby_doer
         self.oobiery = oobiery
 
         super(ResolveResource, self).__init__(doers=[])
@@ -294,7 +299,7 @@ class ResolveResource(doing.DoDoer):
         if did.startswith('did:webs'):
             data = resolve(hby=self.hby, did=did, meta=meta)
         elif did.startswith('did:keri'):
-            resolver = KeriResolver(hby=self.hby, hbyDoer=self.hbyDoer, obl=self.oobiery, did=did, oobi=oobi, meta=meta)
+            resolver = KeriResolver(hby=self.hby, hby_doer=self.hby_doer, oobiery=self.oobiery, did=did, oobi=oobi, meta=meta)
             directing.runController(doers=[resolver], expire=0.0)
             data = resolver.result
         else:
@@ -309,21 +314,21 @@ class ResolveResource(doing.DoDoer):
         return
 
 
-def loadFile(file_path):
+def load_file(file_path):
     # Read the file in binary mode
     with open(file_path, 'rb') as file:
         msgs = file.read()
         return msgs
 
 
-def loadJsonFile(file_path):
+def load_json_file(file_path):
     # Read the file in binary mode
     with open(file_path, 'r', encoding='utf-8') as file:
         msgs = json.load(file)
         return msgs
 
 
-def loadUrl(url: str, resq: queue.Queue = None):
+def load_url(url: str, resq: queue.Queue = None):
     response = requests.get(url=url)
     # Ensure the request was successful
     response.raise_for_status()
@@ -333,7 +338,7 @@ def loadUrl(url: str, resq: queue.Queue = None):
     return response
 
 
-def splitCesr(s, char):
+def split_cesr(s, char):
     # Find the last occurrence of the character
     index = s.rfind(char)
 

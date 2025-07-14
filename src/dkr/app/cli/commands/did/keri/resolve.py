@@ -51,23 +51,23 @@ def handler(args):
     ogler.level = logging.getLevelName(args.loglevel.upper())
     logger.setLevel(ogler.level)
     hby = existing.setupHby(name=args.name, base=args.base, bran=args.bran)
-    hbyDoer = habbing.HaberyDoer(habery=hby)  # setup doer
-    obl = oobiing.Oobiery(hby=hby)
-    res = KeriResolver(hby=hby, hbyDoer=hbyDoer, obl=obl, did=args.did, oobi=args.oobi, meta=args.meta)
+    hby_doer = habbing.HaberyDoer(habery=hby)  # setup doer
+    oobiery = oobiing.Oobiery(hby=hby)
+    res = KeriResolver(hby=hby, hby_doer=hby_doer, oobiery=oobiery, did=args.did, oobi=args.oobi, meta=args.meta)
     return [res]
 
 
 class KeriResolver(doing.DoDoer):
     """Resolve did:keri DID document from the KEL retrieved during OOBI resolution of the provided OOBI."""
 
-    def __init__(self, hby, hbyDoer, obl, did, oobi, meta):
+    def __init__(self, hby, hby_doer, oobiery, did, oobi, meta):
         self.hby: habbing.Habery = hby
         self.did: str = did
         self.oobi: str = oobi
         self.meta: bool = meta
 
         self.result: dict = {}
-        self.toRemove = [hbyDoer] + obl.doers
+        self.toRemove = [hby_doer] + oobiery.doers
         doers = list(self.toRemove)
         super(KeriResolver, self).__init__(doers=doers)
 
@@ -75,7 +75,8 @@ class KeriResolver(doing.DoDoer):
         self.resolve(hby=self.hby, did=self.did, oobi=self.oobi, meta=self.meta, tock=tock)
         return True
 
-    def resolve_oobi(self, hby: habbing.Habery, aid: str, oobi: str, tock=0.0):
+    @staticmethod
+    def resolve_oobi(hby: habbing.Habery, aid: str, oobi: str, tock=0.0):
         """Resolve the OOBI to retrieve the KEL."""
         obr = basing.OobiRecord(date=helping.nowIso8601())
         obr.cid = aid
@@ -85,10 +86,13 @@ class KeriResolver(doing.DoDoer):
             _ = yield tock
 
     def resolve(self, hby: habbing.Habery, did: str, oobi: str, meta: bool, tock=0.0):
-        aid = didding.parseDIDKeri(did)
+        """
+        Resolve the did:keri DID document by retrieving the KEL from the OOBI resolution.
+        """
+        aid = didding.parse_did_keri(did)
         self.resolve_oobi(hby=hby, aid=aid, oobi=oobi, tock=tock)
 
-        didresult = didding.generateDIDDoc(hby, did=did, aid=aid, oobi=oobi, meta=meta)
+        didresult = didding.generate_did_doc(hby, did=did, aid=aid, oobi=oobi, meta=meta)
         dd = didresult[didding.DD_FIELD]
         result = didresult if meta else dd
         self.result = result

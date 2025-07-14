@@ -36,7 +36,7 @@ DD_FIELD = 'didDocument'
 VMETH_FIELD = 'verificationMethod'
 
 
-def parseDIDKeri(did):
+def parse_did_keri(did):
     """
     Parse a did:keri DID with regex to return the AID
 
@@ -57,7 +57,7 @@ def parseDIDKeri(did):
     return aid
 
 
-def parseDIDWebs(did):
+def parse_did_webs(did):
     """
     Parse a did:webs DID with regex to return the domain, port, path, and AID
 
@@ -78,7 +78,7 @@ def parseDIDWebs(did):
     return domain, port, path, aid
 
 
-def generateJsonWebKeyVM(pubkey, did, kid, x):
+def generate_json_web_key_vm(pubkey, did, kid, x):
     """
     Generate a JSON Web Key (JWK) verification method for a given public key.
 
@@ -96,7 +96,7 @@ def generateJsonWebKeyVM(pubkey, did, kid, x):
     )
 
 
-def generateVerificationMethods(verfers, thold, did, aid):
+def generate_verification_methods(verfers, thold, did, aid):
     """
     Generate a verification method for each public key (Verfer) from the source key state.
     Multiple verfers implies a multisig DID, a single verfer implies a single key DID.
@@ -113,19 +113,19 @@ def generateVerificationMethods(verfers, thold, did, aid):
     for idx, verfer in enumerate(verfers):
         kid = verfer.qb64
         x = urlsafe_b64encode(verfer.raw).rstrip(b'=').decode('utf-8')
-        vms.append(generateJsonWebKeyVM(kid, did, kid, x))
+        vms.append(generate_json_web_key_vm(kid, did, kid, x))
 
     # Handle multi-key or multisig AID cases
     if isinstance(thold, int):
         if thold > 1:
             conditions = [vm.get('id') for vm in vms]
-            vms.append(generateThresholdProof2022(aid, did, thold, conditions))
+            vms.append(generate_threshold_proof2022(aid, did, thold, conditions))
     elif isinstance(thold, list):
-        vms.append(generateWeightedThresholdProof(thold, verfers, vms, did, aid))
+        vms.append(generate_weighted_threshold_proof(thold, verfers, vms, did, aid))
     return vms
 
 
-def generateThresholdProof2022(aid, did, thold, conditions):
+def generate_threshold_proof2022(aid, did, thold, conditions):
     """
     Generate a ConditionalProof2022 verification method for a multisig DID.
 
@@ -147,7 +147,7 @@ def generateThresholdProof2022(aid, did, thold, conditions):
     )
 
 
-def generateWeightedThresholdProof2022(aid, did, threshold, conditions):
+def generate_weighted_threshold_proof2022(aid, did, threshold, conditions):
     """
     Generate a ConditionalProof2022 verification method for a multisig DID with weighted conditions.
 
@@ -169,7 +169,7 @@ def generateWeightedThresholdProof2022(aid, did, threshold, conditions):
     )
 
 
-def generateWeightedThresholdProof(thold, verfers, vms, did, aid):
+def generate_weighted_threshold_proof(thold, verfers, vms, did, aid):
     """
     Compute the weighted threshold proof for a multisig DID based on the provided fraction threshold
      weights and public keys (Verfers).
@@ -187,10 +187,10 @@ def generateWeightedThresholdProof(thold, verfers, vms, did, aid):
     conditions = []
     for idx, verfer in enumerate(verfers):
         conditions.append(dict(condition=vms[idx]['id'], weight=numerators[idx]))
-    return generateWeightedThresholdProof2022(aid, did, threshold, conditions)
+    return generate_weighted_threshold_proof2022(aid, did, threshold, conditions)
 
 
-def genDidDocument(did, vms, serviceEndpoints, alsoKnownAs):
+def gen_did_document(did, vms, service_endpoints, also_known_as):
     """
     Generate a basic DID document structure.
 
@@ -203,43 +203,43 @@ def genDidDocument(did, vms, serviceEndpoints, alsoKnownAs):
     Parameters:
         did (str): The DID to include in the document.
         vms (list): A list of verification methods.
-        serviceEndpoints (list): A list of service endpoints.
-        alsoKnownAs (list): A list of alternative identifiers.
+        service_endpoints (list): A list of service endpoints.
+        also_known_as (list): A list of alternative identifiers.
 
     Returns:
         dict: A basic DID document structure.
     """
-    return dict(id=did, verificationMethod=vms, service=serviceEndpoints, alsoKnownAs=alsoKnownAs)
+    return dict(id=did, verificationMethod=vms, service=service_endpoints, alsoKnownAs=also_known_as)
 
 
-def genDidResolutionResult(witnessList, seqNo, equivalentIds, did, vms, servEnds, akaIds):
+def genDidResolutionResult(witness_list, seq_no, equivalent_ids, did, vms, serv_ends, aka_ids):
     """
     Generate a DID resolution result structure.
 
     Parameters:
-        witnessList (list): A list of witnesses AIDs
-        seqNo (int): The sequence number of the latest KEL event for the AID generating the DID document.
-        equivalentIds (list): A list of equivalent IDs.
+        witness_list (list): A list of witnesses AIDs
+        seq_no (int): The sequence number of the latest KEL event for the AID generating the DID document.
+        equivalent_ids (list): A list of equivalent IDs.
         did (str): The DID to include in the document.
         vms (list): A list of verification methods.
-        servEnds (list): A list of service endpoints.
-        akaIds (list): A list of alternative identifiers.
+        serv_ends (list): A list of service endpoints.
+        aka_ids (list): A list of alternative identifiers.
 
     Returns:
         dict: A DID resolution result structure containing the DID document, resolution metadata, and document metadata.
     """
     return dict(
-        didDocument=genDidDocument(did, vms, servEnds, akaIds),
+        didDocument=gen_did_document(did, vms, serv_ends, aka_ids),
         didResolutionMetadata=dict(contentType='application/did+json', retrieved=helping.nowUTC().strftime(DID_TIME_FORMAT)),
         didDocumentMetadata=dict(
-            witnesses=witnessList,
-            versionId=f'{seqNo}',
-            equivalentId=equivalentIds,
+            witnesses=witness_list,
+            versionId=f'{seq_no}',
+            equivalentId=equivalent_ids,
         ),
     )
 
 
-def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_name=None):
+def generate_did_doc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_name=None):
     """
     Generates a DID document for the given DID and AID using the provided OOBI and metadata.
 
@@ -289,42 +289,42 @@ def generateDIDDoc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_nam
     else:
         raise ValueError(f'unknown {aid}')
 
-    vms = generateVerificationMethods(kever.verfers, kever.tholder.thold, did, aid)
+    vms = generate_verification_methods(kever.verfers, kever.tholder.thold, did, aid)
 
-    witnessList = []
+    witness_list = []
     for idx, eid in enumerate(kever.wits):
         for (tid, scheme), loc in hby.db.locs.getItemIter(keys=(eid,)):
-            witnessList.append(dict(idx=idx, scheme=scheme, url=loc.url))
+            witness_list.append(dict(idx=idx, scheme=scheme, url=loc.url))
 
-    servEnds = []
+    serv_ends = []
     if hab and hasattr(hab, 'fetchRoleUrls'):
         ends = hab.fetchRoleUrls(cid=aid)
-        servEnds.extend(addEnds(ends))
+        serv_ends.extend(add_ends(ends))
         ends = hab.fetchWitnessUrls(cid=aid)
-        servEnds.extend(addEnds(ends))
+        serv_ends.extend(add_ends(ends))
 
-    equivIds = []
-    akaIds = []
-    for s in designatedAliases(hby, aid, reg_name=reg_name):
+    equiv_ids = []
+    aka_ids = []
+    for s in designated_aliases(hby, aid, reg_name=reg_name):
         if s.startswith('did:webs'):
-            equivIds.append(s)
-        akaIds.append(s)
+            equiv_ids.append(s)
+        aka_ids.append(s)
 
     if meta is True:
         return genDidResolutionResult(
-            witnessList=witnessList,
-            seqNo=kever.sner.num,
-            equivalentIds=equivIds,
+            witness_list=witness_list,
+            seq_no=kever.sner.num,
+            equivalent_ids=equiv_ids,
             did=did,
             vms=vms,
-            servEnds=servEnds,
-            akaIds=akaIds,
+            serv_ends=serv_ends,
+            aka_ids=aka_ids,
         )
     else:
-        return genDidDocument(did, vms, servEnds, akaIds)
+        return gen_did_document(did, vms, serv_ends, aka_ids)
 
 
-def toDidWeb(diddoc):
+def to_did_web(diddoc):
     if diddoc:
         diddoc['id'] = diddoc['id'].replace('did:webs', 'did:web')
         for verificationMethod in diddoc['verificationMethod']:
@@ -332,7 +332,7 @@ def toDidWeb(diddoc):
         return diddoc
 
 
-def fromDidWeb(diddoc):
+def from_did_web(diddoc):
     # Log the original state of the DID and controller
     logger.debug(f'fromDidWeb() called with id: {diddoc["id"]}')
     initial_controller = diddoc['verificationMethod'][0]['controller']
@@ -351,7 +351,7 @@ def fromDidWeb(diddoc):
     return diddoc
 
 
-def designatedAliases(hby: habbing.Habery, aid: str, reg_name: str = None):
+def designated_aliases(hby: habbing.Habery, aid: str, reg_name: str = None):
     """
     Returns the credentialer for the des-aliases schema, or None if it doesn't exist.
     """
@@ -378,7 +378,7 @@ def designatedAliases(hby: habbing.Habery, aid: str, reg_name: str = None):
     return list(itertools.chain.from_iterable(da_ids))
 
 
-def addEnds(ends):
+def add_ends(ends):
     def process_role(role):
         return reduce(lambda rs, eids: rs + process_eids(eids, role), ends.getall(role), [])
 

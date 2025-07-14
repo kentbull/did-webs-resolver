@@ -49,8 +49,8 @@ class DIDWebsResourceEnd:
         did = f'did:web:{req.host}{port}{path}'
 
         # Generate the DID Doc and return
-        result = didding.generateDIDDoc(self.hby, did, aid)
+        diddoc = didding.generate_did_doc(self.hby, did, aid)
 
         rep.status = falcon.HTTP_200
         rep.content_type = 'application/json'
-        rep.data = json.dumps(result, indent=2).encode('utf-8')
+        rep.data = json.dumps(diddoc, indent=2).encode('utf-8')

@@ -76,6 +76,7 @@ else
 fi
 
 # generate controller did:webs for DOMAIN
+# example: did:webs:127.0.0.1%3A7677:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft
 MY_DID="did:webs:${DOMAIN}%3A${DID_PORT}:${ARTIFACT_PATH}:${MY_AID}"
 print_dark_gray "Generating did:webs for ${KEYSTORE_NAME} on ${DOMAIN} with AID ${MY_AID} in ${WEB_DIR}"
 print_lcyan "for DID ${MY_DID}"

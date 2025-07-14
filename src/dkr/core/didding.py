@@ -359,7 +359,7 @@ def designated_aliases(hby: habbing.Habery, aid: str, reg_name: str = None):
     if aid in hby.habs:
         if reg_name is None:
             reg_name = hby.habs[aid].name
-        rgy = credentialing.Regery(hby=hby, name=reg_name)
+        rgy = credentialing.Regery(hby=hby, name=hby.name)
         vry = verifying.Verifier(hby=hby, reger=rgy.reger)
 
         saids = rgy.reger.issus.get(keys=aid)

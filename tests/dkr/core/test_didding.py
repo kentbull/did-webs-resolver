@@ -201,6 +201,7 @@ def test_generate_did_doc_unknown_aid():
 
 def test_generate_did_doc_single_sig():
     hby = mock()
+    hby.name = 'test_hby'
     hab = mock()
     hab_db = mock()
     kever = mock()
@@ -279,7 +280,7 @@ def test_generate_did_doc_single_sig():
     rgy.reger.schms = schms
     vry = mock()
 
-    when(credentialing).Regery(hby=hby, name='test_hab').thenReturn(rgy)
+    when(credentialing).Regery(hby=hby, name=hby.name).thenReturn(rgy)
     when(verifying).Verifier(hby=hby, reger=rgy.reger).thenReturn(vry)
 
     when(rgy.reger.issus).get(keys=aid).thenReturn([])
@@ -324,6 +325,7 @@ def test_generate_did_doc_single_sig():
 
 def test_generate_did_doc_single_sig_with_designated_alias(mock_helping_now_utc):
     hby = mock()
+    hby.name = 'test_hby'
     hab = mock()
     hab_db = mock()
     kever = mock()
@@ -397,7 +399,7 @@ def test_generate_did_doc_single_sig_with_designated_alias(mock_helping_now_utc)
     rgy.reger.schms = schms
     vry = mock()
 
-    when(credentialing).Regery(hby=hby, name='test_hab').thenReturn(rgy)
+    when(credentialing).Regery(hby=hby, name=hby.name).thenReturn(rgy)
     when(verifying).Verifier(hby=hby, reger=rgy.reger).thenReturn(vry)
 
     cred1 = mock({'qb64': 'cred_1_qb64'}, coring.Saider)
@@ -482,7 +484,7 @@ def test_generate_did_doc_single_sig_with_designated_alias(mock_helping_now_utc)
             ]
         )
     )
-    when(credentialing).Regery(hby=hby, name='test_hab').thenReturn(rgy)
+    when(credentialing).Regery(hby=hby, name=hby.name).thenReturn(rgy)
     when(verifying).Verifier(hby=hby, reger=rgy.reger).thenReturn(vry)
 
     cred1 = mock({'qb64': 'cred_1_qb64'}, coring.Saider)
@@ -535,6 +537,7 @@ def test_generate_did_doc_single_sig_with_designated_alias(mock_helping_now_utc)
 
 def test_generate_did_doc_single_sig_meta(mock_helping_now_utc):
     hby = mock()
+    hby.name = 'test_hby'
     hab = mock()
     hab_db = mock()
     kever = mock()
@@ -611,7 +614,7 @@ def test_generate_did_doc_single_sig_meta(mock_helping_now_utc):
     rgy.reger.schms = schms
     vry = mock()
 
-    when(credentialing).Regery(hby=hby, name='test_hab').thenReturn(rgy)
+    when(credentialing).Regery(hby=hby, name=hby.name).thenReturn(rgy)
     when(verifying).Verifier(hby=hby, reger=rgy.reger).thenReturn(vry)
 
     when(rgy.reger.issus).get(keys=aid).thenReturn([])
@@ -667,6 +670,7 @@ def test_generate_did_doc_single_sig_meta(mock_helping_now_utc):
 
 def test_generate_did_doc_multi_sig():
     hby = mock()
+    hby.name = 'test_hby'
     hab = mock()
     hab_db = mock()
     kever = mock()
@@ -743,7 +747,7 @@ def test_generate_did_doc_multi_sig():
     rgy.reger.schms = schms
     vry = mock()
 
-    when(credentialing).Regery(hby=hby, name='test_hab').thenReturn(rgy)
+    when(credentialing).Regery(hby=hby, name=hby.name).thenReturn(rgy)
     when(verifying).Verifier(hby=hby, reger=rgy.reger).thenReturn(vry)
 
     when(rgy.reger.issus).get(keys=aid).thenReturn([])
@@ -844,7 +848,7 @@ def test_generate_did_doc_multi_sig():
             ]
         )
     )
-    when(credentialing).Regery(hby=hby, name='test_hab').thenReturn(rgy)
+    when(credentialing).Regery(hby=hby, name=hby.name).thenReturn(rgy)
     when(verifying).Verifier(hby=hby, reger=rgy.reger).thenReturn(vry)
 
     when(rgy.reger.issus).get(keys=aid).thenReturn([])

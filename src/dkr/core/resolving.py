@@ -55,7 +55,9 @@ def save_cesr(hby: habbing.Habery, kc_res: requests.Response, aid: str = None):
         assert aid in hby.kevers, f'KERI CESR parsing failed, KERI AID {aid} not found in habery'
 
 
-def compare_did_docs(hby: habbing.Habery, did: str, aid: str, meta: bool, dd_res: requests.Response, kc_res: requests.Response):
+def compare_did_docs(
+    hby: habbing.Habery, did: str, aid: str, meta: bool, dd_res: requests.Response, kc_res: requests.Response
+):
     dd = didding.generate_did_doc(hby, did=did, aid=aid, oobi=None, meta=meta)
     if meta:
         dd[didding.DD_META_FIELD]['didDocUrl'] = dd_res.url

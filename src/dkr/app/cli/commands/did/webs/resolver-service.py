@@ -62,9 +62,9 @@ def launch(args, expire=0.0):
     bran = args.bran
     http_port = args.http
 
-    config_file = args.configFile
-    config_dir = args.configDir
-    static_files_dir = args.staticFilesDir
+    config_file = args.config_file
+    config_dir = args.config_dir
+    static_files_dir = args.static_files_dir
 
     ks = keeping.Keeper(name=name, base=base, temp=False, reopen=True)
 

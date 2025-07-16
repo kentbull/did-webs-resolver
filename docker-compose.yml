@@ -62,7 +62,6 @@ services:
         environment:
             <<: *python-envs
         healthcheck:
-            # healthcheck needs to be different in 1.2.6+ because it uses the Alpine base image and curl is not present
             test: [ "CMD", "curl", "-f", "http://127.0.0.1:7677/health" ]
             <<: *healthcheck
         depends_on:
@@ -99,6 +98,8 @@ services:
         depends_on:
             witnesses:
                 condition: service_healthy
+            artifact-generator:
+                condition: service_completed_successfully
             dws-resolver:
                 condition: service_healthy
         stop_grace_period: 1s
@@ -110,21 +111,36 @@ services:
             - controller_keystore:/usr/local/var/keri
         entrypoint: tail -f /dev/null
         tty: true
-#
-#    did-webs-service:
-#        container_name: did-webs-service
-#        hostname: did-webs-service
+
+    # TODO enable the dws-web-service once the dws-webs-service is ready
+#    dws-web-service:
+#        image: gleif/did-webs-service:latest
+#        container_name: gleif/dws-web-service
+#        hostname: dws-web-service
 #        build:
 #            context: .
-#            dockerfile: ./images/did-webs-service.dockerfile
+#            dockerfile: ./images/dws-web-service.dockerfile
+#        stop_grace_period: 1s
+#        environment:
+#            <<: *python-envs
 #        depends_on:
-#            - webs
-#        image: gleif/did-webs-service:latest
+#            witnesses:
+#                condition: service_healthy
+#            artifact-generator:
+#                condition: service_completed_successfully
+#        healthcheck:
+#            test: [ "CMD", "curl", "-f", "http://127.0.0.1:7676/health" ]
+#            <<: *healthcheck
 #        ports:
 #            - "7676:7676"
-#        tty: true
 #        volumes:
 #            - ./docker/scripts:/dkr/scripts
 #            - ./docker/dws:/dkr/web/dws
-#        entrypoint: tail -f /dev/null
-        # entrypoint: dkr did webs service --name webserve --config-dir /usr/local/var/webs/volume/dkr/examples/my-scripts --config-file config-docker
+#            - controller_keystore:/usr/local/var/keri
+#        entrypoint: [
+#            "dkr", "did", "webs", "service",
+#            "--name", "my-keystore",
+#            "--config-dir", "/dws/config/controller",
+#            "--config-file", "my-keystore",
+#            "--loglevel", "INFO"
+#        ]

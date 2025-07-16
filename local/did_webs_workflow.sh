@@ -1,12 +1,13 @@
 #!/bin/bash
-# aid-setup-and-doc-gen.sh
+# did_webs_workflow.sh
 # Sets up the local AID for use by did:webs with one witness and then
 # generates the DID document and KERI CESR stream for that AID.
 #
 # Note: this script requires it be run from the root did-webs-resolver directory
-CONFIG_DIR="./local-config"
-SCRIPTS_DIR="./local-scripts"
-WEB_DIR="./local-web"
+#   - `kli witness demo` should be running in another terminal.
+CONFIG_DIR="./local/config"
+SCRIPTS_DIR="./local"
+WEB_DIR="./local/web"
 ARTIFACT_PATH="dws"
 source "${SCRIPTS_DIR}"/color-printing.sh
 
@@ -19,8 +20,6 @@ if [ "${CWD}" != "did-webs-resolver" ]; then
     exit 1
 fi
 
-
-
 # Binary Dependencies
 command -v kli >/dev/null 2>&1 || { print_red "kli is not installed or not available on the PATH. Aborting."; exit 1; }
 command -v dkr >/dev/null 2>&1 || { print_red "dkr is not installed or not available on the PATH. Aborting."; exit 1; }
@@ -30,16 +29,20 @@ DOMAIN=127.0.0.1
 DID_PORT=7677
 print_dark_gray "Assumes witnesses started and running..."
 WAN_PRE=BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
-WIT_HOST=http://"${DOMAIN}":5642
-WIT_OOBI="${WIT_HOST}/oobi/${WAN_PRE}"
-curl $WIT_OOBI >/dev/null 2>&1
-status=$?
-if [ $status -ne 0 ]; then
-    print_red "Witness server not running at ${WIT_HOST}"
-    exit 1
-else
-    print_dark_gray "Witness server is running at ${WIT_OOBI}\n"
-fi
+
+function check_witnesses() {
+  WIT_HOST=http://"${DOMAIN}":5642
+  WIT_OOBI="${WIT_HOST}/oobi/${WAN_PRE}"
+  curl $WIT_OOBI >/dev/null 2>&1
+  status=$?
+  if [ $status -ne 0 ]; then
+      print_red "Witness server not running at ${WIT_HOST}"
+      exit 1
+  else
+      print_dark_gray "Witness server is running at ${WIT_OOBI}\n"
+  fi
+}
+check_witnesses
 
 # Set up identifying information for the controller AID and the did:webs DID
 KEYSTORE_NAME="hyperledger"
@@ -50,9 +53,9 @@ print_dark_gray "Creating controller AID ${KEYSTORE_NAME}/${AID_ALIAS} and did:w
 # init environment for controller AID
 function create_aid() {
   # Create keystore, AID, verify witness accessibility, and resolve the designated aliases schema
-  kli init --name "${KEYSTORE_NAME}" --salt 0AAFmiyF5LgNB3AT6ZkdN25B --nopasscode --config-dir "${CONFIG_DIR}" --config-file "${KEYSTORE_NAME}"
+  kli init --name "${KEYSTORE_NAME}" --salt 0AAFmiyF5LgNB3AT6ZkdN25B --nopasscode --config-dir "${CONFIG_DIR}/controller" --config-file "${KEYSTORE_NAME}"
   # inception for controller AID
-  kli incept --name "${KEYSTORE_NAME}" --alias "${AID_ALIAS}" --file "${CONFIG_DIR}/incept-with-wan-wit.json"
+  kli incept --name "${KEYSTORE_NAME}" --alias "${AID_ALIAS}" --file "${CONFIG_DIR}/controller/incept-with-wan-wit.json"
 
   # check witness oobi for our AID
   MY_OOBI="http://${DOMAIN}:5642/oobi/${MY_AID}/witness/${WAN_PRE}"
@@ -64,10 +67,6 @@ function create_aid() {
   else
       print_green "Controller ${KEYSTORE_NAME}/${AID_ALIAS} with AID ${MY_AID} setup complete."
   fi
-
-  kli oobi resolve --name "${KEYSTORE_NAME}" \
-    --oobi-alias "designated-alias-public" \
-    --oobi "https://weboftrust.github.io/oobi/${DESG_ALIASES_SCHEMA}"
 }
 
 function set_up_aid() {
@@ -77,6 +76,9 @@ function set_up_aid() {
   else
     print_dark_gray "does not exist, creating..."
     create_aid
+    kli oobi resolve --name "${KEYSTORE_NAME}" \
+    --oobi-alias "designated-alias-public" \
+    --oobi "https://weboftrust.github.io/oobi/${DESG_ALIASES_SCHEMA}"
   fi
 }
 set_up_aid
@@ -176,22 +178,23 @@ fi
 resolver_service_pid=""
 dkr did webs resolver-service \
   --name "${KEYSTORE_NAME}" \
-  --config-dir="${CONFIG_DIR}" \
+  --config-dir="${CONFIG_DIR}/controller" \
   --config-file "${KEYSTORE_NAME}" \
   --static-files-dir "${WEB_DIR}" &
 resolver_service_pid=$!
 
+# Sample DID: "did:webs:127.0.0.1%3A7677:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft
 status=0
 if [[ "${METADATA_TRUE}" = true ]] ; then
   print_yellow "Using metadata for resolution"
-  dkr did webs resolve --name hyperledger \
-    --did "did:webs:127.0.0.1%3A7677:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft" \
+  dkr did webs resolve --name "${KEYSTORE_NAME}" \
+    --did "${MY_DID}" \
     --meta # include DID resolution metadata as envelope of DID document in did.json
   status=$?
 else
   print_yellow "Not using metadata for resolution"
-  dkr did webs resolve --name hyperledger \
-    --did "did:webs:127.0.0.1%3A7677:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft"
+  dkr did webs resolve --name "${KEYSTORE_NAME}" \
+    --did "${MY_DID}"
   status=$?
 fi
 

@@ -2,6 +2,8 @@ FROM python:3.12.6-alpine3.20
 
 # Development deps needed so KERIpy can see libsodium (dynamically linked at runtime)
 RUN apk --no-cache add \
+    curl \
+    jq \
     bash \
     alpine-sdk \
     libsodium-dev
@@ -17,18 +19,14 @@ ENV PATH="/keripy/venv/bin:${PATH}"
 # Ignore the syntax warning for KERIpy's old regex usage
 ENV PYTHONWARNINGS="ignore::SyntaxWarning"
 
+RUN mkdir /dws
+
+WORKDIR /dws
+
+COPY . /dws
+
 # Install dkr - did KERI resolver
-WORKDIR /usr/local/var
-
-RUN mkdir -p /usr/local/var/webs
-COPY . /usr/local/var/webs
-
-WORKDIR /usr/local/var/webs
-
-# Lock and install dkr
 RUN uv lock && \
     uv sync --locked
 
-ENV PATH="/usr/local/var/webs/.venv/bin:$PATH"
-
-WORKDIR /usr/local/var/webs/volume/dkr/examples
+ENV PATH="/dws/.venv/bin:$PATH"

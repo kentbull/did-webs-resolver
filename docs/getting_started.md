@@ -2,18 +2,38 @@
 
 Welcome to the `did:webs` reference implementation Getting Started guide.
 
+There are two ways to run the `did:webs` reference implementation:
+
+1. Using the command line with local Python environments.
+2. Using Docker to run the `did:webs` reference implementation in a containerized environment.
+
+## Credits
+
 Thank you to Markus Sabadello @peacekeeper from DanubeTech who created the original guide for IIW37 [here](https://github.com/peacekeeper/did-webs-iiw-tutorial)
 
 If you're running into trouble in the process below, be sure to check the section [Trouble Shooting](#trouble-shooting) below. 
 
-Let's get started! We'll use docker to set up and run in a simple environment. If you haven't installed docker on your system yet, first [get it](https://docs.docker.com/get-docker/)
 
-## Run locally
+# Command Line Flow
+
+## Run locally using the command line
 
 Start your witness pool.
+
+Then run the resolver service
 ```bash
-dkr did webs resolver-service --config-dir=./scripts
+dkr did webs resolver-service \
+  --name hyperledger \
+  --config-dir=./local/config/controller \
+  --config-file=hyperledger \
+  --static-files-dir ./local/web
 ```
+
+# Docker Flow
+
+### Prerequisites
+
+If you haven't installed docker on your system yet, first [get it](https://docs.docker.com/get-docker/)
 
 ## Run Docker build
 
@@ -32,7 +52,7 @@ docker compose up -d
 
 ## Enter the dkr docker environment command line to begin running keri, etc. commands
 
-```
+```bash
 docker compose exec webs /bin/bash
 ```
 
@@ -54,7 +74,7 @@ The example salt we use in the scripts:
 ```
 
 
-### Step 2: Create the KERI AID `ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe`
+### Step 2: Create the KERI AID `EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh`
 
 #### Initialize KERI environment with name, salt, and config file
 
@@ -68,7 +88,7 @@ kli init --name controller \
 ```
 
 **output**:
-```
+```bash
 KERI Keystore created at: /usr/local/var/keri/ks/controller
 KERI Database created at: /usr/local/var/keri/db/controller
 KERI Credential Store created at: /usr/local/var/keri/reg/controller
@@ -91,7 +111,7 @@ kli incept --name controller --alias controller --file /usr/local/var/webs/volum
 Prefix  ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe
         Public key 1:  DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr
 ```
-Your AID is ```ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe``` and your current public key is ```DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr```
+Your AID is ```EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh``` and your current public key is ```DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr```
 
 #### Additional info
 The AID config-file in the container is at ./my-scripts/keri/cf/config-docker.json and contains the KERI OOBIs of the witnesses that we'll use:
@@ -149,7 +169,7 @@ dkr did webs generate \
   --name hyperledger \
   --did "did:webs:localhost%3A7677:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft" \
   --verbose True \
-  --output-dir ./local-web/dws
+  --output-dir ./local/web/dws
 ```
 
 **output**:
@@ -187,11 +207,11 @@ did.json:
 }
 ```
 
-This creates files `did.json` and `keri.cesr` under local path `./local-web/dws/<your AID>/`
+This creates files `did.json` and `keri.cesr` under local path `./local/web/dws/<your AID>/`
 
 You can access these files either from within your Docker container or on your local computer filesystem.
-- `<local path on computer to did-webs-resolver>/local-web/dws/<your AID>/` (local path on your computer)
-- `/usr/local/var/local-web/dws/<your AID>/` (local path in the Docker container)
+- `<local path on computer to did-webs-resolver>/local/web/dws/<your AID>/` (local path on your computer)
+- `/usr/local/var/local/web/dws/<your AID>/` (local path in the Docker container)
 
 **command**:
 ```bash
@@ -212,7 +232,7 @@ You can run the docker example service to serve the did.json and keri.cesr files
 
 First, lets copy our generated files to the directory we'll serve from. On your
 `LOCAL` machine (or within the container) you can copy
-`volume/dkr/examples/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe` to
+`/dws/web/dws/EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh` to
 `volume/dkr/pages/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe`:
 
 For this demo these files have been copied ahead of time for you.

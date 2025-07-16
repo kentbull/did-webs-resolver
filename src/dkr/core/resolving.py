@@ -13,6 +13,7 @@ import requests
 from hio.base import doing
 from hio.core import http
 from keri.app import directing, habbing
+from keri.help import nowIso8601
 
 from dkr import log_name, ogler
 from dkr.app.cli.commands.did.keri.resolve import KeriResolver
@@ -239,6 +240,14 @@ def setup(hby, hby_doer, oobiery, *, http_port, cf=None, static_files_dir='dws')
     return doers
 
 
+class HealthEnd:
+    """Health resource for determining that a container is live"""
+
+    def on_get(self, req, resp):
+        resp.status = falcon.HTTP_OK
+        resp.media = {'message': f'Health is okay. Time is {nowIso8601()}'}
+
+
 def load_ends(app, *, hby, hby_doer, oobiery, static_files_dir):
     # Set up static file serving for did.json and keri.cesr files
     did_doc_dir = hby.cf.get().get('did.doc.dir', 'dws')
@@ -251,6 +260,7 @@ def load_ends(app, *, hby, hby_doer, oobiery, static_files_dir):
 
     resolve_end = ResolveResource(hby=hby, hby_doer=hby_doer, oobiery=oobiery)
     app.add_route('/1.0/identifiers/{did}', resolve_end)
+    app.add_route('/health', HealthEnd())
     return [resolve_end]
 
 

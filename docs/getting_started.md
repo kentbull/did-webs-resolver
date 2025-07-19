@@ -152,8 +152,8 @@ Waiting for witness receipts...
 
 ```bash
 kli incept \
-  --name get-started \
-  --alias my-aid \
+  --name my-keystore \
+  --alias my-controller \
   --file /dws/config/controller/incept-with-wan-wit.json
 ```
 
@@ -234,7 +234,7 @@ You can specify the output directory with the `--output-dir` option, which is `/
 **command**:
 ```bash
 dkr did webs generate \
-  --name get-started \
+  --name my-keystore \
   --output-dir /dws/web/dws \
   --verbose \
   --did "did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"
@@ -375,7 +375,7 @@ In the dws-shell docker container, you can resolve the DID from the dws-resolver
 
 Resolve the did:webs for the DID:
 ```bash
-dkr did webs resolve --name get-started --did "did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"
+dkr did webs resolve --name my-keystore --did "did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"
 ```
 
 
@@ -387,8 +387,8 @@ To create this designated aliases attestation, you can execute the following (on
 **create credential registry command**:
 ```bash
 kli vc registry incept \
-  --name get-started \
-  --alias my-aid \
+  --name my-keystore \
+  --alias my-controller \
   --registry-name dAliases
 ```
 
@@ -408,7 +408,7 @@ All ACDC credentials/attestations require a schema. Let's resolve the schema for
 **command**:
 ```bash
 kli oobi resolve \
-  --name get-started \
+  --name my-keystore \
   --oobi-alias myDesigAliases \
   --oobi "https://weboftrust.github.io/oobi/EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5"
 ``` 
@@ -426,8 +426,8 @@ You can issue the attestation ACDC using the following command, supplying the re
 **command**:
 ```bash
 kli vc create \
-  --name get-started \
-  --alias my-aid \
+  --name my-keystore \
+  --alias my-controller \
   --registry-name dAliases \
   --schema EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5 \
   --data @/dws/scripts/example-acdc-and-data/desig-aliases-attr-public.json \
@@ -448,8 +448,8 @@ To see the attestation you can list the credentials for the registry:
 **command**:
 ```bash
 kli vc list \
-  --name get-started \
-  --alias my-aid \
+  --name my-keystore \
+  --alias my-controller \
   --issued \
   --schema EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5
 ```
@@ -471,8 +471,8 @@ To see the raw ACDC attestation, you can use the following command:
 `command (Note replace <YOUR_REGISTRY>, for example with EOl140-N7hN8qp-LViRfXYNV5RhUO-0n_RPsbMkqm3SJ):`
 ```bash
 kli vc export \
-  --name get-started \
-  --alias my-aid \
+  --name my-keystore \
+  --alias my-controller \
   --said EPxvM9FEbFq-wyKtWzNZfUig7v6lH4M6n3ebKRoyldlt \
   --chain
 ```
@@ -524,7 +524,7 @@ Now if we re-generate our did:webs identifier the did.json and keri.cesr files w
 ```bash
 # from within the dws-shell container
 dkr did webs generate \
-  --name get-started \
+  --name my-keystore \
   --output-dir /dws/web/dws \
   --did "did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"
 ```
@@ -728,7 +728,7 @@ Note: Replace with your actual AID
 
 ```bash
 dkr did keri resolve \
-    --name get-started \
+    --name my-keystore \
     --did did:keri:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG \
     --oobi http://witnesses:5642/oobi/EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
 ```
@@ -746,11 +746,11 @@ https://dev.uniresolver.io/#did:webs:peacekeeper.github.io:did-webs-iiw37-tutori
 Use the following two commands in your running Docker container.
 
 ```bash
-kli rotate --name get-started --alias my-aid
+kli rotate --name my-keystore --alias my-controller
 ```
 Be sure to repeat the `dkr webs generate` command:
 
 ```bash
-dkr did webs generate --name get-started --did did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG
+dkr did webs generate --name my-keystore --did did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG
 ```
 Now upload the overwritten `did.json` and `keri.cesr` again to the hosted public location.

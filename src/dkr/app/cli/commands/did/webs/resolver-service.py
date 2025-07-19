@@ -5,13 +5,11 @@ dkr.app.cli.commands.resolver-service module
 """
 
 import argparse
-import logging
 
-from keri.app import configing, directing, habbing, keeping, oobiing
-from keri.app.cli.common import existing
+from keri.app import configing, oobiing
 
 from dkr import log_name, ogler, set_log_level
-from dkr.core import resolving
+from dkr.core import habs, resolving
 
 parser = argparse.ArgumentParser(description='Expose did:webs resolver as an HTTP web service')
 parser.set_defaults(handler=lambda args: launch(args), transferable=True)
@@ -39,6 +37,9 @@ parser.add_argument(
     default=None,
     help='static files directory to use for serving the did.json and keri.cesr files. Default is "static"',
 )
+parser.add_argument('--keypath', action='store', required=False, default=None)
+parser.add_argument('--certpath', action='store', required=False, default=None)
+parser.add_argument('--cafilepath', action='store', required=False, default=None)
 parser.add_argument(
     '--loglevel',
     action='store',
@@ -59,29 +60,37 @@ def launch(args, expire=0.0):
     name = args.name
     base = args.base
     bran = args.bran
-    http_port = args.http
-
     config_file = args.config_file
     config_dir = args.config_dir
     static_files_dir = args.static_files_dir
-
-    ks = keeping.Keeper(name=name, base=base, temp=False, reopen=True)
-
-    aeid = ks.gbls.get('aeid')
+    http_port = args.http
+    keypath = args.keypath
+    certpath = args.certpath
+    cafilepath = args.cafilepath
+    try:
+        http_port = int(http_port)
+    except ValueError:
+        logger.error(f'Invalid port number: {http_port}. Must be an integer.')
+        return []
 
     cf = None
     if config_file is not None:
         cf = configing.Configer(name=config_file, base=base, headDirPath=config_dir, temp=False, reopen=True, clear=False)
-    if aeid is None:
-        hby = habbing.Habery(name=name, base=base, bran=bran, cf=cf)
-    else:
-        hby = existing.setupHby(name=name, base=base, bran=bran, cf=cf)
 
-    hby_doer = habbing.HaberyDoer(habery=hby)  # setup doer
+    hby, hby_doer = habs.get_habery_doer(name, base, bran, cf)
     oobiery = oobiing.Oobiery(hby=hby)
 
-    doers = oobiery.doers + [hby_doer]
-    doers += resolving.setup(hby, hby_doer, oobiery, http_port=http_port, cf=cf, static_files_dir=static_files_dir)
+    doers = [hby_doer] + oobiery.doers
+    doers += resolving.setup_resolver(
+        hby,
+        hby_doer,
+        oobiery,
+        http_port=http_port,
+        static_files_dir=static_files_dir,
+        keypath=keypath,
+        certpath=certpath,
+        cafilepath=cafilepath,
+    )
 
     logger.info(f'Launched did:webs resolver on {http_port}')
     return doers

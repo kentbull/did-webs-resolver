@@ -5,12 +5,11 @@ dkr.app.cli.commands module
 """
 
 import argparse
-import logging
 
-from keri.app import configing, directing, habbing, keeping, oobiing
+from keri.app import configing, habbing, keeping, oobiing
 from keri.app.cli.common import existing
 
-from dkr import log_name, ogler
+from dkr import log_name, ogler, set_log_level
 from dkr.core import resolving
 
 parser = argparse.ArgumentParser(description='Expose did:keri resolver as an HTTP web service')
@@ -43,8 +42,8 @@ logger = ogler.getLogger(log_name)
 
 
 def launch(args, expire=0.0):
-    ogler.level = logging.getLevelName(args.loglevel.upper())
-    logger.setLevel(ogler.level)
+    """Creates the set of Doers that run the did:keri resolver web service"""
+    set_log_level(args.loglevel, logger)
     name = args.name
     base = args.base
     bran = args.bran
@@ -70,7 +69,7 @@ def launch(args, expire=0.0):
     oobiery = oobiing.Oobiery(hby=hby)
 
     doers = oobiery.doers + [hby_doer]
-    doers += resolving.setup(hby, hby_doer, oobiery, http_port=http_port)
+    doers += resolving.setup_resolver(hby, hby_doer, oobiery, http_port=http_port)
 
     logger.info(f'Launched did:keri resolver as an HTTP web service on {http_port}')
     return doers

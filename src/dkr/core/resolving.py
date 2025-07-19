@@ -11,12 +11,12 @@ import queue
 import falcon
 import requests
 from hio.base import doing
-from hio.core import http
+from hio.core import http, tcp
 from keri.app import directing, habbing
 
 from dkr import log_name, ogler
-from dkr.app.cli.commands.did.keri.resolve import KeriResolver
 from dkr.core import didding, ends
+from dkr.core.didkeri import KeriResolver
 
 logger = ogler.getLogger(log_name)
 
@@ -190,26 +190,27 @@ def resolve(hby, did, meta=False, resq: queue.Queue = None):
     return verify(dd, dd_actual, meta=meta)
 
 
-# # Test with the provided dictionaries
-# expected_dict = {
-#     'id': 'did:webs:127.0.0.1%3a7676:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha',
-#     'verificationMethod': [{'id': 'did:webs:127.0.0.1%3a7676:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha#key-0', 'type': 'Ed25519VerificationKey2020', 'controller': 'did:webs:127.0.0.1%3a7676:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha', 'publicKeyMultibase': 'z2fD7Rmbbggzwa4SNpYKWi6csiiUcVeyUTgGzDtMrqC7b'}]
-# }
-
-# actual_dict = {
-#     "id": "did:webs:127.0.0.1%3a7676:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
-#     "verificationMethod": [{
-#         "id": "did:webs:127.0.0.1%3a7676:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha#key-0",
-#         "type": "Ed25519VerificationKey2020",
-#         "controller": "did:webs:127.0.0.1%3a7676:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
-#         "publicKeyMultibase": "z2fD7Rmbbggzwa4SNpYKWi6csiiUcVeyUTgGzDtMrqC7b"
-#     }]
-# }
-
-# compare_dicts(expected_dict, actual_dict)
+def falcon_app() -> falcon.App:
+    """Create a Falcon app instance with open CORS settings."""
+    return falcon.App(
+        middleware=falcon.CORSMiddleware(
+            allow_origins='*', allow_credentials='*', expose_headers=['cesr-attachment', 'cesr-date', 'content-type']
+        )
+    )
 
 
-def setup(hby, hby_doer, oobiery, *, http_port, cf=None, static_files_dir=None):
+def tls_falcon_server(app: falcon.App, http_port: int, keypath: str, certpath: str, cafilepath: str) -> http.Server:
+    """Add TLS support to a Falcon server."""
+    if keypath is not None:
+        servant = tcp.ServerTls(certify=False, keypath=keypath, certpath=certpath, cafilepath=cafilepath, port=http_port)
+    else:
+        servant = None
+
+    server = http.Server(port=http_port, app=app, servant=servant)
+    return server
+
+
+def setup_resolver(hby, hby_doer, oobiery, *, http_port, static_files_dir=None, keypath=None, certpath=None, cafilepath=None):
     """Setup serving package and endpoints
 
     Parameters:
@@ -217,19 +218,17 @@ def setup(hby, hby_doer, oobiery, *, http_port, cf=None, static_files_dir=None):
         hby_doer (HaberyDoer): Doer for the identifier database environment
         oobiery (Oobiery): OOBI management environment
         http_port (int): external port to listen on for HTTP messages
-        cf (Configer): configuration object for the serving package
         static_files_dir (str): directory to serve static files from, default is None (disabled)
+        keypath (str): path to the TLS private key file, default is None (disabled)
+        certpath (str): path to the TLS certificate file, default is None (disabled)
+        cafilepath (str): path to the CA certificate file, default is None (disabled)
     Returns:
         list: list of Doers to run in the Tymist
     """
     logger.info(f'Setting up Resolver HTTP server Doers on port {http_port}')
-    app = falcon.App(
-        middleware=falcon.CORSMiddleware(
-            allow_origins='*', allow_credentials='*', expose_headers=['cesr-attachment', 'cesr-date', 'content-type']
-        )
-    )
+    app = falcon_app()
 
-    server = http.Server(port=http_port, app=app)
+    server = tls_falcon_server(app, http_port=http_port, keypath=keypath, certpath=certpath, cafilepath=cafilepath)
     http_server_doer = http.ServerDoer(server=server)
 
     load_ends(app, hby=hby, hby_doer=hby_doer, oobiery=oobiery, static_files_dir=static_files_dir)

@@ -11,6 +11,7 @@ from dkr.app.cli import commands
 
 
 def main():
+    """Run the DKR CLI app."""
     parser = multicommand.create_parser(commands)
     args = parser.parse_args()
 

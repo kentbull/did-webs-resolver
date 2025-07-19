@@ -5,21 +5,23 @@ dkr.app.cli.commands module
 """
 
 import argparse
-import logging
 
-import falcon
-import hio
-import hio.core.tcp
 import viking
 from hio.core import http
-from keri.app import configing, habbing, oobiing
-from keri.app.cli.common import existing
+from keri.app import configing, oobiing
 
-from dkr import log_name, ogler
-from dkr.core import webbing
+from dkr import log_name, ogler, set_log_level
+from dkr.core import habs, resolving, webbing
 
 parser = argparse.ArgumentParser(description='Launch web server capable of serving KERI AIDs as did:webs and did:web DIDs')
 parser.set_defaults(handler=lambda args: launch(args), transferable=True)
+parser.add_argument(
+    '-d',
+    '--did-path',
+    action='store',
+    default='',
+    help="did:webs path segment in URL format between {host}%3A{port} and {aid}. Example: 'somepath/somesubpath'",
+)
 parser.add_argument('-p', '--http', action='store', default=7676, help='Port on which to listen for did:webs requests')
 parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
 parser.add_argument('-a', '--alias', action='store', default='dkr', help='Alias of controller. Default is dkr.')
@@ -31,6 +33,14 @@ parser.add_argument(
 )  # passcode => bran
 parser.add_argument('--config-dir', '-c', dest='config_dir', help='directory override for configuration data', default=None)
 parser.add_argument('--config-file', dest='config_file', action='store', default='dkr', help='configuration filename override')
+parser.add_argument(
+    '-m',
+    '--meta',
+    action='store_true',
+    required=False,
+    default=False,
+    help='Whether to include metadata (True), or only return the DID document (False)',
+)
 parser.add_argument('--keypath', action='store', required=False, default=None)
 parser.add_argument('--certpath', action='store', required=False, default=None)
 parser.add_argument('--cafilepath', action='store', required=False, default=None)
@@ -46,49 +56,39 @@ logger = ogler.getLogger(log_name)
 
 
 def launch(args):
-    ogler.level = logging.getLevelName(args.loglevel.upper())
-    logger.setLevel(ogler.level)
+    """Create list of Doers for serving did:webs artifacts."""
+    set_log_level(args.loglevel, logger)
     name = args.name
     alias = args.alias
     base = args.base
     bran = args.bran
+    config_file = args.config_file
+    config_dir = args.config_dir
     http_port = args.http
     keypath = args.keypath
     certpath = args.certpath
     cafilepath = args.cafilepath
-
     try:
         http_port = int(http_port)
     except ValueError:
         logger.error(f'Invalid port number: {http_port}. Must be an integer.')
         return []
 
-    config_file = args.config_file
-    config_dir = args.config_dir
+    did_path = args.did_path
+    meta = args.meta
 
-    cf = configing.Configer(name=config_file, base=base, headDirPath=config_dir, temp=False, reopen=True, clear=False)
-    hby = existing.setupHby(name=name, base=base, bran=bran, cf=cf)
-    hby_doer = habbing.HaberyDoer(habery=hby)  # setup doer
+    cf = None
+    if config_file is not None:
+        cf = configing.Configer(name=config_file, base=base, headDirPath=config_dir, temp=False, reopen=True, clear=False)
+    hby, hby_doer = habs.get_habery_doer(name, base, bran, cf)
+
+    app = resolving.falcon_app()
+    webbing.load_endpoints(app, hby=hby, did_path=did_path, meta=meta)
+
     oobiery = oobiing.Oobiery(hby=hby)
-
-    app = falcon.App(
-        middleware=falcon.CORSMiddleware(
-            allow_origins='*', allow_credentials='*', expose_headers=['cesr-attachment', 'cesr-date', 'content-type']
-        )
-    )
-    webbing.setup(app, hby=hby)
     voodoers = viking.setup(hby=hby, alias=alias)
-
-    if keypath is not None:
-        servant = hio.core.tcp.ServerTls(
-            certify=False, keypath=keypath, certpath=certpath, cafilepath=cafilepath, port=http_port
-        )
-    else:
-        servant = None
-
-    server = http.Server(port=http_port, app=app, servant=servant)
+    server = resolving.tls_falcon_server(app, http_port, keypath, certpath, cafilepath)
     http_server_doer = http.ServerDoer(server=server)
-
     doers = oobiery.doers + [hby_doer, http_server_doer]
     doers.extend(voodoers)
 

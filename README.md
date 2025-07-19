@@ -15,11 +15,11 @@ A breakdown of the commands can be found [here](./docs/commands.md).
 
 #### did:webs service
 
-For a `did:webs` service to operate securely it should only sever AIDs whose KELs have been processed into the service's database.
+For a `did:webs` service to operate securely it should only serve AIDs whose KELs have been processed into the service's database.
 
 There are two methods to do this:
 
-1. Local only support - start the serivce using an existing local keystore.
+1. Local only support - start the service using an existing local keystore.
 
 This is useful for development and can be done by provide an existing named keystore to the `did:webs` service.
 

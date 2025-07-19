@@ -209,7 +209,7 @@ def resolve(hby, did, meta=False, resq: queue.Queue = None):
 # compare_dicts(expected_dict, actual_dict)
 
 
-def setup(hby, hby_doer, oobiery, *, http_port, cf=None, static_files_dir='dws'):
+def setup(hby, hby_doer, oobiery, *, http_port, cf=None, static_files_dir=None):
     """Setup serving package and endpoints
 
     Parameters:
@@ -218,7 +218,7 @@ def setup(hby, hby_doer, oobiery, *, http_port, cf=None, static_files_dir='dws')
         oobiery (Oobiery): OOBI management environment
         http_port (int): external port to listen on for HTTP messages
         cf (Configer): configuration object for the serving package
-        static_files_dir (str): directory to serve static files from, default is 'dws'
+        static_files_dir (str): directory to serve static files from, default is None (disabled)
     Returns:
         list: list of Doers to run in the Tymist
     """
@@ -239,16 +239,22 @@ def setup(hby, hby_doer, oobiery, *, http_port, cf=None, static_files_dir='dws')
     return doers
 
 
-def load_ends(app, *, hby, hby_doer, oobiery, static_files_dir):
-    # Set up static file serving for did.json and keri.cesr files
-    did_doc_dir = hby.cf.get().get('did.doc.dir', 'dws')
-    if not os.path.isabs(did_doc_dir):
-        did_doc_dir = os.path.join(os.path.abspath(static_files_dir), did_doc_dir)
-    if not os.path.isabs(did_doc_dir):
-        did_doc_dir = os.path.join(os.getcwd(), did_doc_dir)
-    logger.info(f'Serving static files from {did_doc_dir}')
-    app.add_static_route('/dws', did_doc_dir)
+def serve_artifacts(app: falcon.App, hby: habbing.Habery, static_files_dir: str | None = None):
+    """Set up static file serving for did.json and keri.cesr files"""
+    if static_files_dir is not None:
+        did_doc_dir = hby.cf.get().get('did.doc.dir', 'dws')
+        if not os.path.isabs(did_doc_dir):
+            did_doc_dir = os.path.join(os.path.abspath(static_files_dir), did_doc_dir)
+        if not os.path.isabs(did_doc_dir):
+            did_doc_dir = os.path.join(os.getcwd(), did_doc_dir)
+        logger.info(f'Serving static files from {did_doc_dir}')
+        # Host did:webs artifacts only if static path specified
+        app.add_static_route('/dws', did_doc_dir)
 
+
+def load_ends(app, *, hby, hby_doer, oobiery, static_files_dir):
+    """Set up Falcon HTTP server endpoints for resolving DIDs and hosting static files"""
+    serve_artifacts(app, hby, static_files_dir)
     resolve_end = ResolveResource(hby=hby, hby_doer=hby_doer, oobiery=oobiery)
     app.add_route('/1.0/identifiers/{did}', resolve_end)
     app.add_route('/health', ends.HealthEnd())

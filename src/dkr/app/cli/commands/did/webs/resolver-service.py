@@ -10,7 +10,7 @@ import logging
 from keri.app import configing, directing, habbing, keeping, oobiing
 from keri.app.cli.common import existing
 
-from dkr import log_name, ogler
+from dkr import log_name, ogler, set_log_level
 from dkr.core import resolving
 
 parser = argparse.ArgumentParser(description='Expose did:webs resolver as an HTTP web service')
@@ -36,7 +36,7 @@ parser.add_argument(
     '--static-files-dir',
     dest='static_files_dir',
     action='store',
-    default='static',
+    default=None,
     help='static files directory to use for serving the did.json and keri.cesr files. Default is "static"',
 )
 parser.add_argument(
@@ -55,8 +55,7 @@ def launch(args, expire=0.0):
     Launches a Falcon webserver listening on /1.0/identifiers/{did} for did:webs resolution requests
     as a set of Doers
     """
-    ogler.level = logging.getLevelName(args.loglevel.upper())
-    logger.setLevel(ogler.level)
+    set_log_level(args.loglevel, logger)
     name = args.name
     base = args.base
     bran = args.bran

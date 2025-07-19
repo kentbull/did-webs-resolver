@@ -7,7 +7,12 @@ dkr.core.webbing module
 import falcon
 from keri import kering
 from keri.app import habbing
+from keri.app.habbing import Hab, Habery
 from keri.db import basing
+from keri.vdr import credentialing
+from keri.vdr.viring import Reger
+
+from dkr.core import artifacting
 
 KERI_CESR = 'keri.cesr'
 CESR_MIME = 'application/cesr'
@@ -18,14 +23,15 @@ class KeriCesrResourceEnd:
     keri.cesr resource endpoint for accessing all KEL, TEL, and ACDC artifacts needed for did:webs DIDs
     """
 
-    def __init__(self, hby):
+    def __init__(self, hby: habbing.Habery):
         """
+        Initialize did:webs keri.cesr artifact endpoint that will pull designated aliases from the specified registry.
+
         Parameters:
             hby (Habery): Database environment for AIDs to expose
-
         """
         self.hby = hby
-        super().__init__()
+        self.rgy = credentialing.Regery(hby=self.hby, name=self.hby.name, base=self.hby.base)
 
     def on_get(self, req, rep, aid):
         """GET endpoint for accessing {KERI_CESR} stream for AID
@@ -45,22 +51,21 @@ class KeriCesrResourceEnd:
 
         baser = self.hby.db
         hab = self.hby.habs[aid]
-        content = load_kel(baser, aid)
+        keri_cesr = gen_keri_cesr(hab, self.rgy.reger, baser, aid)
         roles_and_urls = load_end_roles_loc_schemes(baser, hab, aid)
-        content.extend(roles_and_urls)
-        # TODO add in ACDC and TEL artifacts for designated aliases
+        keri_cesr.extend(roles_and_urls)
 
         rep.status = falcon.HTTP_200
         rep.content_type = CESR_MIME
-        rep.data = content
+        rep.data = keri_cesr
 
 
-def load_kel(baser: basing.Baser, aid: str) -> bytearray:
-    """Load KEL messages for the given AID."""
-    msgs = bytearray()
-    for msg in baser.clonePreIter(pre=aid):
-        msgs.extend(msg)
-    return msgs
+def gen_keri_cesr(hab: Hab, reger: Reger, baser: basing.Baser, aid: str) -> bytearray:
+    """Load KEL, TEL, and ACDC CESR bytes for the givne AID."""
+    keri_cesr = bytearray()
+    keri_cesr.extend(artifacting.gen_kel_cesr(baser, aid))  # add KEL CESR stream
+    keri_cesr.extend(artifacting.gen_des_aliases_cesr(hab, reger, aid))  # add designated aliases TELs and ACDCs
+    return keri_cesr
 
 
 def load_end_roles_loc_schemes(baser: basing.Baser, hab: habbing.Hab, aid: str) -> bytearray:

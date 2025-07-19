@@ -18,7 +18,10 @@ def test_keri_cesr_resource_end_on_get_single_sig():
 
     hby.db = mock()
     hby.db.ends = mock()
+    hby.name = 'test_hab'
+    hby.base = 'test_base'
     hby.habs = {'test_aid': hab}
+    hby.kvy = mock()
     hby.kevers = {'test_aid': mock()}
 
     req.path = '/test_aid/keri.cesr'
@@ -66,6 +69,10 @@ def test_keri_cesr_resource_end_on_get_bad_path():
     req = mock(falcon.Request)
     rep = mock(falcon.Response)
     hby = mock(habbing.Habery)
+    hby.name = 'test_hab'
+    hby.base = 'test_base'
+    hby.kvy = mock()
+    hby.db = mock()
     hby.kevers = {'test_aid': mock()}
 
     req.path = '/test_aid/bad.path'
@@ -82,6 +89,10 @@ def test_keri_cesr_resource_end_on_get_bad_aid():
     req = mock(falcon.Request)
     rep = mock(falcon.Response)
     hby = mock(habbing.Habery)
+    hby.name = 'test_hab'
+    hby.base = 'test_base'
+    hby.kvy = mock()
+    hby.db = mock()
     hby.kevers = {'test_aid': mock()}
 
     req.path = '/bad_aid/keri.cesr'

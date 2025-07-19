@@ -130,9 +130,7 @@ class DIDArtifactGenerator(doing.DoDoer):
     def generate_artifacts(self):
         """Drive did:webs did.json and keri.cesr generation"""
         logger.debug(
-            f'\nGenerate DID doc for: {self.did}'
-            f'\nusing OOBI          : {self.oobi}'
-            f'\nand metadata        : {self.meta}'
+            f'\nGenerate DID doc for: {self.did}\nusing OOBI          : {self.oobi}\nand metadata        : {self.meta}'
         )
         domain, port, path, aid = didding.parse_did_webs(self.did)
 

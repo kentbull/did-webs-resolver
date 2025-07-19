@@ -2,6 +2,7 @@ import json
 import os
 
 import falcon
+from keri.app import habbing
 
 from dkr.core import didding
 
@@ -13,14 +14,18 @@ class DIDWebsResourceEnd:
     did.json HTTP resource for accessing did:webs DID documents for KERI AIDs.
     """
 
-    def __init__(self, hby):
+    def __init__(self, hby: habbing.Habery, meta: bool = False):
         """
+        Initialize did:webs did.json artifact endpoint that will pull designated aliases from the specified registry
+        and will optionally include metadata in the DID document.
+
         Parameters:
             hby (Habery): Database environment for AIDs to expose
-
+            meta (bool): Whether to include metadata in the DID document. Default is False.
         """
-
         self.hby = hby
+        self.meta = meta
+        super().__init__()
 
     def on_get(self, req, rep, aid):
         """GET endpoint for resolving KERI AIDs as did:web DIDs
@@ -49,7 +54,7 @@ class DIDWebsResourceEnd:
         did = f'did:web:{req.host}{port}{path}'
 
         # Generate the DID Doc and return
-        diddoc = didding.generate_did_doc(self.hby, did, aid)
+        diddoc = didding.generate_did_doc(self.hby, did, aid, meta=self.meta)
 
         rep.status = falcon.HTTP_200
         rep.content_type = 'application/json'

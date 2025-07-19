@@ -263,12 +263,7 @@ def generate_did_doc(hby: habbing.Habery, did, aid, oobi=None, meta=False):
     """
     if (did and aid) and not did.endswith(aid):
         raise ValueError(f'{did} does not end with {aid}')
-    logger.debug(
-        f'Generating DID document for\n\t{did}'
-        f'\nwith aid\n\t{aid}'
-        f'\nusing oobi\n\t{oobi}'
-        f'\nand metadata\n\t{meta}'
-    )
+    logger.debug(f'Generating DID document for\n\t{did}\nwith aid\n\t{aid}\nusing oobi\n\t{oobi}\nand metadata\n\t{meta}')
 
     hab = None
     if aid in hby.habs:

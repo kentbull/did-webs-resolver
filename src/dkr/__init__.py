@@ -14,5 +14,12 @@ formatter.default_msec_format = None
 ogler.baseConsoleHandler.setFormatter(formatter)
 ogler.reopen(name=log_name, temp=True, clear=True)
 
+
+def set_log_level(loglevel, logger):
+    """Set the log level for the logger."""
+    ogler.level = logging.getLevelName(loglevel.upper())
+    logger.setLevel(ogler.level)
+
+
 # Versioning
 __version__ = '0.2.1'  # also change in pyproject.toml

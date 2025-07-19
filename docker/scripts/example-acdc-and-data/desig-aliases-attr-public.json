@@ -1,11 +1,1 @@
-{
-  "d": "EJJjtYa6D4LWe_fqtm1p78wz-8jNAzNX6aPDkrQcz27Q",
-  "dt": "2023-11-13T17:41:37.710691+00:00",
-  "ids": [
-    "did:web:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-    "did:webs:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-    "did:web:example.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-    "did:web:foo.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-    "did:webs:foo.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe"
-  ]
-}
+{"d": "EI-8h4KW4Dauwe7liAvBExrA3vUZRWjIvHyD8Xn1UHE_", "dt": "2023-11-13T17:41:37.710691+00:00", "ids": ["did:web:did-webs-service%3a7676:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG", "did:webs:did-webs-service%3a7676:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG", "did:web:example.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG", "did:web:foo.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG", "did:webs:foo.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"]}

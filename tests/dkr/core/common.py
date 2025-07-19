@@ -174,8 +174,8 @@ def da_cred():
         d='',
         dt='2023-11-13T17:41:37.710691+00:00',
         ids=[
-            'did:webs:foo.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe',
-            'did:web:example.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe',
+            'did:webs:foo.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG',
+            'did:web:example.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG',
         ],
     )
 

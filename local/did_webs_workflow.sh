@@ -45,12 +45,15 @@ function check_witnesses() {
 check_witnesses
 
 # Set up identifying information for the controller AID and the did:webs DID
-KEYSTORE_NAME="hyperledger"
+KEYSTORE_NAME="dws-controller"
 AID_ALIAS="labs-id"
 DESG_ALIASES_REG="did:webs_designated_aliases"
 DESG_ALIASES_SCHEMA="EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5"
 print_dark_gray "Creating controller AID ${KEYSTORE_NAME}/${AID_ALIAS} and did:webs for ${DOMAIN}"
 # init environment for controller AID
+
+MY_OOBI=""
+MY_AID=""
 function create_aid() {
   # Create keystore, AID, verify witness accessibility, and resolve the designated aliases schema
   kli init --name "${KEYSTORE_NAME}" --salt 0AAFmiyF5LgNB3AT6ZkdN25B --nopasscode --config-dir "${CONFIG_DIR}/controller" --config-file "${KEYSTORE_NAME}"
@@ -58,6 +61,7 @@ function create_aid() {
   kli incept --name "${KEYSTORE_NAME}" --alias "${AID_ALIAS}" --file "${CONFIG_DIR}/controller/incept-with-wan-wit.json"
 
   # check witness oobi for our AID
+  MY_AID=$(kli aid --name "${KEYSTORE_NAME}" --alias "${AID_ALIAS}")
   MY_OOBI="http://${DOMAIN}:5642/oobi/${MY_AID}/witness/${WAN_PRE}"
   curl "${MY_OOBI}" >/dev/null 2>&1
   status=$?
@@ -83,7 +87,7 @@ function set_up_aid() {
 }
 set_up_aid
 
-MY_AID=$(kli aid --name "${KEYSTORE_NAME}" --alias "${AID_ALIAS}")
+
 DESIG_ALIASES_FILE="${SCRIPTS_DIR}/designated_aliases.json"
 
 function create_designated_aliases_json() {
@@ -154,16 +158,16 @@ echo
 
 # generate controller did:webs for DOMAIN
 # example: did:webs:127.0.0.1%3A7677:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft
-MY_DID="did:webs:${DOMAIN}%3A${DID_PORT}:${ARTIFACT_PATH}:${MY_AID}"
+MY_DIDWEBS_DID="did:webs:${DOMAIN}%3A${DID_PORT}:${ARTIFACT_PATH}:${MY_AID}"
 print_yellow "Generating did:webs DID for ${KEYSTORE_NAME} on ${DOMAIN} with AID ${MY_AID} in ${WEB_DIR}/${ARTIFACT_PATH}"
-print_yellow "       of: ${MY_DID}"
+print_yellow "       of: ${MY_DIDWEBS_DID}"
 
 if [[ "${METADATA_TRUE}" = true ]] ; then
   print_yellow "Using metadata for generation"
   dkr did webs generate \
   --name "${KEYSTORE_NAME}" \
   --output-dir "${WEB_DIR}/${ARTIFACT_PATH}" \
-  --did "${MY_DID}" \
+  --did "${MY_DIDWEBS_DID}" \
   --da_reg "${DESG_ALIASES_REG}" \
   --meta # include DID generation metadata as envelope of DID document in did.json
 else
@@ -171,7 +175,7 @@ else
   dkr did webs generate \
   --name "${KEYSTORE_NAME}" \
   --output-dir "${WEB_DIR}/${ARTIFACT_PATH}" \
-  --did "${MY_DID}" \
+  --did "${MY_DIDWEBS_DID}" \
   --da_reg "${DESG_ALIASES_REG}"
 fi
 
@@ -185,24 +189,57 @@ resolver_service_pid=$!
 
 # Sample DID: "did:webs:127.0.0.1%3A7677:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft
 status=0
-if [[ "${METADATA_TRUE}" = true ]] ; then
-  print_yellow "Using metadata for resolution"
-  dkr did webs resolve --name "${KEYSTORE_NAME}" \
-    --did "${MY_DID}" \
-    --meta # include DID resolution metadata as envelope of DID document in did.json
-  status=$?
-else
-  print_yellow "Not using metadata for resolution"
-  dkr did webs resolve --name "${KEYSTORE_NAME}" \
-    --did "${MY_DID}"
-  status=$?
-fi
+function resolve_didwebs(){
+  if [[ "${METADATA_TRUE}" = true ]] ; then
+    print_yellow "Using metadata for did:webs resolution"
+    dkr did webs resolve --name "${KEYSTORE_NAME}" \
+      --did "${MY_DIDWEBS_DID}" \
+      --meta # include DID resolution metadata as envelope of DID document in did.json
+    status=$?
+  else
+    print_yellow "Not using metadata for did:webs resolution"
+    dkr did webs resolve --name "${KEYSTORE_NAME}" \
+      --did "${MY_DIDWEBS_DID}"
+    status=$?
+  fi
+  if [ $status -ne 0 ]; then
+      print_red "DID resolution failed for ${MY_DIDWEBS_DID}"
+      exit 1
+  else
+      print_green "DID resolution succeeded for ${MY_DIDWEBS_DID}"
+  fi
+}
+resolve_didwebs
 
-kill -9 $resolver_service_pid
+status=0
+function resolve_didkeri(){
+  if [[ "${METADATA_TRUE}" = true ]] ; then
+    print_yellow "Using metadata for did:keri resolution"
+    dkr did keri resolve \
+      --name "${KEYSTORE_NAME}" \
+      --did "did:keri:${MY_AID}" \
+      --oobi "${MY_OOBI}" \
+      --meta
+    status=$?
+  else
+    print_yellow "Not using metadata for did:keri resolution"
+    dkr did keri resolve \
+      --name "${KEYSTORE_NAME}" \
+      --did "did:keri:${MY_AID}" \
+      --oobi "${MY_OOBI}"
+    status=$?
+  fi
+  if [ $status -ne 0 ]; then
+      print_red "DID resolution failed for ${MY_DIDWEBS_DID}"
+      exit 1
+  else
+      print_green "DID resolution succeeded for ${MY_DIDWEBS_DID}"
+  fi
+}
+resolve_didkeri
 
-if [ $status -ne 0 ]; then
-    print_red "DID resolution failed for ${MY_DID}"
-    exit 1
-else
-    print_green "DID resolution succeeded for ${MY_DID}"
-fi
+kill $resolver_service_pid
+
+echo
+print_green "DID:webs workflow completed successfully."
+echo

@@ -12,7 +12,7 @@ from hio.base import doing
 from keri.app import habbing, oobiing
 from keri.app.cli.common import existing
 
-from dkr import log_name, ogler
+from dkr import log_name, ogler, set_log_level
 from dkr.core import resolving
 
 parser = argparse.ArgumentParser(description='Resolve a did:webs DID')
@@ -54,8 +54,8 @@ logger = ogler.getLogger(log_name)
 
 
 def handler(args):
-    ogler.level = logging.getLevelName(args.loglevel.upper())
-    logger.setLevel(ogler.level)
+    """Handles command line did:webs DID doc resolutions"""
+    set_log_level(args.loglevel, logger)
     hby = existing.setupHby(name=args.name, base=args.base, bran=args.bran)
     hby_doer = habbing.HaberyDoer(habery=hby)  # setup doer
     oobiery = oobiing.Oobiery(hby=hby)
@@ -76,6 +76,7 @@ class WebsResolver(doing.DoDoer):
         self.did = did
         self.meta = meta
         self.verbose = verbose
+        self.success = False
 
         self.toRemove = [hby_doer] + oobiery.doers
         doers = list(self.toRemove)

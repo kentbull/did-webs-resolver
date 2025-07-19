@@ -5,17 +5,12 @@ dkr.app.cli.commands module
 """
 
 import argparse
-import json
-from typing import List
 
-from hio.base import Doer, doing
 from keri.app import habbing, oobiing
 from keri.app.cli.common import existing
-from keri.db import basing
-from keri.help import helping
 
 from dkr import log_name, ogler, set_log_level
-from dkr.core import didding
+from dkr.core.didkeri import KeriResolver
 
 parser = argparse.ArgumentParser(description='Resolve a did:keri DID')
 parser.set_defaults(handler=lambda args: handler(args), transferable=True)
@@ -56,7 +51,7 @@ logger = ogler.getLogger(log_name)
 
 
 def handler(args):
-    """Handles command line did:keri DID doc resolutions"""
+    """Creates the list of doers that handles command line did:keri DID doc resolutions"""
     set_log_level(args.loglevel, logger)
     hby = existing.setupHby(name=args.name, base=args.base, bran=args.bran)
     hby_doer = habbing.HaberyDoer(habery=hby)  # setup doer
@@ -65,49 +60,3 @@ def handler(args):
         hby=hby, hby_doer=hby_doer, oobiery=oobiery, did=args.did, oobi=args.oobi, meta=args.meta, verbose=args.verbose
     )
     return [res]
-
-
-class KeriResolver(doing.DoDoer):
-    """Resolve did:keri DID document from the KEL retrieved during OOBI resolution of the provided OOBI."""
-
-    def __init__(
-        self, hby: habbing.Habery, hby_doer: Doer, oobiery: oobiing.Oobiery, did: str, oobi: str, meta: bool, verbose: bool
-    ):
-        self.hby: habbing.Habery = hby
-        self.did: str = did
-        self.oobi: str = oobi
-        self.meta: bool = meta
-        self.verbose = verbose
-
-        self.result: dict = {}
-        self.toRemove: List[Doer] = [
-            hby_doer,
-            doing.doify(self.resolve, hby=hby, did=did, oobi=oobi, meta=meta),
-        ] + oobiery.doers
-        doers = list(self.toRemove)
-        super(KeriResolver, self).__init__(doers=doers)
-
-    def resolve(self, hby: habbing.Habery, did: str, oobi: str, meta: bool, tock=0.0, tymth=None):
-        """
-        Resolve the did:keri DID document by retrieving the KEL from the OOBI resolution.
-        """
-        aid = didding.parse_did_keri(did)
-        obr = basing.OobiRecord(date=helping.nowIso8601())
-        obr.cid = aid
-        hby.db.oobis.pin(keys=(oobi,), val=obr)
-
-        while hby.db.roobi.get(keys=(oobi,)) is None:
-            _ = yield tock
-        try:
-            self.result = didding.generate_did_doc(hby, did=did, aid=aid, oobi=oobi, meta=meta)
-            if self.verbose:
-                print(f'Resolution result for did:keri DID {self.did}:\n{json.dumps(self.result, indent=2)}')
-            logger.info(f'did:keri Resolution result: {json.dumps(self.result, indent=2)}')
-            print(f'Verification success for did:keri DID: {self.did}')
-        except Exception as ex:
-            logger.error(f'Error resolving did:keri DID: {did} with OOBI {oobi}: {ex}')
-            print(f'Verification failure for did:keri DID: {did} with OOBI {oobi}: {ex}')
-            self.result = {'error': str(ex)}
-            return
-        else:
-            self.remove(self.toRemove)

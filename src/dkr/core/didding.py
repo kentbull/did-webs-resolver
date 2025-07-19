@@ -239,7 +239,7 @@ def genDidResolutionResult(witness_list, seq_no, equivalent_ids, did, vms, serv_
     )
 
 
-def generate_did_doc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_name=None):
+def generate_did_doc(hby: habbing.Habery, did, aid, oobi=None, meta=False):
     """
     Generates a DID document for the given DID and AID using the provided OOBI and metadata.
 
@@ -257,7 +257,6 @@ def generate_did_doc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_n
         aid (str): The AID associated with the DID.
         oobi (str, optional): An OOBI identifier to resolve. Defaults to None.
         meta (bool, optional): If True, include metadata in the response. Defaults to False.
-        reg_name (str, optional): The name of the registry for credentials. Defaults to None.
 
     Returns:
         dict of DID document structure; DID document, metadata and resolution metadata or just the DID document
@@ -269,7 +268,6 @@ def generate_did_doc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_n
         f'\nwith aid\n\t{aid}'
         f'\nusing oobi\n\t{oobi}'
         f'\nand metadata\n\t{meta}'
-        f'\nregistry name for creds\n\t{reg_name}'
     )
 
     hab = None
@@ -305,7 +303,7 @@ def generate_did_doc(hby: habbing.Habery, did, aid, oobi=None, meta=False, reg_n
 
     equiv_ids = []
     aka_ids = []
-    for s in designated_aliases(hby, aid, reg_name=reg_name):
+    for s in designated_aliases(hby, aid):
         if s.startswith('did:webs'):
             equiv_ids.append(s)
         aka_ids.append(s)
@@ -382,14 +380,21 @@ def from_did_web(did_json: dict, meta: bool = False):
     return diddoc_to_did_webs(diddoc)
 
 
-def designated_aliases(hby: habbing.Habery, aid: str, reg_name: str = None, schema: str = DES_ALIASES_SCHEMA):
+def designated_aliases(hby: habbing.Habery, aid: str, schema: str = DES_ALIASES_SCHEMA):
     """
-    Returns the credentialer for the des-aliases schema, or None if it doesn't exist.
+    Searches the entire Regery database for non-revoked, self-attested designated alias ACDCs by schema and
+    returns a list of designated alias IDs using their `a.ids` field.
+
+    Parameters:
+        hby (habbing.Habery): The Habery instance containing the Regery.
+        aid (str): The AID prefix to retrieve the ACDCs for.
+        schema (str): The schema to use to select the target ACDC from the local registry. Default is DES_ALIASES_SCHEMA.
+
+    Returns:
+        list: A list of designated alias IDs (a.ids) from self-attested ACDCs.
     """
     da_ids = []
     if aid in hby.habs:
-        if reg_name is None:
-            reg_name = hby.habs[aid].name
         rgy = credentialing.Regery(hby=hby, name=hby.name)
         vry = verifying.Verifier(hby=hby, reger=rgy.reger)
 

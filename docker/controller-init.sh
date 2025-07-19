@@ -164,14 +164,12 @@ if [[ "${METADATA_TRUE}" = true ]] ; then
   --name "${KEYSTORE_NAME}" \
   --output-dir "${WEB_DIR}/${ARTIFACT_PATH}" \
   --did "${MY_DID}" \
-  --da_reg "${DESG_ALIASES_REG}" \
   --meta # include DID generation metadata as envelope of DID document in did.json
 else
   print_yellow "Not using metadata for generation"
   dkr did webs generate \
   --name "${KEYSTORE_NAME}" \
   --output-dir "${WEB_DIR}/${ARTIFACT_PATH}" \
-  --did "${MY_DID}" \
-  --da_reg "${DESG_ALIASES_REG}"
+  --did "${MY_DID}"
 fi
 

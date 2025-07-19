@@ -6,18 +6,14 @@ dkr.app.cli.commands module
 
 import argparse
 import json
-import logging
-import os
 
 from hio.base import doing
 from keri.app import habbing, oobiing
 from keri.app.cli.common import existing
-from keri.core import serdering
-from keri.db import basing
-from keri.vdr import credentialing, viring
+from keri.vdr import credentialing
 
-from dkr import log_name, ogler
-from dkr.core import didding, ends
+from dkr import log_name, ogler, set_log_level
+from dkr.core import artifacting, didding
 
 parser = argparse.ArgumentParser(description='Generate a did:webs DID document and KEL, TEL, and ACDC CESR stream file')
 parser.set_defaults(handler=lambda args: handler(args), transferable=True)
@@ -40,13 +36,6 @@ parser.add_argument(
     required=False,
     default=None,
     help='OOBI to use for resolving the AID',
-)
-parser.add_argument(
-    '-da',
-    '--da_reg',
-    required=False,
-    default=None,
-    help='Name of Regery to find designated aliases attestation. Default is None.',
 )
 parser.add_argument(
     '-m',
@@ -88,7 +77,6 @@ def handler(args: argparse.Namespace) -> list[doing.Doer]:
         bran=args.bran,
         did=args.did,
         oobi=args.oobi,
-        da_reg=args.da_reg,
         meta=args.meta,
         verbose=args.verbose,
         output_dir=args.output_dir,
@@ -103,7 +91,7 @@ class DIDArtifactGenerator(doing.DoDoer):
     - keri.cesr contains the CESR event stream for the KELs, TELs, and ACDCs associated with the DID.
     """
 
-    def __init__(self, name, base, bran, did, oobi, da_reg, meta=False, verbose=False, output_dir='.'):
+    def __init__(self, name, base, bran, did, oobi, meta=False, verbose=False, output_dir='.'):
         """
         Initializes the did:webs DID file generator.
 
@@ -113,7 +101,6 @@ class DIDArtifactGenerator(doing.DoDoer):
             bran (str): Passcode for the controller of the local KERI keystore.
             did (str): The did:webs DID showing the domain and AID to generate the DID document and CESR stream for.
             oobi (str): OOBI to use for resolving the AID (not currently used).
-            da_reg (str): Name of the local registry (Regery) to use find designated aliases self-attestation (issued locally).
             meta (bool): Whether to include metadata in the DID document generation. Defaults to False.
             verbose (bool): Whether to print the generated DID artifacts at the command line. Defaults to False
             output_dir (str): Directory to output the generated files. Default is current directory.
@@ -128,7 +115,6 @@ class DIDArtifactGenerator(doing.DoDoer):
         oobiery = oobiing.Oobiery(hby=self.hby)
         self.did = did
         self.oobi = oobi
-        self.da_reg = da_reg
         self.meta = meta
         self.verbose = verbose
         self.output_dir = output_dir
@@ -218,7 +204,7 @@ class DIDArtifactGenerator(doing.DoDoer):
         self.write_keri_cesr_file(self.output_dir, aid, keri_cesr)
 
         # generate did doc
-        diddoc = didding.generate_did_doc(self.hby, did=self.did, aid=aid, oobi=None, reg_name=self.da_reg, meta=self.meta)
+        diddoc = didding.generate_did_doc(self.hby, did=self.did, aid=aid, oobi=None, meta=self.meta)
         if diddoc is None:
             logger.error('DID document failed to generate')
             self.remove(self.toRemove)

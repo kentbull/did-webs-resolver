@@ -25,10 +25,8 @@ class KeriResolver(doing.DoDoer):
         self.verbose = verbose
 
         self.result: dict = {}
-        self.toRemove: List[Doer] = [
-            hby_doer,
-            doing.doify(self.resolve, hby=hby, did=did, oobi=oobi, meta=meta),
-        ] + oobiery.doers
+        resolve_doer = doing.doify(self.resolve, hby=hby, did=did, oobi=oobi, meta=meta)
+        self.toRemove: List[Doer] = [hby_doer, resolve_doer] + oobiery.doers
         doers = list(self.toRemove)
         super(KeriResolver, self).__init__(doers=doers)
 
@@ -37,12 +35,16 @@ class KeriResolver(doing.DoDoer):
         Resolve the did:keri DID document by retrieving the KEL from the OOBI resolution.
         """
         aid = didding.parse_did_keri(did)
+
+        # Resolve provided OOBI to get the KEL of the AID passed in
         obr = basing.OobiRecord(date=helping.nowIso8601())
         obr.cid = aid
         hby.db.oobis.pin(keys=(oobi,), val=obr)
 
         while hby.db.roobi.get(keys=(oobi,)) is None:
             _ = yield tock
+
+        # Once the OOBI is resolved and the AID's KEL is available in the local Habery then generate the DID artifacts
         try:
             self.result = didding.generate_did_doc(hby, did=did, aid=aid, oobi=oobi, meta=meta)
             if self.verbose:

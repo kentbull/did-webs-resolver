@@ -2,6 +2,13 @@ from keri.app import configing, habbing, keeping
 from keri.app.cli.common import existing
 
 
+def get_habery_configer(name, base, head_dir_path):
+    """Get the Configer for the Habery if name provide otherwise return None."""
+    if name is not None:
+        return configing.Configer(name=name, base=base, headDirPath=head_dir_path, temp=False, reopen=True, clear=False)
+    return None
+
+
 def get_auth_encryption_aid(name: str, base: str):
     """Get the Authentication and Encryption Identifier (AEID) from the Keeper."""
     ks = keeping.Keeper(name=name, base=base, temp=False, reopen=True)

@@ -73,10 +73,7 @@ def launch(args, expire=0.0):
         logger.error(f'Invalid port number: {http_port}. Must be an integer.')
         return []
 
-    cf = None
-    if config_file is not None:
-        cf = configing.Configer(name=config_file, base=base, headDirPath=config_dir, temp=False, reopen=True, clear=False)
-
+    cf = habs.get_habery_configer(name=config_file, base=base, head_dir_path=config_dir)
     hby, hby_doer = habs.get_habery_doer(name, base, bran, cf)
     oobiery = oobiing.Oobiery(hby=hby)
 

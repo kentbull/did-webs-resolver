@@ -6,11 +6,10 @@ dkr.app.cli.commands module
 
 import argparse
 
-from keri.app import configing, habbing, keeping, oobiing
-from keri.app.cli.common import existing
+from keri.app import oobiing
 
 from dkr import log_name, ogler, set_log_level
-from dkr.core import resolving
+from dkr.core import resolving, habs
 
 parser = argparse.ArgumentParser(description='Expose did:keri resolver as an HTTP web service')
 parser.set_defaults(handler=lambda args: launch(args), transferable=True)
@@ -52,20 +51,8 @@ def launch(args, expire=0.0):
     config_file = args.config_file
     config_dir = args.config_dir
 
-    ks = keeping.Keeper(name=name, base=base, temp=False, reopen=True)
-
-    aeid = ks.gbls.get('aeid')
-
-    cf = None
-    if aeid is None:
-        if config_file is not None:
-            cf = configing.Configer(name=config_file, base=base, headDirPath=config_dir, temp=False, reopen=True, clear=False)
-
-        hby = habbing.Habery(name=name, base=base, bran=bran, cf=cf)
-    else:
-        hby = existing.setupHby(name=name, base=base, bran=bran)
-
-    hby_doer = habbing.HaberyDoer(habery=hby)  # setup doer
+    cf = habs.get_habery_configer(name=config_file, base=base, head_dir_path=config_dir)
+    hby, hby_doer = habs.get_habery_doer(name, base, bran, cf)
     oobiery = oobiing.Oobiery(hby=hby)
 
     doers = oobiery.doers + [hby_doer]

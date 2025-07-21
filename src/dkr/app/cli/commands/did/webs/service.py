@@ -77,9 +77,7 @@ def launch(args):
     did_path = args.did_path
     meta = args.meta
 
-    cf = None
-    if config_file is not None:
-        cf = configing.Configer(name=config_file, base=base, headDirPath=config_dir, temp=False, reopen=True, clear=False)
+    cf = habs.get_habery_configer(name=config_file, base=base, head_dir_path=config_dir)
     hby, hby_doer = habs.get_habery_doer(name, base, bran, cf)
 
     app = resolving.falcon_app()

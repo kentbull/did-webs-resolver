@@ -9,7 +9,7 @@ import argparse
 from keri.app import oobiing
 
 from dkr import log_name, ogler, set_log_level
-from dkr.core import resolving, habs
+from dkr.core import habs, resolving
 
 parser = argparse.ArgumentParser(description='Expose did:keri resolver as an HTTP web service')
 parser.set_defaults(handler=lambda args: launch(args), transferable=True)

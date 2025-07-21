@@ -13,15 +13,28 @@
 
 **Resolve a did:keri DID.**
 
-Example:
+Note: This requires a did:keri resolver service to be running as well as the backing witness pool or mailbox used to resolve the OOBI against.
+
+For example, for the did:keri resolver service you would run something like:
 ```bash
-dkr did keri resolve \
-  --name dkr \
-  --did did:keri:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6 \
-  --oobi http://witnesshost:5642/oobi/EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
+dkr did keri resolver-service \
+  --name "dws-controller" \
+  --config-dir="./local/config/controller" \
+  --config-file "dws-controller" \
+  --loglevel INFO
 ```
 
+and have the backing witness pool running with `kli witness demo`. Then you can resolve the did:keri DID with the `dkr did keri resolve` command.
+
+```bash
+dkr did keri resolve \
+  --name "dws-controller" \
+  --did "did:keri:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft" \
+  --oobi "http://127.0.0.1:5642/oobi/EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha" \
+  --verbose
 ```
+
+```text
         did:keri:123, oobi    ---------------------------------            ---------------------
    O    ----------------->   |                                 |          |                     |
   -|-   <-----------------   |  dkr did keri resolve           |  <---->  |  KERI WATCHER POOL  |
@@ -34,11 +47,16 @@ dkr did keri resolve \
 **Expose did:keri resolver as an HTTP web service.** (Can be deployed as Universal Resolver driver)
 
 Example:
-```
-dkr did keri resolver-service --name dkr --port 7678
+```bash
+dkr did keri resolver-service \
+  --name "dws-controller" \
+  --config-dir="./local/config/controller" \
+  --config-file "dws-controller" \
+  --port 7678 \
+  --loglevel INFO
 ```
 
-```
+```text
                               ---------------------------------            ---------------------
                              |                                 |          |                     |
                              |  dkr did keri resolver-service  |  <---->  |  KERI WATCHER POOL  |
@@ -58,14 +76,17 @@ dkr did keri resolver-service --name dkr --port 7678
 
 ### `dkr did webs generate`
 
-**Generate a did:webs DID document and KEL/TEL file.**
+**Generate DID artifacts for a did:webs DID meaning the did.json DID document and keri.cesr KEL/TEL and ACDC file.**
 
 Example:
-```
-dkr did webs generate --name dkr --did did:webs:danubetech.com:example:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6
+```bash
+dkr did webs generate \
+  --name "dws-controller" \
+  --output-dir "./local/web/dws" \
+  --did "did:webs:127.0.0.1%3A7677:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft"
 ```
 
-```
+```text
                               ---------------------------------
       did.json, keri.cesr    |                                 |
     --------------------->   |  ANY WEB SERVER  /123/did.json  |
@@ -82,14 +103,28 @@ dkr did webs generate --name dkr --did did:webs:danubetech.com:example:EPaP4GgZs
 
 ### `dkr did webs service`
 
+The did:webs service acts as a local web server that dynamically generates and serves did.json and keri.cesr files upon request.
+you must configure it with a path parameter corresponding to the path embedded within the did:webs DID, otherwise resolution will fail.
+
+The `--meta` argument may optionally be specified to return DID resolution metadata with the did.json DID document.
+
 **Launch web server capable of serving KERI AIDs as did:webs and did:web DIDs.**
 
+The following command configures the did:webs path component to be "dws":
+
 Example:
-```
-dkr did webs service --name dkr --port 7676
+```text
+dkr did webs service \
+    --name dws-controller \
+    --alias labs-id \
+    --did-path=dws \
+    -p 7677 \
+    --config-dir=./local/config/controller \
+    --config-file dws-controller \
+    --loglevel INFO
 ```
 
-```
+```text
                               ---------------------------------            ---------------------
                              |                                 |          |                     |
                              |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
@@ -97,17 +132,17 @@ dkr did webs service --name dkr --port 7676
                               ---------------------------------            ---------------------
                                             HTTPS
                              HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                             /123/keri.cesr |   v  keri.cesr
+                             {path}/{aid}/did.json  |   |  did.json
+                             {path}/{aid}/keri.cesr |   v  keri.cesr
 
-         did:webs:dom:123     ---------------------------------
+         did:webs:dws:123     ---------------------------------
    O    ----------------->   |                                 |
   -|-   <-----------------   |  ANY DID:WEBS RESOLVER          |  <-----  (verify did.json/keri.cesr)
   / \    diddoc, metadata    |                                 |
                               ---------------------------------
 ```
 
-```
+```text
                               ---------------------------------            ---------------------
                              |                                 |          |                     |
                              |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
@@ -127,58 +162,75 @@ dkr did webs service --name dkr --port 7676
 
 ### `dkr did webs resolve`
 
-**Resolve a did:webs DID.**
+Resolving a did:webs DID requires the did:webs resolver service to be running using the `dkr did webs resolver-service` command shown below.
+
+The generated DID artifacts are hosted at the directory specified by the `--static-files-dir` argument.
+
+```bash
+dkr did webs resolver-service \
+  --name "dws-controller" \
+  --config-dir="./local/config/controller" \
+  --config-file "dws-controller" \
+  --static-files-dir "./local/web" \
+  --loglevel INFO
+```
+
+**Resolve a did:webs DID**
+
+Then you may resolve a did:webs DID.
 
 Example:
-```
-dkr did webs resolve --name dkr --did did:webs:danubetech.com:example:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6
+```bash
+dkr did webs resolve \
+  --name dws-controller \
+  --did "did:webs:127.0.0.1%3A7677:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft
 ```
 
-```
+```text
                               ---------------------------------            ---------------------
                              |                                 |          |                     |
                              |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
                              |                                 |          |                     |
                               ---------------------------------            ---------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                             /123/keri.cesr |   v  keri.cesr
+                                                HTTPS
+                             HTTP GET           ^   |  200 OK
+                             /dws/123/did.json  |   |  did.json
+                             /dws/123/keri.cesr |   v  keri.cesr
 
-         did:webs:dom:123     ---------------------------------
+         did:webs:dws:123     ---------------------------------
    O    ----------------->   |                                 |
   -|-   <-----------------   |  dkr did webs resolve           |  <-----  (verify did.json/keri.cesr)
   / \    diddoc, metadata    |                                 |
                               ---------------------------------
 ```
 
-```
-                              ---------------------------------
-                             |                                 |
-                             |  ANY WEB SERVER  /123/did.json  |
-                             |                  /123/keri.cesr |
-                              ---------------------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                             /123/keri.cesr |   v  keri.cesr
+```text
+                              -------------------------------------
+                             |                                     |
+                             |  ANY WEB SERVER  /dws/123/did.json  |
+                             |                  /dws/123/keri.cesr |
+                              -------------------------------------
+                                                HTTPS
+                             HTTP GET           ^   |  200 OK
+                             /dws/123/did.json  |   |  did.json
+                             /dws/123/keri.cesr |   v  keri.cesr
 
-         did:webs:dom:123     ---------------------------------
+         did:webs:dws:123     ---------------------------------
    O    ----------------->   |                                 |
   -|-   <-----------------   |  dkr did webs resolve           |  <-----  (verify did.json/keri.cesr)
   / \    diddoc, metadata    |                                 |
                               ---------------------------------
 ```
 
-```
-                              ---------------------------------
-                             |                                 |
-                             |  ANY WEB SERVER  /123/did.json  |
-                             |                  /123/keri.cesr |
-                              ---------------------------------
+```text
+                              -------------------------------------
+                             |                                     |
+                             |  ANY WEB SERVER  /dws/123/did.json  |
+                             |                  /dws/123/keri.cesr |
+                              -------------------------------------
                                             HTTPS
                              HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
+                             /dws/123/did.json  |   |  did.json
                                             |   v
 
          did:web:dom:123     ---------------------------------
@@ -193,11 +245,16 @@ dkr did webs resolve --name dkr --did did:webs:danubetech.com:example:EPaP4GgZsB
 **Expose did:webs resolver as an HTTP web service.** (Can be deployed as Universal Resolver driver)
 
 Example:
-```
-dkr did keri resolve --name dkr --port 7677
+```bash
+dkr did webs resolver-service \
+  --name "dws-controller" \
+  --config-dir="./local/config/controller" \
+  --config-file "dws-controller" \
+  --static-files-dir "./local/web" \
+  --loglevel INFO
 ```
 
-```
+```text
                               ---------------------------------            ---------------------
                              |                                 |          |                     |
                              |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
@@ -223,7 +280,7 @@ dkr did keri resolve --name dkr --port 7677
                                              / \
 ```
 
-```
+```text
                               ---------------------------------
                              |                                 |
                              |  ANY WEB SERVER  /123/did.json  |

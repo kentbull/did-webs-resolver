@@ -6,53 +6,107 @@ dkr.core.serving module
 
 import json
 import os
-import queue
+import urllib.parse
 
 import falcon
 import requests
 from hio.base import doing
 from hio.core import http, tcp
-from keri.app import directing, habbing
+from keri import kering
+from keri.app import habbing
+from keri.app.habbing import Habery, HaberyDoer
+from keri.app.oobiing import Oobiery
 
 from dkr import log_name, ogler
 from dkr.core import didding, ends
-from dkr.core.didkeri import KeriResolver
 
 logger = ogler.getLogger(log_name)
 
 
-def get_sources(did: str, resq: queue.Queue = None):
-    logger.info(f'Parsing DID {did}')
+def load_file(file_path):
+    # Read the file in binary mode
+    with open(file_path, 'rb') as file:
+        msgs = file.read()
+        return msgs
+
+
+def load_json_file(file_path):
+    # Read the file in binary mode
+    with open(file_path, 'r', encoding='utf-8') as file:
+        msgs = json.load(file)
+        return msgs
+
+
+def load_url(url: str):
+    try:
+        response = requests.get(url=url)
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f'Failed to connect to URL {url}: {e}')
+        raise
+    # Ensure the request was successful
+    response.raise_for_status()
+    return response
+
+
+def split_cesr(s, char):
+    # Find the last occurrence of the character
+    index = s.rfind(char)
+
+    # If the character is not found, return the whole string and an empty string
+    if index == -1:
+        return s, ''
+
+    json_str = s[: index + 1]
+    # quote escaped starts with single quote and double quote and the split will lose the closing single/double quote
+    if json_str.startswith('"'):
+        json_str = json_str + '"'
+
+    cesr_sig = s[index + 1 :]
+    if cesr_sig.endswith('"'):
+        cesr_sig = '"' + json_str
+
+    # Split the string into two parts
+    return json_str, cesr_sig
+
+
+def get_urls(did: str) -> (str, str, str):
     domain, port, path, aid = didding.parse_did_webs(did=did)
 
     opt_port = f':{port}' if port is not None else ''
     opt_path = f'/{path.replace(":", "/")}' if path is not None else ''
     base_url = f'http://{domain}{opt_port}{opt_path}/{aid}'
 
-    # Load the did doc
+    # did.json for DID Document
     dd_url = f'{base_url}/{ends.DID_JSON}'
+
+    # keri.cesr for CESR stream
+    kc_url = f'{base_url}/{ends.KERI_CESR}'
+    return aid, dd_url, kc_url
+
+
+def get_did_artifacts(did: str) -> (str, requests.Response, requests.Response):
+    aid, dd_url, kc_url = get_urls(did=did)
+
+    # Load the did doc
     logger.info(f'Loading DID Doc from {dd_url}')
-    dd_res = load_url(dd_url, resq=resq)
+    dd_res = load_url(dd_url)
     logger.debug(f'Got DID doc: {dd_res.content.decode("utf-8")}')
 
     # Load the KERI CESR
-    kc_url = f'{base_url}/{ends.KERI_CESR}'
     logger.info(f'Loading KERI CESR from {kc_url}')
-    kc_res = load_url(kc_url, resq=resq)
+    kc_res = load_url(kc_url)
     logger.debug(f'Got KERI CESR: {kc_res.content.decode("utf-8")}')
 
-    if resq is not None:
-        resq.put(aid)
-        resq.put(dd_res)
-        resq.put(kc_res)
     return aid, dd_res, kc_res
 
 
-def save_cesr(hby: habbing.Habery, kc_res: requests.Response, aid: str = None):
+def save_cesr(hby: Habery, kc_res: requests.Response, aid: str = None):
     logger.info('Saving KERI CESR to hby: %s', kc_res.content.decode('utf-8'))
     hby.psr.parse(ims=bytearray(kc_res.content))
-    if aid:
-        assert aid in hby.kevers, f'KERI CESR parsing failed, KERI AID {aid} not found in habery'
+    if (
+        aid not in hby.kevers
+    ):  # After parsing then the AID should be in kevers, meaning the KEL for the AID is locally available
+        raise kering.KeriError(f'KERI CESR parsing and saving failed, KERI AID {aid} not found in habery')
 
 
 def compare_did_docs(
@@ -182,9 +236,9 @@ def _compare_dicts(expected, actual, path=''):
     return differences
 
 
-def resolve(hby, did, meta=False, resq: queue.Queue = None):
+def resolve(hby: Habery, did: str, meta: bool = False):
     """Resolve a did:webs DID and returl the verification result."""
-    aid, dd_res, kc_res = get_sources(did=did, resq=resq)
+    aid, dd_res, kc_res = get_did_artifacts(did=did)
     save_cesr(hby=hby, kc_res=kc_res, aid=aid)
     dd, dd_actual = compare_did_docs(hby=hby, did=did, aid=aid, meta=meta, dd_res=dd_res, kc_res=kc_res)
     return verify(dd, dd_actual, meta=meta)
@@ -194,7 +248,17 @@ def falcon_app() -> falcon.App:
     """Create a Falcon app instance with open CORS settings."""
     return falcon.App(
         middleware=falcon.CORSMiddleware(
-            allow_origins='*', allow_credentials='*', expose_headers=['cesr-attachment', 'cesr-date', 'content-type']
+            allow_origins='*',
+            allow_credentials='*',
+            expose_headers=[
+                'cesr-attachment',
+                'cesr-date',
+                'content-type',
+                'signature',
+                'signature-input',
+                'signify-resource',
+                'signify-timestamp',
+            ],
         )
     )
 
@@ -265,10 +329,10 @@ def load_ends(app, hby, hby_doer, oobiery, static_files_dir, did_path=''):
 
 class UniversalResolverResource(doing.DoDoer):
     """
-    Resource for resolving did:webs and did:keri DIDs
+    HTTP Resource enabling the Universal Resolver to resolve did:webs and did:keri DIDs using the /v1.0/identifiers/{did} endpoint.
     """
 
-    def __init__(self, hby, hby_doer, oobiery):
+    def __init__(self, hby: Habery, hby_doer: HaberyDoer, oobiery: Oobiery):
         """Create Endpoints for discovery and resolution of OOBIs
 
         Parameters:
@@ -276,13 +340,34 @@ class UniversalResolverResource(doing.DoDoer):
             hby_doer (HaberyDoer): Doer for the identifier database environment
             oobiery (Oobiery): OOBI management environment
         """
-        self.hby = hby
-        self.hby_doer = hby_doer
-        self.oobiery = oobiery
+        self.hby: Habery = hby
+        self.oobiery: Oobiery = oobiery
 
-        super(ResolveResource, self).__init__(doers=[])
+        super(UniversalResolverResource, self).__init__(doers=[])
 
-    def on_get(self, req, rep, did, meta=False):
+    @staticmethod
+    def requote(encoded_did: str):
+        """
+        Due to compliance with PEP3333 in PR 38 to HIO (https://github.com/ioflo/hio/pull/38) the
+        WSGI container for the Falcon server URL encodes the URL path which means that  the did:webs and did:keri
+        DIDs must be URL decoded, broken apart, and then re-encoded to ensure they are valid for resolution.
+
+        This specific attribute of the WSGI environment uses urllib.parse.quote to encode the path, so we need to decode it
+        environ['PATH_INFO'] = quote(requestant.path)
+        """
+        if encoded_did.lower().startswith('did%3awebs') or encoded_did.lower().startswith('did%3akeri'):
+            # The DID is incorrectly fully URL-encoded, happens with some WSGI servers, so must decode and re-encode it
+            # this happens in Falcon
+            try:
+                did = urllib.parse.unquote(encoded_did)
+            except Exception as e:
+                raise ValueError(f'Invalid DID: {encoded_did}, error: {str(e)}')
+            did = didding.re_encode_invalid_did(did)
+            return did
+        else:
+            return encoded_did
+
+    def on_get(self, req: falcon.Request, rep: falcon.Response, did: str, meta: bool = False):
         """
         Handle GET requests to resolve a DID by its identifier (KERI AID).
 
@@ -292,14 +377,20 @@ class UniversalResolverResource(doing.DoDoer):
             did (str): The DID to resolve.
             meta (bool): If True, include metadata in the DID document resolution.
         """
-        # did = urllib.parse.unquote(did)
-        logger.info(f'Request to resolve did: {did}')
-
         if did is None:
             rep.status = falcon.HTTP_400
             rep.content_type = 'application/json'
             rep.media = {'error': "invalid resolution request body, 'did' is required"}
             return
+
+        try:
+            did = self.requote(did)  # Re-quote the DID to ensure it is valid for resolution
+        except ValueError as e:
+            rep.status = falcon.HTTP_400
+            rep.content_type = 'application/json'
+            rep.media = {'message': f'invalid DID: {did}', 'error': str(e)}
+            return
+        logger.info(f'Request to resolve did: {did}')
 
         if 'oobi' in req.params:
             oobi = req.params['oobi']
@@ -308,63 +399,50 @@ class UniversalResolverResource(doing.DoDoer):
             oobi = None
 
         if did.startswith('did:webs'):
-            data = resolve(hby=self.hby, did=did, meta=meta)
+            result, data = resolve(hby=self.hby, did=did, meta=meta)
         elif did.startswith('did:keri'):
-            resolver = KeriResolver(hby=self.hby, hby_doer=self.hby_doer, oobiery=self.oobiery, did=did, oobi=oobi, meta=meta)
-            directing.runController(doers=[resolver], expire=0.0)
-            data = resolver.result
+            # Option 1 - does not support OOBI resolution
+            # result, data = resolve_did_keri(self.hby, did, oobi, meta)
+
+            # Option 2 - bad design - shelling out
+            result, data = resolve_did_keri_cli(self.hby.name, did, oobi, meta)
         else:
             rep.status = falcon.HTTP_400
             rep.media = {'error': "invalid 'did'"}
             return
 
         rep.status = falcon.HTTP_200
-        rep.set_header('Content-Type', 'application/did+ld+json')
-        rep.body = data
-
+        # rep.set_header('Content-Type', 'application/did+ld+json')
+        rep.set_header('Content-Type', 'application/json')
+        rep.media = data
         return
 
 
-def load_file(file_path):
-    # Read the file in binary mode
-    with open(file_path, 'rb') as file:
-        msgs = file.read()
-        return msgs
+def resolve_did_keri_cli(hby_name: str, did: str, oobi: str = None, meta: bool = False):
+    """Shell out to a new process using the CLI to run `dkr did keri resolve"""
+    cmd = f'dkr did keri resolve --name {hby_name} --did {did} --verbose'
+    if oobi is not None:
+        cmd += f'--oobi {oobi} '
+    if meta:
+        cmd += '--meta '
+    pipe = os.popen(cmd)
+    output = str(pipe.read()).rstrip()
+    status = pipe.close()
+    if status is not None:
+        exit_code = os.waitstatus_to_exitcode(status)
+        if exit_code != 0:
+            logger.error(f'Error resolving did:keri DID {did} with OOBI {oobi}: {output}')
+            return False, {'error': f'Error resolving did:keri DID {did} with OOBI {oobi}: {output}'}
+        else:
+            logger.info(f'Successfully resolved did:keri DID {did} with OOBI {oobi}: {output}')
+            return True, output
+    else:
+        logger.info(f"Command '{cmd}' might not have returned an exit code, assuming success")
+        return True, output
 
 
-def load_json_file(file_path):
-    # Read the file in binary mode
-    with open(file_path, 'r', encoding='utf-8') as file:
-        msgs = json.load(file)
-        return msgs
-
-
-def load_url(url: str, resq: queue.Queue = None):
-    response = requests.get(url=url)
-    # Ensure the request was successful
-    response.raise_for_status()
-    # Convert the content to a bytearray
-    if resq is not None:
-        resq.put(response)
-    return response
-
-
-def split_cesr(s, char):
-    # Find the last occurrence of the character
-    index = s.rfind(char)
-
-    # If the character is not found, return the whole string and an empty string
-    if index == -1:
-        return s, ''
-
-    json_str = s[: index + 1]
-    # quote escaped starts with single quote and double quote and the split will lose the closing single/double quote
-    if json_str.startswith('"'):
-        json_str = json_str + '"'
-
-    cesr_sig = s[index + 1 :]
-    if cesr_sig.endswith('"'):
-        cesr_sig = '"' + json_str
-
-    # Split the string into two parts
-    return json_str, cesr_sig
+def resolve_did_keri(hby: Habery, did: str, oobi: str = None, meta: bool = False):
+    aid = didding.parse_did_keri(did)
+    if oobi is not None and hby.db.roobi.get(keys=(oobi,)) is None:
+        False, {'error': f'OOBI {oobi} not found in the Habery'}
+    return True, didding.generate_did_doc(hby, did=did, aid=aid, oobi=oobi, meta=meta)

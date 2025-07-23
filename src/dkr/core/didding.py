@@ -24,6 +24,9 @@ DID_KERI_RE = re.compile(r'\Adid:keri:(?P<aid>[^:]+)\Z', re.IGNORECASE)
 DID_WEBS_RE = re.compile(
     r'\Adid:web(s)?:(?P<domain>[^%:]+)(?:%3a(?P<port>\d+))?(?::(?P<path>.+?))?(?::(?P<aid>[^:]+))\Z', re.IGNORECASE
 )
+DID_WEBS_UNENCODED_PORT_RE = re.compile(
+    r'\Adid:web(s)?:(?P<domain>[^%:]+)(?::(?P<port>\d+))?(?::(?P<path>.+?))?(?::(?P<aid>[^:]+))\Z', re.IGNORECASE
+)
 
 DID_TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 DID_TIME_PATTERN = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z')
@@ -57,7 +60,7 @@ def parse_did_keri(did):
     return aid
 
 
-def parse_did_webs(did):
+def parse_did_webs(did: str):
     """
     Parse a did:webs DID with regex to return the domain, port, path, and AID
 
@@ -76,6 +79,45 @@ def parse_did_webs(did):
         raise ValueError(f'{aid} is an invalid AID')
 
     return domain, port, path, aid
+
+
+def re_encode_invalid_did_webs(did: str):
+    match = DID_WEBS_UNENCODED_PORT_RE.match(did)
+    if match is None:
+        raise ValueError(f'{did} is not a valid did:web(s) DID')
+
+    domain, port, path, aid = match.group('domain', 'port', 'path', 'aid')
+
+    if aid:
+        try:
+            _ = coring.Prefixer(qb64=aid)
+        except Exception as e:
+            raise ValueError(f'{aid} is an invalid AID')
+
+    encoded = f'did:webs:{domain}'
+    if port:
+        encoded += f'%3A{port}'
+    if path:
+        encoded += f':{path}'
+    if aid:
+        encoded += f':{aid}'
+    return encoded
+
+
+def re_encode_invalid_did(did: str):
+    """
+    Parse a did:webs DID with regex to return the domain, port, path, and AID.
+    This version does not URL-encode the port.
+
+    Returns:
+        (str, str, str, str): domain, port, path, AID
+    """
+    if did.startswith('did:webs:'):
+        return re_encode_invalid_did_webs(did)
+    elif did.startswith('did:keri:'):
+        return f'did:keri:{parse_did_keri(did)}'
+    else:
+        raise ValueError(f'{did} is not a valid did:webs or did:keri DID')
 
 
 def generate_json_web_key_vm(pubkey, did, kid, x):

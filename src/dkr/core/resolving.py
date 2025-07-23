@@ -210,7 +210,9 @@ def tls_falcon_server(app: falcon.App, http_port: int, keypath: str, certpath: s
     return server
 
 
-def setup_resolver(hby, hby_doer, oobiery, *, http_port, static_files_dir=None, keypath=None, certpath=None, cafilepath=None):
+def setup_resolver(
+    hby, hby_doer, oobiery, http_port, static_files_dir=None, did_path=None, keypath=None, certpath=None, cafilepath=None
+):
     """Setup serving package and endpoints
 
     Parameters:
@@ -219,6 +221,7 @@ def setup_resolver(hby, hby_doer, oobiery, *, http_port, static_files_dir=None, 
         oobiery (Oobiery): OOBI management environment
         http_port (int): external port to listen on for HTTP messages
         static_files_dir (str): directory to serve static files from, default is None (disabled)
+        did_path (str): path segment of the did:webs URL to host the did:webs artifacts on, disabled if None
         keypath (str): path to the TLS private key file, default is None (disabled)
         certpath (str): path to the TLS certificate file, default is None (disabled)
         cafilepath (str): path to the CA certificate file, default is None (disabled)
@@ -231,14 +234,14 @@ def setup_resolver(hby, hby_doer, oobiery, *, http_port, static_files_dir=None, 
     server = tls_falcon_server(app, http_port=http_port, keypath=keypath, certpath=certpath, cafilepath=cafilepath)
     http_server_doer = http.ServerDoer(server=server)
 
-    load_ends(app, hby=hby, hby_doer=hby_doer, oobiery=oobiery, static_files_dir=static_files_dir)
+    load_ends(app, hby=hby, hby_doer=hby_doer, oobiery=oobiery, static_files_dir=static_files_dir, did_path=did_path)
 
     doers = [http_server_doer]
 
     return doers
 
 
-def serve_artifacts(app: falcon.App, hby: habbing.Habery, static_files_dir: str | None = None):
+def serve_artifacts(app: falcon.App, hby: habbing.Habery, static_files_dir: str | None = None, did_path: str = ''):
     """Set up static file serving for did.json and keri.cesr files"""
     if static_files_dir is not None:
         did_doc_dir = hby.cf.get().get('did.doc.dir', 'dws')
@@ -248,19 +251,19 @@ def serve_artifacts(app: falcon.App, hby: habbing.Habery, static_files_dir: str 
             did_doc_dir = os.path.join(os.getcwd(), did_doc_dir)
         logger.info(f'Serving static files from {did_doc_dir}')
         # Host did:webs artifacts only if static path specified
-        app.add_static_route('/dws', did_doc_dir)
+        app.add_static_route('' if did_path is None else f'/{did_path}', did_doc_dir)
 
 
-def load_ends(app, *, hby, hby_doer, oobiery, static_files_dir):
+def load_ends(app, hby, hby_doer, oobiery, static_files_dir, did_path=''):
     """Set up Falcon HTTP server endpoints for resolving DIDs and hosting static files"""
-    serve_artifacts(app, hby, static_files_dir)
-    resolve_end = ResolveResource(hby=hby, hby_doer=hby_doer, oobiery=oobiery)
+    serve_artifacts(app, hby, static_files_dir, did_path)
+    resolve_end = UniversalResolverResource(hby=hby, hby_doer=hby_doer, oobiery=oobiery)
     app.add_route('/1.0/identifiers/{did}', resolve_end)
     app.add_route('/health', ends.HealthEnd())
     return [resolve_end]
 
 
-class ResolveResource(doing.DoDoer):
+class UniversalResolverResource(doing.DoDoer):
     """
     Resource for resolving did:webs and did:keri DIDs
     """

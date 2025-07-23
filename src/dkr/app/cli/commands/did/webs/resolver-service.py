@@ -5,8 +5,10 @@ dkr.app.cli.commands.resolver-service module
 """
 
 import argparse
+from typing import List
 
-from keri.app import configing, oobiing
+from hio.base import doing
+from keri.app import oobiing
 
 from dkr import log_name, ogler, set_log_level
 from dkr.core import habs, resolving
@@ -19,6 +21,14 @@ parser.add_argument(
     action='store',
     default=7677,
     help='Port on which to listen for did:webs resolution requests.  Defaults to 7677',
+)
+parser.add_argument(
+    '-d',
+    '--did-path',
+    action='store',
+    default='',
+    required=False,
+    help="did:webs path segment in URL format between {host}%3A{port} and {aid}. Example: 'somepath/somesubpath'",
 )
 parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
 parser.add_argument(
@@ -57,22 +67,43 @@ def launch(args, expire=0.0):
     as a set of Doers
     """
     set_log_level(args.loglevel, logger)
-    name = args.name
-    base = args.base
-    bran = args.bran
-    config_file = args.config_file
-    config_dir = args.config_dir
-    static_files_dir = args.static_files_dir
     http_port = args.http
-    keypath = args.keypath
-    certpath = args.certpath
-    cafilepath = args.cafilepath
     try:
         http_port = int(http_port)
     except ValueError:
         logger.error(f'Invalid port number: {http_port}. Must be an integer.')
-        return []
+        raise
 
+    doers = create_did_webs_doers(
+        name=args.name,
+        base=args.base,
+        bran=args.bran,
+        config_file=args.config_file,
+        config_dir=args.config_dir,
+        static_files_dir=args.static_files_dir,
+        did_path=args.did_path,
+        http_port=http_port,
+        keypath=args.keypath,
+        certpath=args.certpath,
+        cafilepath=args.cafilepath,
+    )
+    logger.info(f'Launched did:webs resolver on {http_port}')
+    return doers
+
+
+def create_did_webs_doers(
+    name: str,
+    base: str,
+    bran: str,
+    config_file: str,
+    config_dir: str,
+    static_files_dir: str,
+    did_path: str,
+    http_port: int,
+    keypath: str,
+    certpath: str,
+    cafilepath: str,
+) -> List[doing.Doer]:
     cf = habs.get_habery_configer(name=config_file, base=base, head_dir_path=config_dir)
     hby, hby_doer = habs.get_habery_doer(name, base, bran, cf)
     oobiery = oobiing.Oobiery(hby=hby)
@@ -84,10 +115,9 @@ def launch(args, expire=0.0):
         oobiery,
         http_port=http_port,
         static_files_dir=static_files_dir,
+        did_path=did_path,
         keypath=keypath,
         certpath=certpath,
         cafilepath=cafilepath,
     )
-
-    logger.info(f'Launched did:webs resolver on {http_port}')
     return doers

@@ -182,7 +182,8 @@ dkr did webs resolver-service \
   --name "${KEYSTORE_NAME}" \
   --config-dir="${CONFIG_DIR}/controller" \
   --config-file "${KEYSTORE_NAME}" \
-  --static-files-dir "${WEB_DIR}" &
+  --static-files-dir "${WEB_DIR}" \
+  --did-path "${ARTIFACT_PATH}" &
 resolver_service_pid=$!
 
 # Sample DID: "did:webs:127.0.0.1%3A7677:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft

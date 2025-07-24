@@ -4,18 +4,22 @@ dkr.core.serving module
 
 """
 
+import datetime
 import json
 import os
 import urllib.parse
+from typing import Callable
 
 import falcon
 import requests
+from falcon import media
 from hio.base import doing
 from hio.core import http, tcp
 from keri import kering
 from keri.app import habbing
 from keri.app.habbing import Habery, HaberyDoer
 from keri.app.oobiing import Oobiery
+from keri.help import helping
 
 from dkr import log_name, ogler
 from dkr.core import didding, ends
@@ -37,7 +41,7 @@ def load_json_file(file_path):
         return msgs
 
 
-def load_url(url: str):
+def load_url_with_requests(url: str) -> bytes:
     try:
         response = requests.get(url=url)
     except requests.exceptions.ConnectionError as e:
@@ -45,7 +49,7 @@ def load_url(url: str):
         raise
     # Ensure the request was successful
     response.raise_for_status()
-    return response
+    return response.content
 
 
 def split_cesr(s, char):
@@ -70,7 +74,7 @@ def split_cesr(s, char):
 
 
 def get_urls(did: str) -> (str, str, str):
-    domain, port, path, aid = didding.parse_did_webs(did=did)
+    domain, port, path, aid, query = didding.parse_did_webs(did=did)
 
     opt_port = f':{port}' if port is not None else ''
     opt_path = f'/{path.replace(":", "/")}' if path is not None else ''
@@ -78,49 +82,46 @@ def get_urls(did: str) -> (str, str, str):
 
     # did.json for DID Document
     dd_url = f'{base_url}/{ends.DID_JSON}'
+    if query:
+        dd_url += f'{query}'
 
     # keri.cesr for CESR stream
     kc_url = f'{base_url}/{ends.KERI_CESR}'
     return aid, dd_url, kc_url
 
 
-def get_did_artifacts(did: str) -> (str, requests.Response, requests.Response):
+def get_did_artifacts(did: str, load_url: Callable = load_url_with_requests) -> (str, bytes, bytes):
     aid, dd_url, kc_url = get_urls(did=did)
 
     # Load the did doc
     logger.info(f'Loading DID Doc from {dd_url}')
     dd_res = load_url(dd_url)
-    logger.debug(f'Got DID doc: {dd_res.content.decode("utf-8")}')
+    logger.debug(f'Got DID doc: {dd_res.decode("utf-8")}')
 
     # Load the KERI CESR
     logger.info(f'Loading KERI CESR from {kc_url}')
     kc_res = load_url(kc_url)
-    logger.debug(f'Got KERI CESR: {kc_res.content.decode("utf-8")}')
+    logger.debug(f'Got KERI CESR: {kc_res.decode("utf-8")}')
 
     return aid, dd_res, kc_res
 
 
-def save_cesr(hby: Habery, kc_res: requests.Response, aid: str = None):
-    logger.info('Saving KERI CESR to hby: %s', kc_res.content.decode('utf-8'))
-    hby.psr.parse(ims=bytearray(kc_res.content))
+def save_cesr(hby: Habery, kc_res: bytes, aid: str = None):
+    logger.info('Saving KERI CESR to hby: %s', kc_res.decode('utf-8'))
+    hby.psr.parse(ims=bytearray(kc_res))
     if (
         aid not in hby.kevers
     ):  # After parsing then the AID should be in kevers, meaning the KEL for the AID is locally available
         raise kering.KeriError(f'KERI CESR parsing and saving failed, KERI AID {aid} not found in habery')
 
 
-def compare_did_docs(
-    hby: habbing.Habery, did: str, aid: str, meta: bool, dd_res: requests.Response, kc_res: requests.Response
-):
+def get_generated_did_doc(hby: habbing.Habery, did: str, meta: bool, ):
+    aid, dd_url, kc_url = get_urls(did=did)
     dd = didding.generate_did_doc(hby, did=did, aid=aid, oobi=None, meta=meta)
     if meta:
-        dd[didding.DD_META_FIELD]['didDocUrl'] = dd_res.url
-        dd[didding.DD_META_FIELD]['keriCesrUrl'] = kc_res.url
-
-    dd_actual = didding.from_did_web(json.loads(dd_res.content.decode('utf-8')), meta)
-    logger.debug(f'Got DID Doc: {dd_actual}')
-
-    return dd, dd_actual
+        dd[didding.DD_META_FIELD]['didDocUrl'] = dd_url
+        dd[didding.DD_META_FIELD]['keriCesrUrl'] = kc_url
+    return dd
 
 
 def error_resolution_response(meta: bool, error_message: str):
@@ -145,14 +146,16 @@ def verify(dd_expected: dict, dd_actual: dict, meta: bool = False) -> (bool, dic
          tuple(bool, dict): (verified, dd) where verified is a boolean indicating verification status
     """
     dd_exp = dd_expected
-    if didding.DD_FIELD in dd_exp:
+    dd_act = dd_actual
+    if meta:
         dd_exp = dd_expected[didding.DD_FIELD]
+        dd_act = dd_actual[didding.DD_FIELD]
     # TODO verify more than verificationMethod
-    verified = _verify_did_docs(dd_exp[didding.VMETH_FIELD], dd_actual[didding.VMETH_FIELD])
+    verified = _verify_did_docs(dd_exp[didding.VMETH_FIELD], dd_act[didding.VMETH_FIELD])
 
     if verified:
         logger.info(f'DID document verified')
-        return (True, dd_expected[didding.DD_FIELD]) if meta else (True, dd_expected)
+        return (True, dd_expected)
     else:
         logger.info(f'DID document verification failed')
         return (
@@ -236,17 +239,18 @@ def _compare_dicts(expected, actual, path=''):
     return differences
 
 
-def resolve(hby: Habery, did: str, meta: bool = False):
+def resolve(hby: Habery, did: str, meta: bool = False, load_url: Callable = load_url_with_requests) -> (bool, dict):
     """Resolve a did:webs DID and returl the verification result."""
-    aid, dd_res, kc_res = get_did_artifacts(did=did)
+    aid, dd_res, kc_res = get_did_artifacts(did=did, load_url=load_url)
     save_cesr(hby=hby, kc_res=kc_res, aid=aid)
-    dd, dd_actual = compare_did_docs(hby=hby, did=did, aid=aid, meta=meta, dd_res=dd_res, kc_res=kc_res)
-    return verify(dd, dd_actual, meta=meta)
+    dd_actual = didding.from_did_web(json.loads(dd_res.decode('utf-8')), meta)
+    dd_expected = get_generated_did_doc(hby=hby, did=did, meta=meta)
+    return verify(dd_expected, dd_actual, meta=meta)
 
 
 def falcon_app() -> falcon.App:
     """Create a Falcon app instance with open CORS settings."""
-    return falcon.App(
+    app = falcon.App(
         middleware=falcon.CORSMiddleware(
             allow_origins='*',
             allow_credentials='*',
@@ -261,6 +265,21 @@ def falcon_app() -> falcon.App:
             ],
         )
     )
+    app.req_options.media_handlers = media.Handlers(
+        {
+            'application/json': media.JSONHandler(),
+            'application/did+ld+json': media.JSONHandler(),  # Map DID JSON-LD to JSON parser
+            'multipart/form-data': media.MultipartFormHandler(),
+            'application/x-www-form-urlencoded': media.URLEncodedFormHandler(),
+        }
+    )
+    app.resp_options.media_handlers = media.Handlers(
+        {
+            'application/json': media.JSONHandler(),
+            'application/did+ld+json': media.JSONHandler(),  # Ensure responses can use it
+        }
+    )
+    return app
 
 
 def tls_falcon_server(app: falcon.App, http_port: int, keypath: str, certpath: str, cafilepath: str) -> http.Server:
@@ -321,7 +340,7 @@ def serve_artifacts(app: falcon.App, hby: habbing.Habery, static_files_dir: str 
 def load_ends(app, hby, hby_doer, oobiery, static_files_dir, did_path=''):
     """Set up Falcon HTTP server endpoints for resolving DIDs and hosting static files"""
     serve_artifacts(app, hby, static_files_dir, did_path)
-    resolve_end = UniversalResolverResource(hby=hby, hby_doer=hby_doer, oobiery=oobiery)
+    resolve_end = UniversalResolverResource(hby=hby, oobiery=oobiery)
     app.add_route('/1.0/identifiers/{did}', resolve_end)
     app.add_route('/health', ends.HealthEnd())
     return [resolve_end]
@@ -332,16 +351,17 @@ class UniversalResolverResource(doing.DoDoer):
     HTTP Resource enabling the Universal Resolver to resolve did:webs and did:keri DIDs using the /v1.0/identifiers/{did} endpoint.
     """
 
-    def __init__(self, hby: Habery, hby_doer: HaberyDoer, oobiery: Oobiery):
+    def __init__(self, hby: Habery, oobiery: Oobiery, load_url=load_url_with_requests):
         """Create Endpoints for discovery and resolution of OOBIs
 
         Parameters:
             hby (Habery): identifier database environment
-            hby_doer (HaberyDoer): Doer for the identifier database environment
             oobiery (Oobiery): OOBI management environment
+            load_url (Callable): HTTP request function to use to load did.json and keri.cesr - simplifies testing
         """
         self.hby: Habery = hby
         self.oobiery: Oobiery = oobiery
+        self.load_url = load_url  # Function to load URLs, can be mocked for testing
 
         super(UniversalResolverResource, self).__init__(doers=[])
 
@@ -367,7 +387,7 @@ class UniversalResolverResource(doing.DoDoer):
         else:
             return encoded_did
 
-    def on_get(self, req: falcon.Request, rep: falcon.Response, did: str, meta: bool = False):
+    def on_get(self, req: falcon.Request, rep: falcon.Response, did: str):
         """
         Handle GET requests to resolve a DID by its identifier (KERI AID).
 
@@ -375,7 +395,6 @@ class UniversalResolverResource(doing.DoDoer):
             req (falcon.Request): The HTTP request object.
             rep (falcon.Response): The HTTP response object.
             did (str): The DID to resolve.
-            meta (bool): If True, include metadata in the DID document resolution.
         """
         if did is None:
             rep.status = falcon.HTTP_400
@@ -398,22 +417,31 @@ class UniversalResolverResource(doing.DoDoer):
         else:
             oobi = None
 
+        if 'meta' in req.params:
+            meta = req.params['meta'].lower() in ('true', '1', 'yes')
+            logger.info(f'From parameters {req.params} got meta: {meta}')
+        else:
+            meta = False
+
         if did.startswith('did:webs'):
-            result, data = resolve(hby=self.hby, did=did, meta=meta)
+            domain, port, path, aid, query = didding.parse_did_webs(did=did)
+            query_vars = didding.parse_query_string(query)
+            if 'meta' in query_vars:
+                meta = query_vars['meta']
+            result, data = resolve(hby=self.hby, did=did, meta=meta, load_url=self.load_url)
         elif did.startswith('did:keri'):
             # Option 1 - does not support OOBI resolution
-            # result, data = resolve_did_keri(self.hby, did, oobi, meta)
+            result, data = resolve_did_keri(self.hby, did, oobi, meta)
 
-            # Option 2 - bad design - shelling out
-            result, data = resolve_did_keri_cli(self.hby.name, did, oobi, meta)
+            # Option 2 - shelling out, supports OOBI resolution
+            # result, data = resolve_did_keri_cli(self.hby.name, did, oobi, meta)
         else:
             rep.status = falcon.HTTP_400
             rep.media = {'error': "invalid 'did'"}
             return
 
         rep.status = falcon.HTTP_200
-        # rep.set_header('Content-Type', 'application/did+ld+json')
-        rep.set_header('Content-Type', 'application/json')
+        rep.set_header('Content-Type', 'application/did+ld+json')
         rep.media = data
         return
 
@@ -444,5 +472,5 @@ def resolve_did_keri_cli(hby_name: str, did: str, oobi: str = None, meta: bool =
 def resolve_did_keri(hby: Habery, did: str, oobi: str = None, meta: bool = False):
     aid = didding.parse_did_keri(did)
     if oobi is not None and hby.db.roobi.get(keys=(oobi,)) is None:
-        False, {'error': f'OOBI {oobi} not found in the Habery'}
+        return False, {'error': f'OOBI {oobi} not found in the Habery'}
     return True, didding.generate_did_doc(hby, did=did, aid=aid, oobi=oobi, meta=meta)

@@ -8,6 +8,7 @@ import itertools
 import json
 import math
 import re
+import urllib.parse
 from base64 import urlsafe_b64encode
 from functools import reduce
 
@@ -22,10 +23,20 @@ logger = ogler.getLogger(log_name)
 
 DID_KERI_RE = re.compile(r'\Adid:keri:(?P<aid>[^:]+)\Z', re.IGNORECASE)
 DID_WEBS_RE = re.compile(
-    r'\Adid:web(s)?:(?P<domain>[^%:]+)(?:%3a(?P<port>\d+))?(?::(?P<path>.+?))?(?::(?P<aid>[^:]+))\Z', re.IGNORECASE
+    pattern=r'\Adid:web(s)?:(?P<domain>[^%:]+)'
+            r'(?:%3a(?P<port>\d+))?'
+            r'(?::(?P<path>.+?))?'
+            r'(?::(?P<aid>[^:?]+))'
+            r'(?P<query>\?.*)?\Z',
+    flags=re.IGNORECASE
 )
 DID_WEBS_UNENCODED_PORT_RE = re.compile(
-    r'\Adid:web(s)?:(?P<domain>[^%:]+)(?::(?P<port>\d+))?(?::(?P<path>.+?))?(?::(?P<aid>[^:]+))\Z', re.IGNORECASE
+    pattern=r'\Adid:web(s)?:(?P<domain>[^%:]+)'
+            r'(?::(?P<port>\d+))?'
+            r'(?::(?P<path>.+?))?'
+            r'(?::(?P<aid>[^:?]+))'
+            r'(?P<query>\?.*)?\Z',
+    flags=re.IGNORECASE
 )
 
 DID_TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
@@ -65,28 +76,46 @@ def parse_did_webs(did: str):
     Parse a did:webs DID with regex to return the domain, port, path, and AID
 
     Returns:
-        (str, str, str, str): domain, port, path, AID
+        (str, str, str, str, str): domain, port, path, AID
     """
     match = DID_WEBS_RE.match(did)
     if match is None:
         raise ValueError(f'{did} is not a valid did:web(s) DID')
 
-    domain, port, path, aid = match.group('domain', 'port', 'path', 'aid')
+    domain, port, path, aid, query = match.group('domain', 'port', 'path', 'aid', 'query')
 
     try:
         _ = coring.Prefixer(qb64=aid)
     except Exception as e:
         raise ValueError(f'{aid} is an invalid AID')
 
-    return domain, port, path, aid
+    return domain, port, path, aid, query
 
+def parse_query_string(query: str):
+    if not query or query =='?':
+        return {}
+    query = query.lstrip('?')
+    parsed = urllib.parse.parse_qs(query)
+    result = {}
+    for key, values in parsed.items():
+        value = values[0] if values else ''
+        if value.lower() == 'true':
+            result[key] = True
+        elif value.lower() =='false':
+            result[key] = False
+        else:
+            try:
+                result[key] = int(value)
+            except ValueError:
+                result[key] = value
+    return result
 
 def re_encode_invalid_did_webs(did: str):
     match = DID_WEBS_UNENCODED_PORT_RE.match(did)
     if match is None:
         raise ValueError(f'{did} is not a valid did:web(s) DID')
 
-    domain, port, path, aid = match.group('domain', 'port', 'path', 'aid')
+    domain, port, path, aid, query= match.group('domain', 'port', 'path', 'aid', 'query')
 
     if aid:
         try:
@@ -101,6 +130,8 @@ def re_encode_invalid_did_webs(did: str):
         encoded += f':{path}'
     if aid:
         encoded += f':{aid}'
+    if query:
+        encoded += f'?{query}'
     return encoded
 
 
@@ -133,9 +164,18 @@ def generate_json_web_key_vm(pubkey, did, kid, x):
     return dict(
         id=f'#{pubkey}',
         type='JsonWebKey',
-        controller=did,
+        controller=strip_query(did),
         publicKeyJwk=dict(kid=f'{kid}', kty='OKP', crv='Ed25519', x=f'{x}'),
     )
+
+def strip_query(did: str):
+    if did.startswith('did:webs:') or did.startswith('did:web:'):
+        domain, port, path, aid, query = parse_did_webs(did=did)
+        if query is None or query == '':
+            return did
+        return f'did:webs:{domain}%3A{port}:{path}:{aid}'
+    else:
+        return did # for did:keri
 
 
 def generate_verification_methods(verfers, thold, did, aid):
@@ -183,7 +223,7 @@ def generate_threshold_proof2022(aid, did, thold, conditions):
     return dict(
         id=f'#{aid}',
         type='ConditionalProof2022',
-        controller=did,
+        controller=strip_query(did),
         threshold=thold,
         conditionThreshold=conditions,
     )
@@ -205,7 +245,7 @@ def generate_weighted_threshold_proof2022(aid, did, threshold, conditions):
     return dict(
         id=f'#{aid}',
         type='ConditionalProof2022',
-        controller=did,
+        controller=strip_query(did),
         threshold=threshold,
         conditionWeightedThreshold=conditions,
     )
@@ -303,8 +343,13 @@ def generate_did_doc(hby: habbing.Habery, did, aid, oobi=None, meta=False):
     Returns:
         dict of DID document structure; DID document, metadata and resolution metadata or just the DID document
     """
-    if (did and aid) and not did.endswith(aid):
-        raise ValueError(f'{did} does not end with {aid}')
+    if did.startswith('did:webs') or did.startswith('did:web'):
+        _domain, _port, _path, parsed_aid, _query = parse_did_webs(did=did)
+        if (did and aid) and parsed_aid != aid:
+            raise ValueError(f'{did} does not contain AID {aid}')
+    if did.startswith('did:keri'):
+        if (did and aid) and not did.endswith(aid):
+            raise ValueError(f'{did} does not end with {aid}')
     logger.debug(f'Generating DID document for\n\t{did}\nwith aid\n\t{aid}\nusing oobi\n\t{oobi}\nand metadata\n\t{meta}')
 
     hab = None
@@ -409,12 +454,18 @@ def from_did_web(did_json: dict, meta: bool = False):
     if meta and DD_FIELD not in did_json:
         logger.debug(f'DID resolution metadata did not contain {DD_FIELD}:\n{json.dumps(did_json, indent=2)}')
         raise ValueError(f"Expected '{DD_FIELD}' in did.json when indicating resolution metadata in use.")
-    diddoc = did_json if not meta else did_json[DD_FIELD]
-    logger.debug(f'fromDidWeb() called with id: {diddoc["id"]}')
+    diddoc = did_json[DD_FIELD] if meta else did_json
     initial_controller = diddoc['verificationMethod'][0]['controller']
-    logger.debug(f'Initial controller in fromDidWeb: {initial_controller}')
-
-    return diddoc_to_did_webs(diddoc)
+    # id = diddoc["id"] if not meta else did_json[DD_FIELD]["id"]
+    if not meta:
+        converted_did_doc = diddoc_to_did_webs(diddoc)
+        diddoc = converted_did_doc
+    else:
+        initial_controller = diddoc['verificationMethod'][0]['controller']
+        converted_did_doc = diddoc_to_did_webs(diddoc)
+        did_json[DD_FIELD] = converted_did_doc
+        diddoc = did_json
+    return diddoc
 
 
 def designated_aliases(hby: habbing.Habery, aid: str, schema: str = DES_ALIASES_SCHEMA):

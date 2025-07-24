@@ -56,13 +56,13 @@ def test_parse_keri_did():
 def test_parse_webs_did():
     with pytest.raises(ValueError) as e:
         did = 'did:webs:127.0.0.1:1234567'
-        domain, port, path, aid = didding.parse_did_webs(did)
+        domain, port, path, aid, query = didding.parse_did_webs(did)
 
     assert isinstance(e.value, ValueError)
     assert str(e.value) == '1234567 is an invalid AID'
 
     did = 'did:webs:127.0.0.1:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
-    domain, port, path, aid = didding.parse_did_webs(did)
+    domain, port, path, aid, query = didding.parse_did_webs(did)
     assert '127.0.0.1' == domain
     assert None == port
     assert None == path
@@ -70,14 +70,14 @@ def test_parse_webs_did():
 
     # port url should be url encoded with %3a according to the spec
     did_port_bad = 'did:webs:127.0.0.1:7676:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
-    domain, port, path, aid = didding.parse_did_webs(did_port_bad)
+    domain, port, path, aid, query = didding.parse_did_webs(did_port_bad)
     assert '127.0.0.1' == domain
     assert None == port
     assert '7676' == path
     assert aid == 'BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
 
     did_port = 'did:webs:127.0.0.1%3a7676:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
-    domain, port, path, aid = didding.parse_did_webs(did_port)
+    domain, port, path, aid, query = didding.parse_did_webs(did_port)
     assert '127.0.0.1' == domain
     assert '7676' == port
     assert None == path
@@ -85,7 +85,7 @@ def test_parse_webs_did():
 
     # port should be url encoded with %3a according to the spec
     did_port_path_bad = 'did:webs:127.0.0.1:7676:my:path:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
-    domain, port, path, aid = didding.parse_did_webs(did_port_path_bad)
+    domain, port, path, aid, query = didding.parse_did_webs(did_port_path_bad)
     assert '127.0.0.1' == domain
     assert None == port
     assert '7676:my:path' == path
@@ -93,14 +93,14 @@ def test_parse_webs_did():
 
     # port is properly url encoded with %3a according to the spec
     did_port_path = 'did:webs:127.0.0.1%3a7676:my:path:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
-    domain, port, path, aid = didding.parse_did_webs(did_port_path)
+    domain, port, path, aid, query = didding.parse_did_webs(did_port_path)
     assert '127.0.0.1' == domain
     assert '7676' == port
     assert 'my:path' == path
     assert aid == 'BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
 
     did_path = 'did:webs:127.0.0.1:my:path:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
-    domain, port, path, aid = didding.parse_did_webs(did_path)
+    domain, port, path, aid, query = didding.parse_did_webs(did_path)
     assert '127.0.0.1' == domain
     assert None == port
     assert 'my:path' == path
@@ -110,12 +110,12 @@ def test_parse_webs_did():
 def test_parse_web_did():
     with pytest.raises(ValueError) as e:
         did = 'did:web:127.0.0.1:1234567'
-        domain, port, path, aid = didding.parse_did_webs(did)
+        domain, port, path, aid, query = didding.parse_did_webs(did)
 
     assert isinstance(e.value, ValueError)
 
     did = 'did:web:127.0.0.1:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
-    domain, port, path, aid = didding.parse_did_webs(did)
+    domain, port, path, aid, query = didding.parse_did_webs(did)
     assert '127.0.0.1' == domain
     assert None == port
     assert None == path
@@ -123,14 +123,14 @@ def test_parse_web_did():
 
     # port url should be url encoded with %3a according to the spec
     did_port_bad = 'did:web:127.0.0.1:7676:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
-    domain, port, path, aid = didding.parse_did_webs(did_port_bad)
+    domain, port, path, aid, query = didding.parse_did_webs(did_port_bad)
     assert '127.0.0.1' == domain
     assert None == port
     assert '7676' == path
     assert aid == 'BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
 
     did_port = 'did:web:127.0.0.1%3a7676:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
-    domain, port, path, aid = didding.parse_did_webs(did_port)
+    domain, port, path, aid, query = didding.parse_did_webs(did_port)
     assert '127.0.0.1' == domain
     assert '7676' == port
     assert None == path
@@ -138,7 +138,7 @@ def test_parse_web_did():
 
     # port should be url encoded with %3a according to the spec
     did_port_path_bad = 'did:web:127.0.0.1:7676:my:path:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
-    domain, port, path, aid = didding.parse_did_webs(did_port_path_bad)
+    domain, port, path, aid, query = didding.parse_did_webs(did_port_path_bad)
     assert '127.0.0.1' == domain
     assert None == port
     assert '7676:my:path' == path
@@ -146,21 +146,21 @@ def test_parse_web_did():
 
     # port is properly url encoded with %3a according to the spec
     did_port_path = 'did:web:127.0.0.1%3a7676:my:path:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
-    domain, port, path, aid = didding.parse_did_webs(did_port_path)
+    domain, port, path, aid, query = didding.parse_did_webs(did_port_path)
     assert '127.0.0.1' == domain
     assert '7676' == port
     assert 'my:path' == path
     assert aid == 'BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
 
     did_path = 'did:web:127.0.0.1:my:path:BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
-    domain, port, path, aid = didding.parse_did_webs(did_path)
+    domain, port, path, aid, query = didding.parse_did_webs(did_path)
     assert '127.0.0.1' == domain
     assert None == port
     assert 'my:path' == path
     assert aid, 'BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'
 
 
-def test_generate_did_doc_bad_ends_with():
+def test_generate_did_doc_bad_aid():
     hby = mock()
     did = 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4'
     aid = 'EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HD'
@@ -171,7 +171,7 @@ def test_generate_did_doc_bad_ends_with():
     assert isinstance(e.value, ValueError)
     assert str(e.value) == (
         'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4 does '
-        'not end with EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HD'
+        'not contain AID EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HD'
     )
 
 

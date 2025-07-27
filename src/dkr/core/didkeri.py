@@ -57,7 +57,7 @@ class KeriResolver(doing.DoDoer):
         aid = didding.parse_did_keri(did)
 
         # Resolve provided OOBI to get the KEL of the AID passed in
-        self.resolve_oobi(aid=aid, oobi=oobi, tock=tock)
+        yield from self.resolve_oobi(aid=aid, oobi=oobi, tock=tock)
 
         # Once the OOBI is resolved and the AID's KEL is available in the local Habery then generate the DID artifacts
         try:

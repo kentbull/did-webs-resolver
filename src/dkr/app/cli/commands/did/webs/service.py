@@ -8,7 +8,7 @@ import argparse
 
 import viking
 from hio.core import http
-from keri.app import configing, oobiing
+from keri.app import oobiing
 
 from dkr import log_name, ogler, set_log_level
 from dkr.core import habs, resolving, webbing

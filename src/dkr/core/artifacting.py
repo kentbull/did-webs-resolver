@@ -2,39 +2,16 @@ import json
 import os
 
 from keri.app import habbing
+from keri.app.habbing import Habery
 from keri.core import serdering
 from keri.db import basing
 from keri.vdr import credentialing, viring
+from keri.vdr.credentialing import Regery
 
 from dkr import log_name, ogler
 from dkr.core import didding, ends
 
 logger = ogler.getLogger(log_name)
-
-
-def retrieve_kel_via_oobi():
-    """
-    Possibly retrieve the KEL via OOBI resolution.
-    TODO finish implementing this
-    """
-    # if self.oobi is not None or self.oobi == "":
-    #     logger.info(f"Using oobi {self.oobi} to get CESR event stream")
-    #     obr = basing.OobiRecord(date=helping.nowIso8601())
-    #     obr.cid = aid
-    #     self.hby.db.oobis.pin(keys=(self.oobi,), val=obr)
-
-    #     logger.info(f"Resolving OOBI {self.oobi}")
-    #     roobi = self.hby.db.roobi.get(keys=(self.oobi,))
-    #     while roobi is None or roobi.state != oobiing.Result.resolved:
-    #         roobi = self.hby.db.roobi.get(keys=(self.oobi,))
-    #         _ = yield tock
-    #     logger.info(f"OOBI {self.oobi} resolved {roobi}")
-
-    #     oobiHab = self.hby.habs[aid]
-    #     logger.info(f"Loading hab for OOBI {self.oobi}:\n {oobiHab}")
-    #     msgs = oobiHab.replyToOobi(aid=aid, role="controller", eids=None)
-    #     logger.info(f"OOBI {self.oobi} CESR event stream {msgs.decode('utf-8')}")
-    pass
 
 
 def gen_kel_cesr(db: basing.Baser, pre: str) -> bytearray:
@@ -131,3 +108,26 @@ def write_did_json_file(dd_dir_path: str, diddoc: dict, meta: bool = False):
     dd_file_path = os.path.join(dd_dir_path, f'{ends.DID_JSON}')
     with open(dd_file_path, 'w') as ddf:
         json.dump(didding.to_did_web(diddoc, meta), ddf)
+
+
+def generate_artifacts(hby: Habery, rgy: Regery, did: str, meta: bool = False, output_dir: str = '.'):
+    domain, port, path, aid, query = didding.parse_did_webs(did)
+
+    # generate did doc
+    did_json = didding.generate_did_doc(hby, did=did, aid=aid, oobi=None, meta=meta)
+    if did_json is None:
+        logger.error('DID document failed to generate')
+        return None, None
+    # Create the directory (and any intermediate directories in the given path) if it doesn't already exist
+    dd_dir_path = make_did_json_path(output_dir, aid)
+    write_did_json_file(dd_dir_path, did_json, meta)
+
+    logger.info(f'Generating CESR event stream data from local Habery keystore')
+    hab = hby.habs[aid]
+    reger = rgy.reger
+    keri_cesr = bytearray()
+    keri_cesr.extend(gen_kel_cesr(hby.db, aid))  # add KEL CESR stream
+    keri_cesr.extend(gen_des_aliases_cesr(hab, reger, aid))  # add designated aliases TELs and ACDCs
+    write_keri_cesr_file(output_dir, aid, keri_cesr)
+
+    return did_json, keri_cesr

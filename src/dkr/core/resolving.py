@@ -4,7 +4,6 @@ dkr.core.serving module
 
 """
 
-import datetime
 import json
 import os
 import urllib.parse
@@ -19,7 +18,6 @@ from keri import kering
 from keri.app import habbing
 from keri.app.habbing import Habery, HaberyDoer
 from keri.app.oobiing import Oobiery
-from keri.help import helping
 
 from dkr import log_name, ogler
 from dkr.core import didding, ends
@@ -115,7 +113,11 @@ def save_cesr(hby: Habery, kc_res: bytes, aid: str = None):
         raise kering.KeriError(f'KERI CESR parsing and saving failed, KERI AID {aid} not found in habery')
 
 
-def get_generated_did_doc(hby: habbing.Habery, did: str, meta: bool, ):
+def get_generated_did_doc(
+    hby: habbing.Habery,
+    did: str,
+    meta: bool,
+):
     aid, dd_url, kc_url = get_urls(did=did)
     dd = didding.generate_did_doc(hby, did=did, aid=aid, oobi=None, meta=meta)
     if meta:
@@ -155,7 +157,7 @@ def verify(dd_expected: dict, dd_actual: dict, meta: bool = False) -> (bool, dic
 
     if verified:
         logger.info(f'DID document verified')
-        return (True, dd_expected)
+        return True, dd_expected
     else:
         logger.info(f'DID document verification failed')
         return (

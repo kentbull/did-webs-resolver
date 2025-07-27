@@ -2,16 +2,16 @@ import json
 import urllib.parse
 
 import falcon
-import pytest
 from falcon import testing
 from hio.base import doing
-from keri.app import grouping, habbing, oobiing
+from keri import core
+from keri.app import agenting, configing, delegating, forwarding, grouping, habbing, indirecting, oobiing
 from keri.core import coring, eventing, scheming, serdering
 from keri.vdr import credentialing, verifying
 
-from dkr.core import didding, resolving
+from dkr.core import artifacting, didding, resolving
 from dkr.core.ends import monitoring
-from tests.conftest import assemble_did_web_did, assemble_did_webs_did, TestHelpers
+from tests.conftest import HabbingHelpers, TestHelpers, TestWitness, assemble_did_web_did, assemble_did_webs_did
 
 
 def test_health_end():
@@ -50,7 +50,155 @@ def self_attested_aliases_cred_subj(domain: str, aid: str, port: str = None, pat
     )
 
 
-@pytest.mark.timeout(3)
+def test_resolver_with_witnesses():
+    """
+    This test spins up an actual witness and performs proper, receipted inception and credential
+    issuance for an end-to-end integration test of the universal resolver endpoints.
+    """
+    salt = b'0AAB_Fidf5WeZf6VFc53IxVw'
+    registry_nonce = '0ADV24br-aaezyRTB-oUsZJE'
+    wit_salt = core.Salter(raw=b'abcdef0123456789').qb64
+    wit_cf = configing.Configer(name='wan', temp=False, reopen=True, clear=False)
+    wit_cf.put(
+        json.loads("""{
+      "dt": "2022-01-20T12:57:59.823350+00:00",
+      "wan": {
+        "dt": "2022-01-20T12:57:59.823350+00:00",
+        "curls": ["tcp://127.0.0.1:6632/", "http://127.0.0.1:6642/"]}}""")
+    )
+    wan_oobi = 'http://127.0.0.1:6642/oobi/BPwwr5VkI1b7ZA2mVbzhLL47UPjsGBX4WeO6WRv6c7H-/controller?name=Wan&tag=witness'
+
+    # Config of the AID controller keystore who is having their did:webs or did:keri artifacts resolved
+    ckr_cf = configing.Configer(name='crackers', temp=False, reopen=True, clear=False)
+    ckr_cf.put(
+        json.loads("""{
+              "dt": "2022-01-20T12:57:59.823350+00:00",
+              "iurls": [
+                "http://127.0.0.1:6642/oobi/BPwwr5VkI1b7ZA2mVbzhLL47UPjsGBX4WeO6WRv6c7H-/controller?name=Wan&tag=witness"
+              ]}""")
+    )
+
+    # Open the witness Habery and Hab, feed it into the witness setup, and then create the AID controller Habery and Hab
+    with (
+        HabbingHelpers.openHab(salt=bytes(wit_salt, 'utf-8'), name='wan', transferable=False, temp=True, cf=wit_cf) as (
+            wit_hby,
+            wit_hab,
+        ),
+        TestWitness.with_witness(name='wan', hby=wit_hby) as wan_wit,
+        habbing.openHab(salt=salt, name='crackers', transferable=True, temp=True, cf=ckr_cf) as (ck_hby, ck_hab),
+    ):
+        wan_pre = 'BPwwr5VkI1b7ZA2mVbzhLL47UPjsGBX4WeO6WRv6c7H-'
+        tock = 0.03125
+        doist = doing.Doist(limit=0.0, tock=tock, real=True)
+        # Doers and deeds for witness wan
+        wit_deeds = doist.enter(doers=wan_wit.doers)
+        # doist.do(wan_wit.doers)
+
+        # Resolve OOBI
+        oobiery = oobiing.Oobiery(hby=ck_hby)
+        authn = oobiing.Authenticator(hby=ck_hby)
+        oobiery_deeds = doist.enter(doers=oobiery.doers + authn.doers)
+        while not oobiery.hby.db.roobi.get(keys=(wan_oobi,)):
+            doist.recur(deeds=wit_deeds + oobiery_deeds)
+            ck_hby.kvy.processEscrows()  # process any escrows from witness receipts
+        print(f'Resolved OOBI: {wan_oobi} to {oobiery.hby.db.roobi.get(keys=(wan_oobi,))}')
+
+        # Doers and deeds for the cracker_1 Hab and Habery
+        ck_hby_doer = habbing.HaberyDoer(habery=ck_hby)
+        ck_anchorer = delegating.Anchorer(hby=ck_hby, proxy=None)
+        ck_postman = forwarding.Poster(hby=ck_hby)
+        ck_mbx = indirecting.MailboxDirector(hby=ck_hby, topics=['/receipt', '/replay', '/reply'])
+        ck_wit_rcptr_doer = agenting.WitnessReceiptor(hby=ck_hby)
+        ck_receiptor = agenting.Receiptor(hby=ck_hby)
+        ck_doers = [ck_hby_doer, ck_anchorer, ck_postman, ck_mbx, ck_wit_rcptr_doer, ck_receiptor]
+        ck1_deeds = doist.enter(doers=ck_doers)
+
+        cracker_1_hab = ck_hby.makeHab(name='cracker_1', isith='1', icount=1, toad=1, wits=[wan_pre])
+
+        # Waiting for witness receipts...
+        ck_wit_rcptr_doer.msgs.append(dict(pre=cracker_1_hab.pre))
+        while not ck_wit_rcptr_doer.cues:
+            doist.recur(deeds=wit_deeds + ck1_deeds)
+
+        # now perform did:webs and did:keri resolution with an OOBI to test it.
+        aid = 'EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v'  # cracker_1_hab.pre
+        host = '127.0.0.1'
+        port = f'7677'
+        did_path = 'dws'
+        meta = True
+        # fmt: off
+        did_webs_did = f'did:webs:{host}%3A{port}:{did_path}:{aid}?meta=true'         # did:webs:127.0.0.1%3A7677:dws:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v?meta=true
+        did_keri_did = f'did:keri:{aid}'                                              # did:keri:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v
+        did_json_url = f'http://{host}:{port}/{did_path}/{aid}/did.json?meta=true'    # http://127.0.0.1:7677/dws/EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v/did.json?meta=true
+        keri_cesr_url = f'http://{host}:{port}/{did_path}/{aid}/keri.cesr'            # http://127.0.0.1:7677/dws/EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v/keri.cesr
+        # fmt: on
+
+        schema_json = json.loads(open('./local/schema/designated-aliases-public-schema.json', 'rb').read())
+        rules_json = json.loads(open('./local/schema/rules/desig-aliases-public-schema-rules.json', 'rb').read())
+        subject_data = self_attested_aliases_cred_subj(host, aid, port, did_path)
+        _, _, _, regery = TestHelpers.add_cred_to_aid(
+            hby=ck_hby,
+            hab=cracker_1_hab,
+            schema_said='EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5',  # Designated Aliases Public Schema
+            schema_json=schema_json,
+            subject_data=subject_data,
+            rules_json=rules_json,
+            recp=None,  # No recipient for self-attested credential
+            registry_nonce=registry_nonce,
+            additional_deeds=wit_deeds + ck1_deeds,
+        )
+
+        # get keri.cesr
+        reger = regery.reger
+        keri_cesr = bytearray()
+        # self.retrieve_kel_via_oobi() # not currently used; an alternative to relying on a local KEL keystore
+        keri_cesr.extend(artifacting.gen_kel_cesr(ck_hby.db, aid))  # add KEL CESR stream
+        keri_cesr.extend(artifacting.gen_des_aliases_cesr(cracker_1_hab, reger, aid))
+
+        did_webs_diddoc = didding.generate_did_doc(ck_hby, did=did_webs_did, aid=aid, oobi=None, meta=meta)
+
+        # Mock load_url to return the did.json and keri.cesr content
+        def mock_load_url(url):
+            if url == did_json_url:
+                # whitespace added for readability - this is just bytes and the whitespace does not impact the actual content
+                # fmt: off
+                return (
+                    b'{"didDocument": {'
+                        b'"id": "did:webs:127.0.0.1%3A7677:dws:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v?meta=true", '
+                        b'"verificationMethod": [{'
+                            b'"id": "#DGffNrpmV4X_VuWih2p0j1H7s2C1SrXdxUaigYiRDH0l", '
+                            b'"type": "JsonWebKey", '
+                            b'"controller": "did:webs:127.0.0.1%3A7677:dws:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v", '
+                            b'"publicKeyJwk": {'
+                                b'"kid": "DGffNrpmV4X_VuWih2p0j1H7s2C1SrXdxUaigYiRDH0l", '
+                                b'"kty": "OKP", '
+                                b'"crv": "Ed25519", '
+                                b'"x": "Z982umZXhf9W5aKHanSPUfuzYLVKtd3FRqKBiJEMfSU"}}], '
+                        b'"service": [{"id": "#BPwwr5VkI1b7ZA2mVbzhLL47UPjsGBX4WeO6WRv6c7H-/witness", '
+                            b'"type": "witness", '
+                            b'"serviceEndpoint": {"http": "http://127.0.0.1:6642/", "tcp": "tcp://127.0.0.1:6632/"}}], '
+                        b'"alsoKnownAs": []}, '
+                    b'"didResolutionMetadata": {"contentType": "application/did+json", "retrieved": "2025-07-25T17:32:34Z"}, '
+                    b'"didDocumentMetadata": {'
+                        b'"witnesses": ['
+                            b'{"idx": 0, "scheme": "http", "url": "http://127.0.0.1:6642/"}, '
+                            b'{"idx": 0, "scheme": "tcp", "url": "tcp://127.0.0.1:6632/"}], '
+                        b'"versionId": "2", '
+                        b'"equivalentId": []}}'
+                )
+                # fmt: on
+            elif url == keri_cesr_url:
+                # whitespace added for readability - this is just bytes and the whitespace does not impact the actual content
+                # fmt: off
+                return (
+                    bytearray(
+                        b'{"v":"KERI10JSON000159_","t":"icp","d":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","i":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","s":"0","kt":"1","k":["DGffNrpmV4X_VuWih2p0j1H7s2C1SrXdxUaigYiRDH0l"],"nt":"1","n":["EItS87xyPgbqB13_k-6wd455iDQkgDWCaSs4sQdwFIxp"],"bt":"1","b":["BPwwr5VkI1b7ZA2mVbzhLL47UPjsGBX4WeO6WRv6c7H-"],"c":[],"a":[]}-VA--AABAAApgK2AZ1Bt_RHeoRr8X7r9weRNjl-AezJ5BDkAlXIUJhFx23aoQ3hbl3UhLzL8jyIabWoKPvcCRVDvVPxfH2IA-BABAAALv8G-TZT9JQfA06lBg8gKbCRgsSqxIBeWE6FcqNy6FFauxApDtRuXuZ0TyVXlr3hZ0uw5HGRUTqJx0C2U7LkD-EAB0AAAAAAAAAAAAAAAAAAAAAAA1AAG2025-07-25T18c00c18d452164p00c00{"v":"KERI10JSON00013a_","t":"ixn","d":"EHd6LeBUXVhA1iGbFRdjwJUvMcPZk8Bs7j7H9n2Wd941","i":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","s":"1","p":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","a":[{"i":"EIEHG-VBVOvZ9Nn3fpXp6-n4UkXDQRrxiQS3Aiv_7Z80","s":"0","d":"EIEHG-VBVOvZ9Nn3fpXp6-n4UkXDQRrxiQS3Aiv_7Z80"}]}-VA--AABAADlZqq96WvF1ZyxmFnT5G8KMTMcjig1ZZajJFjAUUa5ww43xeezPYPgnitrIJyBg6k1CMnMSOHMzzJFu7iBMA0I-BABAADh36iZMZxXHWHhocG0fN260TvRFUW9gL4MwVrlUDVNYcWQQPWo2r8P487SsGd5p-zLQ13L7c65fZNYfNwBX2ML-EAB0AAAAAAAAAAAAAAAAAAAAAAB1AAG2025-07-25T18c00c18d510748p00c00{"v":"KERI10JSON00013a_","t":"ixn","d":"ELZ9O1lJPitYo_1ApCUVC6QiNtP1JNCLnak8boEWRqEZ","i":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","s":"2","p":"EHd6LeBUXVhA1iGbFRdjwJUvMcPZk8Bs7j7H9n2Wd941","a":[{"i":"EDvxqLUTmTHMCWLENtVofsMPaoStDTCuFugmlbUjAmJV","s":"0","d":"EPIk-Cn1kT-f8MerR740yXsOpYBCiwZRqiXnYcWaTGjH"}]}-VA--AABAABJb2TU9G70ufj0Bvf0RFfuDTCwvDscfM3GIkQKOqqJostv_IcUfT71d8MQwKFgHHZH8VRW43bFFFFv9NBjSlkB-BABAACri395yGrRg-381KDAaahF3d2mqlPP7S4mRpmq4W8mO4vgZ5QAPCj21Aa2vDLpab_dpnlxuMc4wkReBlMFcnQB-EAB0AAAAAAAAAAAAAAAAAAAAAAC1AAG2025-07-25T18c00c18d579248p00c00{"v":"KERI10JSON0000ff_","t":"vcp","d":"EIEHG-VBVOvZ9Nn3fpXp6-n4UkXDQRrxiQS3Aiv_7Z80","i":"EIEHG-VBVOvZ9Nn3fpXp6-n4UkXDQRrxiQS3Aiv_7Z80","ii":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","s":"0","c":["NB"],"bt":"0","b":[],"n":"0ADV24br-aaezyRTB-oUsZJE"}-VAS-GAB0AAAAAAAAAAAAAAAAAAAAAABEHd6LeBUXVhA1iGbFRdjwJUvMcPZk8Bs7j7H9n2Wd941{"v":"KERI10JSON0000ed_","t":"iss","d":"EPIk-Cn1kT-f8MerR740yXsOpYBCiwZRqiXnYcWaTGjH","i":"EDvxqLUTmTHMCWLENtVofsMPaoStDTCuFugmlbUjAmJV","s":"0","ri":"EIEHG-VBVOvZ9Nn3fpXp6-n4UkXDQRrxiQS3Aiv_7Z80","dt":"2025-07-24T16:21:40.802473+00:00"}-VAS-GAB0AAAAAAAAAAAAAAAAAAAAAACELZ9O1lJPitYo_1ApCUVC6QiNtP1JNCLnak8boEWRqEZ{"v":"ACDC10JSON0005f4_","d":"EDvxqLUTmTHMCWLENtVofsMPaoStDTCuFugmlbUjAmJV","i":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","ri":"EIEHG-VBVOvZ9Nn3fpXp6-n4UkXDQRrxiQS3Aiv_7Z80","s":"EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5","a":{"d":"EH2gd7OAdVGdsuUXt_QWSfjnbE-o_QY17tep4JLQm_TU","dt":"2025-07-24T16:21:40.802473+00:00","ids":["did:web:127.0.0.1%3a7677:dws:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","did:webs:127.0.0.17677%3a7677:dws:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","did:web:example.com:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","did:web:foo.com:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","did:webs:foo.comNone:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v"]},"r":{"d":"EEVTx0jLLZDQq8a5bXrXgVP0JDP7j8iDym9Avfo8luLw","aliasDesignation":{"l":"The issuer of this ACDC designates the identifiers in the ids field as the only allowed namespaced aliases of the issuer\'s AID."},"usageDisclaimer":{"l":"This attestation only asserts designated aliases of the controller of the AID, that the AID controlled namespaced alias has been designated by the controller. It does not assert that the controller of this AID has control over the infrastructure or anything else related to the namespace other than the included AID."},"issuanceDisclaimer":{"l":"All information in a valid and non-revoked alias designation assertion is accurate as of the date specified."},"termsOfUse":{"l":"Designated aliases of the AID must only be used in a manner consistent with the expressed intent of the AID controller."}}}-VA0-FABEEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v0AAAAAAAAAAAAAAAAAAAAAAAEEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v-AABAACR1-_S62-tjeC4r6Mntt1cqTVlaa6vyeJNcsCAHgKlBB8vlSmtSIv-NVqQM4hN9M-w8fy6_LHehDdS8z17zRQK')
+                )
+                # fmt: on
+            else:
+                raise ValueError(f'Unexpected URL: {url}')
+
+
 def test_resolver_with_did_webs_did_returns_correct_doc():
     """
     Tests generation of both did:webs and did:keri DID Documents and a CESR stream for the did:webs DID.
@@ -276,7 +424,7 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
 
         """Done Test"""
 
-@pytest.mark.timeout(60)
+
 def test_resolver_with_metadata_returns_correct_doc():
     """
     Tests generation of both did:webs and did:keri DID Documents and a CESR stream for the did:webs DID with metadata.
@@ -308,12 +456,11 @@ def test_resolver_with_metadata_returns_correct_doc():
             schema_json=schema_json,
             subject_data=subject_data,
             rules_json=rules_json,
-            recp=None, # No recipient for self-attested credential
-            registry_nonce=registry_nonce
+            recp=None,  # No recipient for self-attested credential
+            registry_nonce=registry_nonce,
         )
 
         did_webs_diddoc = didding.generate_did_doc(hby, did=did_webs_did, aid=aid, oobi=None, meta=meta)
-
 
         # Mock load_url to return the did.json and keri.cesr content
         def mock_load_url(url):
@@ -422,4 +569,3 @@ def test_resolver_with_metadata_returns_correct_doc():
         response_diddoc = json.loads(did_keri_response.content)
         did_keri_diddoc = didding.generate_did_doc(hby, did=did_keri_did, aid=aid, oobi=None, meta=False)
         assert response_diddoc == did_keri_diddoc, 'did:keri response did document does not match expected diddoc'
-

@@ -1,5 +1,4 @@
 import asyncio
-import json
 
 from didcomm.common.resolvers import ResolversConfig
 from didcomm.message import Message

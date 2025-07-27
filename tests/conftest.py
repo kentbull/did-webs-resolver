@@ -5,13 +5,18 @@ Use this module to configure pytest
 https://docs.pytest.org/en/latest/pythonpath.html
 
 """
+
 import json
-from typing import Union
+from contextlib import contextmanager
+from typing import List, Union
 
 import pytest
 from hio.base import doing
-from keri.app import habbing, grouping
-from keri.core import scheming, coring, eventing, serdering
+from hio.help import decking
+from keri import core
+from keri.app import grouping, habbing, indirecting, keeping
+from keri.app.habbing import openHby
+from keri.core import coring, eventing, scheming, serdering
 from keri.help import helping
 from keri.vdr import credentialing, verifying
 
@@ -53,20 +58,27 @@ def assemble_did_web_did(domain, aid, port=None, path=None):
         did += f':{aid}'
     return did
 
+
 class TestHelpers:
     @staticmethod
-    def add_cred_to_aid(hby: habbing.Habery, hab: habbing.Hab,
-                        schema_said: str,
-                        schema_json: dict,
-                        subject_data: dict,
-                        rules_json: dict,
-                        source: Union[dict, list] = None,
-                        recp: str = None,
-                        registry_nonce: str = None,
-                        private: bool=False,
-                        private_credential_nonce: str = None,
-                        private_subject_nonce: str = None
-                        ):
+    def add_cred_to_aid(
+        hby: habbing.Habery,
+        hab: habbing.Hab,
+        schema_said: str,
+        schema_json: dict,
+        subject_data: dict,
+        rules_json: dict,
+        source: Union[dict, list] = None,
+        recp: str = None,
+        registry_nonce: str = None,
+        private: bool = False,
+        private_credential_nonce: str = None,
+        private_subject_nonce: str = None,
+        additional_deeds: List[doing.Doer] = None,
+    ):
+        additional_deeds = additional_deeds or decking.deque(
+            []
+        )  # To avoid NoneType errors when concatenating with the existing deeds deque
         # Components needed for issuance
         hby_doer = habbing.HaberyDoer(habery=hby)
         regery = credentialing.Regery(hby=hby, name=hab.name, temp=hby.temp)
@@ -95,7 +107,7 @@ class TestHelpers:
         registrar.incept(iserder=issuer_reg.vcp, anc=reg_anc_serder)
 
         while not registrar.complete(pre=issuer_reg.regk, sn=0):
-            doist.recur(deeds=deeds)  # run until registry is incepted
+            doist.recur(deeds=deeds + additional_deeds)  # run until registry is incepted
 
         assert issuer_reg.regk in regery.reger.tevers
 
@@ -121,9 +133,66 @@ class TestHelpers:
         registrar.issue(creder, reg_iss_serder, anc_serder)
 
         while not credentialer.complete(said=creder.said):
-            doist.recur(deeds=deeds)
+            doist.recur(deeds=deeds + additional_deeds)
             verifier.processEscrows()
+            regery.processEscrows()
 
         state = issuer_reg.tever.vcState(vci=creder.said)
         assert state.et == coring.Ilks.iss
-        return creder, reg_iss_serder, anc_serder
+        return creder, reg_iss_serder, anc_serder, regery
+
+
+class TestWitness:
+    def __init__(self, name: str, hby: habbing.Habery, tcp_port: int = 6632, http_port: int = 6642):
+        """
+        Initialize the TestWitness context manager with a witness name and habery.
+
+        Args:
+            name (str): The name of the witness.
+            hby (habbing.Habery): The habery instance to use.
+            tcp_port (int): The TCP port for the witness. Default is 6642.
+            http_port (int): The HTTP port for the witness. Default is 6643.
+        """
+        self.name = name
+        self.hby = hby
+        ks = keeping.Keeper(name=name, base=hby.base, temp=True, reopen=True)
+
+        aeid = ks.gbls.get('aeid')
+
+        hby_doer = habbing.HaberyDoer(habery=hby)
+        doers = [hby_doer]
+        doers.extend(indirecting.setupWitness(alias=name, hby=hby, tcpPort=tcp_port, httpPort=http_port))
+        self.doers = doers  # store doers for manual Doist.recur control in body of test
+
+    @contextmanager
+    @staticmethod
+    def with_witness(name, hby):
+        yield TestWitness(name, hby)
+
+
+class HabbingHelpers:
+    @staticmethod
+    @contextmanager
+    def openHab(name='test', base='', salt=None, temp=True, cf=None, **kwa):
+        """
+        Context manager wrapper for Hab instance.
+        Defaults to temporary resources
+        Context 'with' statements call .close on exit of 'with' block
+
+        Parameters:
+            name(str): name of habitat to create
+            base(str): the name used for shared resources i.e. Baser and Keeper The habitat specific config file will be
+            in base/name
+            salt(bytes): passed to habitat to use for inception raw salt not qb64
+            temp(bool): indicates if this uses temporary databases
+            cf(Configer): optional configer for loading configuration data
+
+        """
+
+        salt = core.Salter(raw=salt).qb64
+
+        with openHby(name=name, base=base, salt=salt, temp=temp, cf=cf) as hby:
+            if (hab := hby.habByName(name)) is None:
+                hab = hby.makeHab(name=name, icount=1, isith='1', ncount=1, nsith='1', cf=cf, **kwa)
+
+            yield hby, hab

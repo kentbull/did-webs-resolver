@@ -24,19 +24,19 @@ logger = ogler.getLogger(log_name)
 DID_KERI_RE = re.compile(r'\Adid:keri:(?P<aid>[^:]+)\Z', re.IGNORECASE)
 DID_WEBS_RE = re.compile(
     pattern=r'\Adid:web(s)?:(?P<domain>[^%:]+)'
-            r'(?:%3a(?P<port>\d+))?'
-            r'(?::(?P<path>.+?))?'
-            r'(?::(?P<aid>[^:?]+))'
-            r'(?P<query>\?.*)?\Z',
-    flags=re.IGNORECASE
+    r'(?:%3a(?P<port>\d+))?'
+    r'(?::(?P<path>.+?))?'
+    r'(?::(?P<aid>[^:?]+))'
+    r'(?P<query>\?.*)?\Z',
+    flags=re.IGNORECASE,
 )
 DID_WEBS_UNENCODED_PORT_RE = re.compile(
     pattern=r'\Adid:web(s)?:(?P<domain>[^%:]+)'
-            r'(?::(?P<port>\d+))?'
-            r'(?::(?P<path>.+?))?'
-            r'(?::(?P<aid>[^:?]+))'
-            r'(?P<query>\?.*)?\Z',
-    flags=re.IGNORECASE
+    r'(?::(?P<port>\d+))?'
+    r'(?::(?P<path>.+?))?'
+    r'(?::(?P<aid>[^:?]+))'
+    r'(?P<query>\?.*)?\Z',
+    flags=re.IGNORECASE,
 )
 
 DID_TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
@@ -91,8 +91,9 @@ def parse_did_webs(did: str):
 
     return domain, port, path, aid, query
 
+
 def parse_query_string(query: str):
-    if not query or query =='?':
+    if not query or query == '?':
         return {}
     query = query.lstrip('?')
     parsed = urllib.parse.parse_qs(query)
@@ -101,7 +102,7 @@ def parse_query_string(query: str):
         value = values[0] if values else ''
         if value.lower() == 'true':
             result[key] = True
-        elif value.lower() =='false':
+        elif value.lower() == 'false':
             result[key] = False
         else:
             try:
@@ -110,12 +111,13 @@ def parse_query_string(query: str):
                 result[key] = value
     return result
 
+
 def re_encode_invalid_did_webs(did: str):
     match = DID_WEBS_UNENCODED_PORT_RE.match(did)
     if match is None:
         raise ValueError(f'{did} is not a valid did:web(s) DID')
 
-    domain, port, path, aid, query= match.group('domain', 'port', 'path', 'aid', 'query')
+    domain, port, path, aid, query = match.group('domain', 'port', 'path', 'aid', 'query')
 
     if aid:
         try:
@@ -168,6 +170,7 @@ def generate_json_web_key_vm(pubkey, did, kid, x):
         publicKeyJwk=dict(kid=f'{kid}', kty='OKP', crv='Ed25519', x=f'{x}'),
     )
 
+
 def strip_query(did: str):
     if did.startswith('did:webs:') or did.startswith('did:web:'):
         domain, port, path, aid, query = parse_did_webs(did=did)
@@ -175,7 +178,7 @@ def strip_query(did: str):
             return did
         return f'did:webs:{domain}%3A{port}:{path}:{aid}'
     else:
-        return did # for did:keri
+        return did  # for did:keri
 
 
 def generate_verification_methods(verfers, thold, did, aid):
@@ -184,8 +187,10 @@ def generate_verification_methods(verfers, thold, did, aid):
     Multiple verfers implies a multisig DID, a single verfer implies a single key DID.
 
     Parameters:
-        kever (Kever): The Kever instance containing the verfers.
+        verfers (list[core.Verfer]): A list of Verfer instances representing the public keys.
+        thold (int or list): The signing threshold, possibly multisig. If an integer, it indicates a simple multisig DID.
         did (str): The DID to associate with the verification methods.
+        aid (str): The AID to associate with the verification methods.
 
     Returns:
         list: A list of verification methods in the format required for a DID document.

@@ -6,7 +6,6 @@ dkr.app.cli.commands module
 
 import argparse
 import json
-import logging
 
 from hio.base import doing
 from keri.app import habbing, oobiing

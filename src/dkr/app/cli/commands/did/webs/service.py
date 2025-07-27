@@ -78,7 +78,7 @@ def launch(args):
     meta = args.meta
 
     cf = habs.get_habery_configer(name=config_file, base=base, head_dir_path=config_dir)
-    hby, hby_doer = habs.get_habery_doer(name, base, bran, cf)
+    hby, hby_doer = habs.get_habery_and_doer(name, base, bran, cf)
 
     app = resolving.falcon_app()
     webbing.load_endpoints(app, hby=hby, did_path=did_path, meta=meta)

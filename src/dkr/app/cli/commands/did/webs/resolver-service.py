@@ -105,7 +105,7 @@ def create_did_webs_doers(
     cafilepath: str,
 ) -> List[doing.Doer]:
     cf = habs.get_habery_configer(name=config_file, base=base, head_dir_path=config_dir)
-    hby, hby_doer = habs.get_habery_doer(name, base, bran, cf)
+    hby, hby_doer = habs.get_habery_and_doer(name, base, bran, cf)
     oobiery = oobiing.Oobiery(hby=hby)
 
     doers = [hby_doer] + oobiery.doers

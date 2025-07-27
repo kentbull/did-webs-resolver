@@ -52,7 +52,7 @@ def launch(args, expire=0.0):
     config_dir = args.config_dir
 
     cf = habs.get_habery_configer(name=config_file, base=base, head_dir_path=config_dir)
-    hby, hby_doer = habs.get_habery_doer(name, base, bran, cf)
+    hby, hby_doer = habs.get_habery_and_doer(name, base, bran, cf)
     oobiery = oobiing.Oobiery(hby=hby)
 
     doers = oobiery.doers + [hby_doer]

@@ -15,7 +15,7 @@ from functools import reduce
 from keri.app import habbing
 from keri.core import coring
 from keri.help import helping
-from keri.vdr import credentialing, verifying
+from keri.vdr import credentialing
 
 from dkr import DidWebsError, UnknownAID, log_name, ogler
 
@@ -115,6 +115,9 @@ def parse_query_string(query: str):
 def re_encode_invalid_did_webs(did: str):
     match = DID_WEBS_UNENCODED_PORT_RE.match(did)
     if match is None:
+        match = DID_WEBS_RE.match(did)
+        if match is not None:
+            return did  # already encoded correctly
         raise ValueError(f'{did} is not an invalidly encoded did:web(s) DID')
 
     domain, port, path, aid, query = match.group('domain', 'port', 'path', 'aid', 'query')
@@ -135,6 +138,25 @@ def re_encode_invalid_did_webs(did: str):
     if query:
         encoded += f'{query}'
     return encoded
+
+
+def requote(encoded_did: str):
+    """
+    Due to compliance with PEP3333 in PR 38 to HIO (https://github.com/ioflo/hio/pull/38) the
+    WSGI container for the Falcon server URL encodes the URL path which means that  the did:webs and did:keri
+    DIDs must be URL decoded, broken apart, and then re-encoded to ensure they are valid for resolution.
+
+    This specific attribute of the WSGI environment uses urllib.parse.quote to encode the path, so we need to decode it
+    environ['PATH_INFO'] = quote(requestant.path)
+    """
+    if encoded_did.lower().startswith('did%3awebs') or encoded_did.lower().startswith('did%3akeri'):
+        # The DID is incorrectly fully URL-encoded, happens with some WSGI servers, so must decode and re-encode it
+        # this happens in Falcon
+        did = urllib.parse.unquote(encoded_did)
+        did = re_encode_invalid_did(did)
+        return did
+    else:
+        return encoded_did
 
 
 def re_encode_invalid_did(did: str):
@@ -326,7 +348,7 @@ def genDidResolutionResult(witness_list, seq_no, equivalent_ids, did, vms, serv_
     )
 
 
-def generate_did_doc(hby: habbing.Habery, did, aid, meta=False):
+def generate_did_doc(hby: habbing.Habery, rgy: credentialing.Regery, did, aid, meta=False):
     """
     Generates a DID document for the given DID and AID.
 
@@ -340,6 +362,7 @@ def generate_did_doc(hby: habbing.Habery, did, aid, meta=False):
 
     Parameters:
         hby (habbing.Habery): The habery instance containing the necessary data.
+        rgy (credentialing.Regery): The Regery instance for the credential and registry data.
         did (str): The DID to generate the document for.
         aid (str): The AID associated with the DID.
         meta (bool, optional): If True, include metadata in the response. Defaults to False.
@@ -382,7 +405,7 @@ def generate_did_doc(hby: habbing.Habery, did, aid, meta=False):
 
     equiv_ids = []
     aka_ids = []
-    for s in designated_aliases(hby, aid):
+    for s in designated_aliases(hby, rgy, aid):
         if s.startswith('did:webs'):
             equiv_ids.append(s)
         aka_ids.append(s)
@@ -464,13 +487,26 @@ def from_did_web(did_json: dict, meta: bool = False):
     return diddoc
 
 
-def designated_aliases(hby: habbing.Habery, aid: str, schema: str = DES_ALIASES_SCHEMA):
+def extract_desg_alias_from_cred(cred: dict) -> str | None:
+    """
+    Extract the 'ids' property from the designated aliases ACDC credential.
+    This is specific to the current designated aliases schema.
+    """
+    sad = cred['sad']
+    status = cred['status']
+    if status['et'] == 'iss' or status['et'] == 'bis':
+        return sad['a']['ids']
+    return None
+
+
+def designated_aliases(hby: habbing.Habery, rgy: credentialing.Regery, aid: str, schema: str = DES_ALIASES_SCHEMA):
     """
     Searches the entire Regery database for non-revoked, self-attested designated alias ACDCs by schema and
     returns a list of designated alias IDs using their `a.ids` field.
 
     Parameters:
         hby (habbing.Habery): The Habery instance containing the Regery.
+        rgy (credentialing.Regery): The Regery instance for credential and registry data.
         aid (str): The AID prefix to retrieve the ACDCs for.
         schema (str): The schema to use to select the target ACDC from the local registry. Default is DES_ALIASES_SCHEMA.
 
@@ -479,21 +515,13 @@ def designated_aliases(hby: habbing.Habery, aid: str, schema: str = DES_ALIASES_
     """
     da_ids = []
     if aid in hby.habs:
-        rgy = credentialing.Regery(hby=hby, name=hby.name)
-        vry = verifying.Verifier(hby=hby, reger=rgy.reger)
-
         saids = rgy.reger.issus.get(keys=aid)
-        scads = rgy.reger.schms.get(keys=schema)
-        # self-attested, there is no issuee, and schmea is designated aliases
+        scads = rgy.reger.schms.get(keys=schema)  # get credentials by schema
+        # self-attested schema, and scehma is designated aliases
         saids = [saider for saider in saids if saider.qb64 in [saider.qb64 for saider in scads]]
 
         creds = rgy.reger.cloneCreds(saids, hby.habs[aid].db)
-
-        for idx, cred in enumerate(creds):
-            sad = cred['sad']
-            status = cred['status']
-            if status['et'] == 'iss' or status['et'] == 'bis':
-                da_ids.append(sad['a']['ids'])
+        da_ids = [extract_desg_alias_from_cred(cred) for _, cred in enumerate(creds)]
 
     return list(itertools.chain.from_iterable(da_ids))
 

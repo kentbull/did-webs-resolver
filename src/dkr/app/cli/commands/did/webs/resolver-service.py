@@ -9,6 +9,7 @@ from typing import List
 
 from hio.base import doing
 from keri.app import oobiing
+from keri.vdr import credentialing
 
 from dkr import log_name, ogler, set_log_level
 from dkr.core import habs, resolving
@@ -30,7 +31,7 @@ parser.add_argument(
     required=False,
     help="did:webs path segment in URL format between {host}%3A{port} and {aid}. Example: 'somepath/somesubpath'",
 )
-parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
+parser.add_argument('-n', '--name', action='store', required=True, help='Name of controller.')
 parser.add_argument(
     '-b', '--base', required=False, default='', help='additional optional prefix to file location of KERI keystore'
 )
@@ -106,12 +107,13 @@ def create_did_webs_doers(
 ) -> List[doing.Doer]:
     cf = habs.get_habery_configer(name=config_file, base=base, head_dir_path=config_dir)
     hby, hby_doer = habs.get_habery_and_doer(name, base, bran, cf)
+    rgy = credentialing.Regery(hby=hby, name=hby.name, base=hby.base, temp=hby.temp)
     oobiery = oobiing.Oobiery(hby=hby)
 
     doers = [hby_doer] + oobiery.doers
     doers += resolving.setup_resolver(
         hby,
-        hby_doer,
+        rgy,
         oobiery,
         http_port=http_port,
         static_files_dir=static_files_dir,

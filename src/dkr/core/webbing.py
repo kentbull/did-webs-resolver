@@ -6,11 +6,14 @@ dkr.core.webbing module
 
 import falcon
 from keri.app import habbing
+from keri.vdr import credentialing
 
 from dkr.core import ends
 
 
-def load_endpoints(app: falcon.App, hby: habbing.Habery, did_path: str = '', meta: bool = False) -> None:
+def load_endpoints(
+    app: falcon.App, hby: habbing.Habery, rgy: credentialing.Regery, did_path: str = '', meta: bool = False
+) -> None:
     """
     Set up web app endpoints to serve configured KERI AIDs as `did:web` DIDs
 
@@ -22,5 +25,5 @@ def load_endpoints(app: falcon.App, hby: habbing.Habery, did_path: str = '', met
     """
     app.add_route('/health', ends.HealthEnd())
     did_webs_path = '' if not did_path else f'/{did_path}'
-    app.add_route(f'{did_webs_path}/{{aid}}/did.json', ends.DIDWebsResourceEnd(hby, meta=meta))
-    app.add_route(f'{did_webs_path}/{{aid}}/keri.cesr', ends.KeriCesrResourceEnd(hby))
+    app.add_route(f'{did_webs_path}/{{aid}}/did.json', ends.DIDWebsResourceEnd(hby, rgy, meta=meta))
+    app.add_route(f'{did_webs_path}/{{aid}}/keri.cesr', ends.KeriCesrResourceEnd(hby, rgy))

@@ -13,7 +13,7 @@ from dkr.core.generating import DIDArtifactGenerator
 
 parser = argparse.ArgumentParser(description='Generate a did:webs DID document and KEL, TEL, and ACDC CESR stream file')
 parser.set_defaults(handler=lambda args: handler(args), transferable=True)
-parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
+parser.add_argument('-n', '--name', action='store', required=True, help='Name of controller.')
 parser.add_argument(
     '-b', '--base', required=False, default='', help='additional optional prefix to file location of KERI keystore'
 )

@@ -6,21 +6,20 @@ dkr.core.serving module
 
 import json
 import os
-import urllib.parse
 from typing import Callable
 
 import falcon
 import requests
 from falcon import media
-from hio.base import doing
 from hio.core import http, tcp
 from keri import kering
-from keri.app import habbing
-from keri.app.habbing import Habery, HaberyDoer
+from keri.app import habbing, oobiing
+from keri.app.habbing import Habery
 from keri.app.oobiing import Oobiery
+from keri.vdr import credentialing
 
 from dkr import log_name, ogler
-from dkr.core import didding, ends
+from dkr.core import didding, ends, requesting
 
 logger = ogler.getLogger(log_name)
 
@@ -80,29 +79,30 @@ def save_cesr(hby: Habery, kc_res: bytes, aid: str = None):
 
 def get_generated_did_doc(
     hby: habbing.Habery,
+    rgy: credentialing.Regery,
     did: str,
     meta: bool,
 ):
     aid, dd_url, kc_url = get_urls(did=did)
-    dd = didding.generate_did_doc(hby, did=did, aid=aid, meta=meta)
+    dd = didding.generate_did_doc(hby, rgy, did=did, aid=aid, meta=meta)
     if meta:
         dd[didding.DD_META_FIELD]['didDocUrl'] = dd_url
         dd[didding.DD_META_FIELD]['keriCesrUrl'] = kc_url
     return dd
 
 
-def error_resolution_response(meta: bool, error_message: str):
+def error_resolution_response(error_message: str, differences: list) -> dict:
     """
     Generate an error response for DID resolution.
     """
-    didresult = dict()
-    didresult[didding.DD_FIELD] = None
-    if didding.DID_RES_META_FIELD not in didresult:
-        didresult[didding.DID_RES_META_FIELD] = dict()
-    didresult[didding.DID_RES_META_FIELD]['error'] = 'notVerified'
-    didresult[didding.DID_RES_META_FIELD]['errorMessage'] = error_message
-    result = didresult
-    return result
+    resolution = dict()  # Copy the actual DID document to modify it
+    resolution[didding.DD_FIELD] = None
+    if didding.DID_RES_META_FIELD not in resolution:
+        resolution[didding.DID_RES_META_FIELD] = dict()
+    resolution[didding.DID_RES_META_FIELD]['error'] = 'notVerified'
+    resolution[didding.DID_RES_META_FIELD]['errorMessage'] = error_message
+    resolution[didding.DID_RES_META_FIELD]['differences'] = differences
+    return resolution
 
 
 def verify(dd_expected: dict, dd_actual: dict, meta: bool = False) -> (bool, dict):
@@ -117,8 +117,7 @@ def verify(dd_expected: dict, dd_actual: dict, meta: bool = False) -> (bool, dic
     if meta:
         dd_exp = dd_expected[didding.DD_FIELD]
         dd_act = dd_actual[didding.DD_FIELD]
-    # TODO verify more than verificationMethod
-    verified = _verify_did_docs(dd_exp[didding.VMETH_FIELD], dd_act[didding.VMETH_FIELD])
+    verified, differences = _verify_did_docs(dd_exp, dd_act)
 
     if verified:
         logger.info(f'DID document verified')
@@ -128,21 +127,28 @@ def verify(dd_expected: dict, dd_actual: dict, meta: bool = False) -> (bool, dic
         return (
             False,
             error_resolution_response(
-                meta=meta, error_message='The DID document could not be verified against the KERI event stream'
+                error_message='The DID document could not be verified against the KERI event stream', differences=differences
             ),
         )
 
 
-def _verify_did_docs(expected, actual):
+def _verify_did_docs(expected, actual) -> (bool, list):
+    """
+    Performs did:webs DID document verification by performing a simple, deep dictionary comparison
+    using Python's built-in equality operator comparison.
+
+    Returns:
+        tuple(bool, list): (verified, differences) where verified is a boolean indicating verification status
+    """
     # TODO determine what to do with BADA RUN things like services (witnesses) etc.
     if (
         expected != actual
     ):  # Python != and == perform a deep object value comparison; this is not reference equality, it is value equality
         differences = _compare_dicts(expected, actual)
         logger.error(f'Differences found in DID Doc verification: {differences}')
-        return False
+        return False, differences
     else:
-        return True
+        return True, []
 
 
 def _compare_dicts(expected, actual, path=''):
@@ -206,12 +212,14 @@ def _compare_dicts(expected, actual, path=''):
     return differences
 
 
-def resolve(hby: Habery, did: str, meta: bool = False, load_url: Callable = load_url_with_requests) -> (bool, dict):
+def resolve(
+    hby: habbing.Habery, rgy: credentialing.Regery, did: str, meta: bool = False, load_url: Callable = load_url_with_requests
+) -> (bool, dict):
     """Resolve a did:webs DID and returl the verification result."""
     aid, dd_res, kc_res = get_did_artifacts(did=did, load_url=load_url)
     save_cesr(hby=hby, kc_res=kc_res, aid=aid)
     dd_actual = didding.from_did_web(json.loads(dd_res.decode('utf-8')), meta)
-    dd_expected = get_generated_did_doc(hby=hby, did=did, meta=meta)
+    dd_expected = get_generated_did_doc(hby=hby, rgy=rgy, did=did, meta=meta)
     return verify(dd_expected, dd_actual, meta=meta)
 
 
@@ -261,13 +269,13 @@ def tls_falcon_server(app: falcon.App, http_port: int, keypath: str, certpath: s
 
 
 def setup_resolver(
-    hby, hby_doer, oobiery, http_port, static_files_dir=None, did_path=None, keypath=None, certpath=None, cafilepath=None
+    hby, rgy, oobiery, http_port, static_files_dir=None, did_path=None, keypath=None, certpath=None, cafilepath=None
 ):
     """Setup serving package and endpoints
 
     Parameters:
-        hby (Habery): identifier database environment
-        hby_doer (HaberyDoer): Doer for the identifier database environment
+        hby (habbing.Habery): identifier database environment
+        rgy (credentialing.Regery): Doer for the identifier database environment
         oobiery (Oobiery): OOBI management environment
         http_port (int): external port to listen on for HTTP messages
         static_files_dir (str): directory to serve static files from, default is None (disabled)
@@ -284,75 +292,78 @@ def setup_resolver(
     server = tls_falcon_server(app, http_port=http_port, keypath=keypath, certpath=certpath, cafilepath=cafilepath)
     http_server_doer = http.ServerDoer(server=server)
 
-    load_ends(app, hby=hby, hby_doer=hby_doer, oobiery=oobiery, static_files_dir=static_files_dir, did_path=did_path)
+    load_ends(app, hby=hby, rgy=rgy, oobiery=oobiery, static_files_dir=static_files_dir, did_path=did_path)
 
     doers = [http_server_doer]
 
     return doers
 
 
+def get_serve_dir(static_files_dir: str | None, did_doc_dir: str):
+    """
+    When did DOC dir is absolute path, return it. If not, then check if static files is absolute.
+    If not, then combine current working, static files, and did doc dir to get the full path.
+    If static files is absolute, then combine it with did doc dir to get the full path.
+    """
+    if not os.path.isabs(did_doc_dir):
+        if not os.path.isabs(static_files_dir):
+            return os.path.join(os.getcwd(), static_files_dir, did_doc_dir)
+        return os.path.join(os.path.abspath(static_files_dir), did_doc_dir)
+    return did_doc_dir
+
+
 def serve_artifacts(app: falcon.App, hby: habbing.Habery, static_files_dir: str | None = None, did_path: str = ''):
     """Set up static file serving for did.json and keri.cesr files"""
     if static_files_dir is not None:
-        did_doc_dir = hby.cf.get().get('did.doc.dir', 'dws')
-        if not os.path.isabs(did_doc_dir):
-            did_doc_dir = os.path.join(os.path.abspath(static_files_dir), did_doc_dir)
-        if not os.path.isabs(did_doc_dir):
-            did_doc_dir = os.path.join(os.getcwd(), did_doc_dir)
+        did_doc_dir = get_serve_dir(static_files_dir, hby.cf.get().get('did.doc.dir', 'dws'))
         logger.info(f'Serving static files from {did_doc_dir}')
         # Host did:webs artifacts only if static path specified
         app.add_static_route('' if did_path is None else f'/{did_path}', did_doc_dir)
 
 
-def load_ends(app, hby, hby_doer, oobiery, static_files_dir, did_path=''):
+def load_ends(
+    app: falcon.App,
+    hby: habbing.Habery,
+    rgy: credentialing.Regery,
+    oobiery: oobiing.Oobiery,
+    static_files_dir: str,
+    did_path: str = '',
+):
     """Set up Falcon HTTP server endpoints for resolving DIDs and hosting static files"""
     serve_artifacts(app, hby, static_files_dir, did_path)
-    resolve_end = UniversalResolverResource(hby=hby, oobiery=oobiery)
+    resolve_end = UniversalResolverResource(hby=hby, rgy=rgy, oobiery=oobiery, load_url=requesting.load_url_with_hio)
     app.add_route('/1.0/identifiers/{did}', resolve_end)
     app.add_route('/health', ends.HealthEnd())
-    return [resolve_end]
 
 
-class UniversalResolverResource(doing.DoDoer):
+class UniversalResolverResource:
     """
-    HTTP Resource enabling the Universal Resolver to resolve did:webs and did:keri DIDs using the /v1.0/identifiers/{did} endpoint.
+    HTTP Resource enabling the Universal Resolver to resolve did:webs and did:keri DIDs using the /v1.0/identifiers/{did}  endpoint.
     """
 
-    def __init__(self, hby: Habery, oobiery: Oobiery, load_url=load_url_with_requests):
+    def __init__(
+        self,
+        hby: habbing.Habery,
+        rgy: credentialing.Regery,
+        oobiery: oobiing.Oobiery,
+        load_url: Callable = load_url_with_requests,
+    ):
         """Create Endpoints for discovery and resolution of OOBIs
 
         Parameters:
             hby (Habery): identifier database environment
+            rgy (Regery): Credential and registry data manager
             oobiery (Oobiery): OOBI management environment
             load_url (Callable): HTTP request function to use to load did.json and keri.cesr - simplifies testing
         """
         self.hby: Habery = hby
+        self.rgy = (
+            rgy if rgy else credentialing.Regery(hby=self.hby, name=self.hby.name, base=self.hby.base, temp=self.hby.temp)
+        )
         self.oobiery: Oobiery = oobiery
         self.load_url = load_url  # Function to load URLs, can be mocked for testing
 
-        super(UniversalResolverResource, self).__init__(doers=[])
-
-    @staticmethod
-    def requote(encoded_did: str):
-        """
-        Due to compliance with PEP3333 in PR 38 to HIO (https://github.com/ioflo/hio/pull/38) the
-        WSGI container for the Falcon server URL encodes the URL path which means that  the did:webs and did:keri
-        DIDs must be URL decoded, broken apart, and then re-encoded to ensure they are valid for resolution.
-
-        This specific attribute of the WSGI environment uses urllib.parse.quote to encode the path, so we need to decode it
-        environ['PATH_INFO'] = quote(requestant.path)
-        """
-        if encoded_did.lower().startswith('did%3awebs') or encoded_did.lower().startswith('did%3akeri'):
-            # The DID is incorrectly fully URL-encoded, happens with some WSGI servers, so must decode and re-encode it
-            # this happens in Falcon
-            try:
-                did = urllib.parse.unquote(encoded_did)
-            except Exception as e:
-                raise ValueError(f'Invalid DID: {encoded_did}, error: {str(e)}')
-            did = didding.re_encode_invalid_did(did)
-            return did
-        else:
-            return encoded_did
+        super(UniversalResolverResource, self).__init__()
 
     def on_get(self, req: falcon.Request, rep: falcon.Response, did: str):
         """
@@ -363,14 +374,14 @@ class UniversalResolverResource(doing.DoDoer):
             rep (falcon.Response): The HTTP response object.
             did (str): The DID to resolve.
         """
-        if did is None:
+        if did is None or did == '':
             rep.status = falcon.HTTP_400
             rep.content_type = 'application/json'
             rep.media = {'error': "invalid resolution request body, 'did' is required"}
             return
 
         try:
-            did = self.requote(did)  # Re-quote the DID to ensure it is valid for resolution
+            did = didding.requote(did)  # Re-quote the DID to ensure it is valid for resolution
         except ValueError as e:
             rep.status = falcon.HTTP_400
             rep.content_type = 'application/json'
@@ -395,13 +406,18 @@ class UniversalResolverResource(doing.DoDoer):
             query_vars = didding.parse_query_string(query)
             if 'meta' in query_vars:
                 meta = query_vars['meta']
-            result, data = resolve(hby=self.hby, did=did, meta=meta, load_url=self.load_url)
+            result, data = resolve(hby=self.hby, rgy=self.rgy, did=did, meta=meta, load_url=self.load_url)
         elif did.startswith('did:keri'):
-            # Option 1 - does not support OOBI resolution
-            result, data = resolve_did_keri(self.hby, did, oobi, meta)
+            result, data = resolve_did_keri(self.hby, self.rgy, did, oobi, meta)
         else:
             rep.status = falcon.HTTP_400
-            rep.media = {'error': "invalid 'did'"}
+            rep.media = {'error': f'invalid DID: {did}'}
+            return
+
+        if not result:
+            logger.error(f'Failed to resolve DID {did}: {data}')
+            rep.status = falcon.HTTP_417
+            rep.media = data
             return
 
         rep.status = falcon.HTTP_200
@@ -410,8 +426,8 @@ class UniversalResolverResource(doing.DoDoer):
         return
 
 
-def resolve_did_keri(hby: Habery, did: str, oobi: str = None, meta: bool = False):
+def resolve_did_keri(hby: habbing.Habery, rgy: credentialing.Regery, did: str, oobi: str = None, meta: bool = False):
     aid = didding.parse_did_keri(did)
     if oobi is not None and hby.db.roobi.get(keys=(oobi,)) is None:
         return False, {'error': f'OOBI {oobi} not found in the Habery'}
-    return True, didding.generate_did_doc(hby, did=did, aid=aid, meta=meta)
+    return True, didding.generate_did_doc(hby, rgy, did=did, aid=aid, meta=meta)

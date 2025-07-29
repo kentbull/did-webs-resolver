@@ -7,6 +7,7 @@ dkr.app.cli.commands module
 import argparse
 
 from keri.app import oobiing
+from keri.vdr import credentialing
 
 from dkr import log_name, ogler, set_log_level
 from dkr.core import habs, resolving
@@ -20,7 +21,7 @@ parser.add_argument(
     default=7678,
     help='Port on which to listen for did:keri resolution requests.  Defaults to 7678',
 )
-parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
+parser.add_argument('-n', '--name', action='store', required=True, help='Name of controller.')
 parser.add_argument(
     '--base', '-b', help='additional optional prefix to file location of KERI keystore', required=False, default=''
 )
@@ -53,10 +54,11 @@ def launch(args, expire=0.0):
 
     cf = habs.get_habery_configer(name=config_file, base=base, head_dir_path=config_dir)
     hby, hby_doer = habs.get_habery_and_doer(name, base, bran, cf)
+    rgy = credentialing.Regery(hby=hby, name=hby.name, base=hby.base, temp=hby.temp)
     oobiery = oobiing.Oobiery(hby=hby)
 
     doers = oobiery.doers + [hby_doer]
-    doers += resolving.setup_resolver(hby, hby_doer, oobiery, http_port=http_port)
+    doers += resolving.setup_resolver(hby, rgy, oobiery, http_port=http_port)
 
     logger.info(f'Launched did:keri resolver as an HTTP web service on {http_port}')
     return doers

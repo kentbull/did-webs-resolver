@@ -68,12 +68,8 @@ def load_url_with_hio_clienter(url: str, timeout: float = 5.0, method: str = 'GE
     clienter = HTTPClienter(timeout=timeout)
     clienter.always = False
     clienter.tymth = doist.tymen()  # share the Doist tymth with the Clienter
-    # Requires a service be running locally on 7677
     client = clienter.request(method, url)
-    try:
-        doist.do(doers=[clienter])
-    except Exception as e:
-        raise kering.KeriError(f'Error during HTTP request: {e}')
+    doist.do(doers=[clienter])
 
     if len(client.responses) != 0:
         rep = client.respond()

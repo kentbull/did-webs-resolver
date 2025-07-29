@@ -1,10 +1,12 @@
 import json
 import os
+from unittest.mock import patch
 
 from hio.base import doing
 from keri import core
 from keri.app import configing, habbing, oobiing
 from keri.vdr import credentialing
+from mockito import mock
 
 from dkr.core import artifacting, didding, generating, resolving
 from dkr.core.ends import DID_JSON, KERI_CESR
@@ -99,7 +101,7 @@ def test_artifact_generation_creates_expected_artifacts():
         keri_cesr.extend(artifacting.gen_kel_cesr(rb_hby.db, aid))  # add KEL CESR stream
         keri_cesr.extend(artifacting.gen_des_aliases_cesr(page_hab, reger, aid))
 
-        did_webs_diddoc = didding.generate_did_doc(rb_hby, did=did_webs_did, aid=aid, meta=meta)
+        did_webs_diddoc = didding.generate_did_doc(rb_hby, rgy=regery, did=did_webs_did, aid=aid, meta=meta)
 
         # Run the DIDArtifactGenerator to generate the artifacts
         output_dir = './tests/artifact_output_dir'
@@ -134,7 +136,21 @@ def test_artifact_generation_creates_expected_artifacts():
 
         # And test a failed verification by having one be meta=True and one be meta=False
 
-        did_webs_diddoc = didding.generate_did_doc(rb_hby, did=did_webs_did, aid=aid, meta=True)
+        did_webs_diddoc = didding.generate_did_doc(rb_hby, rgy=regery, did=did_webs_did, aid=aid, meta=True)
         did_webs_diddoc[didding.DD_FIELD] = {f'{didding.VMETH_FIELD}': {}}  # break the diddoc
         result, dd_expected = resolving.verify(did_art_gen.did_json, did_webs_diddoc, meta=True)
         assert not result, 'Verification should fail when meta is True but did document is generated with meta=False'
+
+
+def test_did_art_genr_with_empty_hby_creates_hby():
+    hby_mock = mock(habbing.Habery)
+    hby_mock.db = mock()
+    hby_doer_mock = mock(habbing.HaberyDoer)
+    rgy_mock = mock(credentialing.Regery)
+    with patch('dkr.core.habs.get_habery_and_doer') as mock_get_habery_and_doer:
+        mock_get_habery_and_doer.return_value = hby_mock, hby_doer_mock
+        resolver = generating.DIDArtifactGenerator(
+            name='test_resolver', base='test_base', bran=None, did='fake:did', regery=rgy_mock
+        )
+        assert resolver.hby == hby_mock, 'Expected KeriResolver to create a new Habery instance'
+        assert hby_doer_mock in resolver.doers, 'Expected KeriResolver to add HaberyDoer to its doers'

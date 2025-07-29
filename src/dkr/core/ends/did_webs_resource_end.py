@@ -3,6 +3,7 @@ import os
 
 import falcon
 from keri.app import habbing
+from keri.vdr import credentialing
 
 from dkr.core import didding
 
@@ -14,16 +15,18 @@ class DIDWebsResourceEnd:
     did.json HTTP resource for accessing did:webs DID documents for KERI AIDs.
     """
 
-    def __init__(self, hby: habbing.Habery, meta: bool = False):
+    def __init__(self, hby: habbing.Habery, rgy: credentialing.Regery, meta: bool = False):
         """
         Initialize did:webs did.json artifact endpoint that will pull designated aliases from the specified registry
         and will optionally include metadata in the DID document.
 
         Parameters:
             hby (Habery): Database environment for AIDs to expose
+            rgy (Regery): Registry for credential and registry data
             meta (bool): Whether to include metadata in the DID document. Default is False.
         """
         self.hby = hby
+        self.rgy = rgy
         self.meta = meta
         super().__init__()
 
@@ -39,9 +42,6 @@ class DIDWebsResourceEnd:
         if not req.path.endswith(f'/{DID_JSON}'):
             raise falcon.HTTPBadRequest(description=f'invalid did:web DID URL {req.path}')
 
-        if aid is None:
-            aid = os.path.basename(os.path.normpath(req.path.replace(f'/{DID_JSON}', '')))
-
         # 404 if AID not recognized
         if aid not in self.hby.kevers:
             raise falcon.HTTPNotFound(description=f'KERI AID {aid} not found')
@@ -54,7 +54,7 @@ class DIDWebsResourceEnd:
         did = f'did:web:{req.host}{port}{path}'
 
         # Generate the DID Doc and return
-        diddoc = didding.generate_did_doc(self.hby, did, aid, meta=self.meta)
+        diddoc = didding.generate_did_doc(self.hby, self.rgy, did, aid, meta=self.meta)
 
         rep.status = falcon.HTTP_200
         rep.content_type = 'application/json'

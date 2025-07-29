@@ -116,7 +116,7 @@ def generate_artifacts(hby: Habery, rgy: Regery, did: str, meta: bool = False, o
 
     # generate did doc
     try:
-        did_json = didding.generate_did_doc(hby, did=did, aid=aid, meta=meta)
+        did_json = didding.generate_did_doc(hby, rgy, did=did, aid=aid, meta=meta)
     except UnknownAID as e:
         logger.error(f'Failed to generate DID document for {did}: {e}')
         raise e

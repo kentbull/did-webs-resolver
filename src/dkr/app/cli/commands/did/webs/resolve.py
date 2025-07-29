@@ -10,13 +10,14 @@ import json
 from hio.base import doing
 from keri.app import habbing, oobiing
 from keri.app.cli.common import existing
+from keri.vdr import credentialing
 
 from dkr import log_name, ogler, set_log_level
 from dkr.core import resolving
 
 parser = argparse.ArgumentParser(description='Resolve a did:webs DID')
 parser.set_defaults(handler=lambda args: handler(args), transferable=True)
-parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
+parser.add_argument('-n', '--name', action='store', required=True, help='Name of controller.')
 parser.add_argument(
     '-b', '--base', required=False, default='', help='additional optional prefix to file location of KERI keystore'
 )
@@ -55,23 +56,20 @@ logger = ogler.getLogger(log_name)
 def handler(args):
     """Handles command line did:webs DID doc resolutions"""
     set_log_level(args.loglevel, logger)
-    hby = existing.setupHby(name=args.name, base=args.base, bran=args.bran)
-    hby_doer = habbing.HaberyDoer(habery=hby)  # setup doer
-    oobiery = oobiing.Oobiery(hby=hby)
-    res = WebsResolver(hby=hby, hby_doer=hby_doer, oobiery=oobiery, did=args.did, meta=args.meta, verbose=args.verbose)
-    return [res]
+    return [WebsResolver(name=args.name, base=args.base, bran=args.bran, did=args.did, meta=args.meta, verbose=args.verbose)]
 
 
 class WebsResolver(doing.DoDoer):
     """Resolve did:webs DID document from the KERI database."""
 
-    def __init__(
-        self, hby: habbing.Habery, hby_doer: habbing.HaberyDoer, oobiery: oobiing.Oobiery, did: str, meta: bool, verbose: bool
-    ):
+    def __init__(self, name: str, base: str | None, bran: str | None, did: str, meta: bool, verbose: bool):
         """
         Initialize the WebsResolver.
         """
-        self.hby = hby
+        self.hby = existing.setupHby(name=name, base=base, bran=bran)
+        hby_doer = habbing.HaberyDoer(habery=self.hby)  # setup doer
+        oobiery = oobiing.Oobiery(hby=self.hby)
+        self.rgy = credentialing.Regery(hby=self.hby, name=self.hby.name, base=self.hby.base, temp=self.hby.temp)
         self.did = did
         self.meta = meta
         self.verbose = verbose
@@ -87,7 +85,7 @@ class WebsResolver(doing.DoDoer):
 
     def resolve(self):
         """Resolve the did:webs DID."""
-        resolved, resolution = resolving.resolve(hby=self.hby, did=self.did, meta=self.meta)
+        resolved, resolution = resolving.resolve(hby=self.hby, rgy=self.rgy, did=self.did, meta=self.meta)
         if resolved:
             if self.verbose:
                 print(f'Resolution result for {self.did}: {json.dumps(resolution, indent=2)}')

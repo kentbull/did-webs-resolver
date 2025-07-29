@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 import urllib.parse
 from unittest.mock import MagicMock, Mock, patch
 
@@ -111,14 +113,14 @@ def test_resolver_with_witnesses():
         # fmt: off
         did_webs_did = f'did:webs:{host}%3A{port}:{did_path}:{aid}?meta=true'         # did:webs:127.0.0.1%3A7677:dws:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v?meta=true
         did_keri_did = f'did:keri:{aid}'                                              # did:keri:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v
-        did_json_url = f'http://{host}:{port}/{did_path}/{aid}/did.json?meta=true'    # http://127.0.0.1:7677/dws/EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v/did.json?meta=true
+        did_json_url = f'http://{host}:{port}/{did_path}/{aid}/did.json'    # http://127.0.0.1:7677/dws/EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v/did.json?meta=true
         keri_cesr_url = f'http://{host}:{port}/{did_path}/{aid}/keri.cesr'            # http://127.0.0.1:7677/dws/EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v/keri.cesr
         # fmt: on
 
         schema_json = conftest.load_designated_aliases_schema_json()
         rules_json = conftest.load_designated_aliases_schema_rules_json()
         subject_data = self_attested_aliases_cred_subj(host, aid, port, did_path)
-        regery = credentialing.Regery(hby=ck_hby, name=cracker_1_hab.name, temp=ck_hby.temp)
+        regery = credentialing.Regery(hby=ck_hby, name=ck_hby.name, temp=ck_hby.temp)
         CredentialHelpers.add_cred_to_aid(
             hby=ck_hby,
             hby_doer=ck_hby_doer,
@@ -139,7 +141,7 @@ def test_resolver_with_witnesses():
         keri_cesr.extend(artifacting.gen_kel_cesr(ck_hby.db, aid))  # add KEL CESR stream
         keri_cesr.extend(artifacting.gen_des_aliases_cesr(cracker_1_hab, reger, aid))
 
-        did_webs_diddoc = didding.generate_did_doc(ck_hby, did=did_webs_did, aid=aid, meta=meta)
+        did_webs_diddoc = didding.generate_did_doc(ck_hby, rgy=regery, did=did_webs_did, aid=aid, meta=meta)
         assert did_webs_diddoc[didding.DD_FIELD]['alsoKnownAs'] != [], 'alsoKnownAs field should contain designated aliases'
 
         # generate DID artifacts and store them locally so I can resolve them.
@@ -162,7 +164,7 @@ def test_resolver_with_witnesses():
         # Start up a universal resolver to test that resolution works
         resolver_doers = resolving.setup_resolver(
             ck_hby,
-            ck_hby_doer,
+            regery,
             oobiery,
             http_port=7677,
             static_files_dir='./tests/artifact_output_dir',
@@ -178,7 +180,119 @@ def test_resolver_with_witnesses():
             doist.recur(deeds=ck1_deeds + resolver_deeds + resolution_deed)
         resp = client.respond()
         resp_body = bytes(resp.body)
-        assert did_webs_diddoc == json.loads(resp_body.decode('utf-8')), 'DID Document does not match expected output'
+        did_webs_diddoc[didding.DD_FIELD] = didding.to_did_web(did_webs_diddoc[didding.DD_FIELD])
+        assert did_webs_diddoc[didding.DD_FIELD] == json.loads(resp_body.decode('utf-8'))[didding.DD_FIELD], (
+            'DID Document does not match expected output'
+        )
+
+        # Resolve did:keri with OOBI fails to resolve (OOBI parameter not currently supported)
+        controller_oobi = f'http://127.0.0.1:6642/oobi/{aid}/witness/{wan_pre}'
+        did_keri_did = f'{did_keri_did}?meta=true&oobi={urllib.parse.quote(controller_oobi)}'
+        did_keri_url = f'http://{host}:{7677}/1.0/identifiers/{did_keri_did}'
+        client, client_doer = requesting.create_http_client(method='GET', url=did_keri_url)
+        # client, client_doer = requesting.create_http_client(method='GET', url=f'http://{host}:{7677}/health')
+        resolution_deed = doist.enter(doers=[client_doer])
+        while client.responses is None or len(client.responses) == 0:
+            doist.recur(deeds=ck1_deeds + resolver_deeds + resolution_deed)
+        rep = client.respond()
+        assert rep.status == 417
+        resp_body = json.loads(rep.body)
+        assert resp_body['error'] == f'OOBI {controller_oobi} not found in the Habery'
+
+        # resolve did:dud fails as invalid did
+        did_dud = 'did:dud:invalid'
+        did_dud_url = f'http://{host}:{7677}/1.0/identifiers/{did_dud}'
+        client, client_doer = requesting.create_http_client(method='GET', url=did_dud_url)
+        resolution_deed = doist.enter(doers=[client_doer])
+        while client.responses is None or len(client.responses) == 0:
+            doist.recur(deeds=ck1_deeds + resolver_deeds + resolution_deed)
+        rep = client.respond()
+        assert rep.status == 400
+        resp_body = json.loads(rep.body)
+        assert resp_body['error'] == f'invalid DID: {urllib.parse.quote(did_dud)}'
+
+
+def test_compare_dicts_returns_differences_when_present():
+    """
+    Tests the compare_dicts function to ensure it correctly identifies differences between two dictionaries.
+    """
+    # different values are detected
+    exp = {'key1': 'value1', 'key2': 'value2'}
+    act = {'key1': 'value1', 'key2': 'different_value'}
+
+    diff = resolving._compare_dicts(exp, act)
+    assert diff == [('key2', 'value2', 'different_value')], 'Differences not identified correctly'
+
+    # missing values are detected
+    exp = {'key1': 'value1', 'key2': 'value2'}
+    act = {'key1': 'value1'}
+
+    diff = resolving._compare_dicts(exp, act)
+    assert diff == [('key2', 'value2', None)], 'Differences not identified correctly when keys are missing'
+
+    # nested structures are compared correctly
+    exp = {'key1': 'value1', 'key2': {'key3': 'value2'}}
+    act = {'key1': 'value1', 'key2': 'different_value'}
+
+    diff = resolving._compare_dicts(exp, act)
+    assert diff == [('key2', {'key3': 'value2'}, 'different_value')], (
+        'Differences not identified correctly for nested structures'
+    )
+
+    # actual having a dictionary when not expected is detected
+    exp = {'key1': 'value1', 'key2': 'value2'}
+    act = {'key1': 'value1', 'key2': {'key3': 'different_value'}}
+
+    diff = resolving._compare_dicts(exp, act)
+    assert diff == [('key2', 'value2', {'key3': 'different_value'})], (
+        'Differences not identified correctly for nested structures'
+    )
+
+    # extra attributes in actual detected
+    exp = {'key1': 'value1', 'key2': 'value2'}
+    act = {'key1': 'value1', 'key2': 'value2', 'key3': 'value3'}
+
+    diff = resolving._compare_dicts(exp, act)
+    assert diff == [('key3', None, 'value3')], 'Differences not identified correctly for extra attributes in actual'
+
+    # detects when actual is not a dict yet expected is
+    exp = {}
+    act = []
+
+    diff = resolving._compare_dicts(exp, act)
+    assert diff == [('', exp, None)], 'Differences not identified correctly when actual is not a dict but expected is'
+
+    # detects when expected is a list of dicts and compares properly
+    exp = [{'key1': 'value1', 'key2': 'value2'}, {'key3': 'value3', 'key4': 'value4'}]
+    act = [{'key1': 'value1', 'key2': 'value2'}, {'key3': 'value3', 'key4': 'value4'}]
+    diff = resolving._compare_dicts(exp, act)
+    assert diff == [[], []], 'Differences should be empty when both lists of dicts are equal'
+
+    # detects when non-list, non-dict expected does not equal actual
+    exp = 0.123
+    act = 'asdf'
+    diff = resolving._compare_dicts(exp, act)
+    assert diff == [('', exp, act)], 'Differences not identified correctly when expected is a non-list, non-dict type'
+
+    # detects when comparing lists and the length of expected and actual differ
+    exp = [1, 2, 3]
+    act = [1, 2]
+    diff = resolving._compare_dicts(exp, act)
+    assert diff == [('', exp, act)], 'Differences not identified correctly when comparing lists of different lengths'
+
+
+def test_get_serve_dir():
+    with tempfile.TemporaryDirectory() as temp_static:
+        dir = resolving.get_serve_dir(temp_static, 'dws')
+        assert dir == temp_static + '/dws', 'Serve directory path is incorrect'
+
+    cwd = os.getcwd()
+    dir = resolving.get_serve_dir('static', 'dws')
+    assert dir == os.path.join(cwd, 'static', 'dws'), 'Serve directory path is incorrect when using relative path'
+
+    with tempfile.TemporaryDirectory() as temp_did_doc_dir:
+        dir = resolving.get_serve_dir(None, temp_did_doc_dir)
+        assert dir == temp_did_doc_dir, 'Serve directory path should match the provided directory when no static path is given'
 
 
 def test_resolver_with_did_webs_did_returns_correct_doc():
@@ -271,85 +385,105 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
         keri_cesr.extend(artifacting.gen_kel_cesr(hby.db, aid))  # add KEL CESR stream
         keri_cesr.extend(artifacting.gen_des_aliases_cesr(hab, reger, aid))
 
-        did_webs_diddoc = didding.generate_did_doc(hby, did=did_webs_did, aid=aid, meta=meta)
+        did_webs_diddoc = didding.generate_did_doc(hby, rgy=regery, did=did_webs_did, aid=aid, meta=meta)
 
         # Mock load_url to return the did.json and keri.cesr content
         def mock_load_url(url):
             if url == did_json_url:
                 # whitespace added for readability - this is just bytes and the whitespace does not impact the actual content
+                # fmt: off
                 return (
                     b'{'
                     b'"id": "did:webs:127.0.0.1%3A7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU", '
                     b'"verificationMethod": [{'
-                    b'"id": "#DHfhTX8nqUdiU2yw5gnx3dFguwAPiR0SzK4I9ugjRoRF", '
-                    b'"type": "JsonWebKey", '
-                    b'"controller": "did:webs:127.0.0.1%3A7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU", '
-                    b'"publicKeyJwk": {"kid": "DHfhTX8nqUdiU2yw5gnx3dFguwAPiR0SzK4I9ugjRoRF", "kty": "OKP", "crv": "Ed25519", "x": "d-FNfyepR2JTbLDmCfHd0WC7AA-JHRLMrgj26CNGhEU"}}], '
+                        b'"id": "#DHfhTX8nqUdiU2yw5gnx3dFguwAPiR0SzK4I9ugjRoRF", '
+                        b'"type": "JsonWebKey", '
+                        b'"controller": "did:webs:127.0.0.1%3A7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU", '
+                        b'"publicKeyJwk": {'
+                            b'"kid": "DHfhTX8nqUdiU2yw5gnx3dFguwAPiR0SzK4I9ugjRoRF", '
+                            b'"kty": "OKP", '
+                            b'"crv": "Ed25519", '
+                            b'"x": "d-FNfyepR2JTbLDmCfHd0WC7AA-JHRLMrgj26CNGhEU"}}], '
                     b'"service": [], '
-                    b'"alsoKnownAs": []}'
+                    b'"alsoKnownAs": ['
+                        b'"did:web:127.0.0.1%3a7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU", '
+                        b'"did:webs:127.0.0.17677%3a7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU", '
+                        b'"did:web:example.com:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU", '
+                        b'"did:web:foo.com:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU", '
+                        b'"did:webs:foo.comNone:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU"]}'
                 )
+                # fmt: on
             elif url == keri_cesr_url:
                 # whitespace added for readability - this is just bytes and the whitespace does not impact the actual content
+                # fmt: off
                 return (
-                    b'{"v":"KERI10JSON00012b_","t":"icp",'
-                    b'"d":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
-                    b'"i":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
-                    b'"s":"0",'
-                    b'"kt":"1","k":["DHfhTX8nqUdiU2yw5gnx3dFguwAPiR0SzK4I9ugjRoRF"],'
-                    b'"nt":"1","n":["EDklD8WWC8ks7U-pdxI_hoftybqLVRTj3KJK70jkq6Ha"],'
-                    b'"bt":"0","b":[],"c":[],"a":[]}'
-                    b'-VAn-AABAAAVeuv7YV_mWaMsye6tH5-G1x58jyJyPJtNePHS3u6vn5UYMlWBFzShMSabVqAtRvW8YW18uEhEGOaZ-cGkcE0J-EAB0AAAAAAAAAAAAAAAAAAAAAAA1AAG2025-07-24T16c27c22d019596p00c00'
-                    b'{"v":"KERI10JSON00013a_","t":"ixn",'
-                    b'"d":"EHZquNk1-N_KYQJcdXy_jym_YnwlzvdC_6YmGKp6VvIN",'
-                    b'"i":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
-                    b'"s":"1","p":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
-                    b'"a":[{"i":"EK_yp-mT-9YFKVqyUnqAN0CXUd6cxUGeIvem5I0A8TLb","s":"0","d":"EK_yp-mT-9YFKVqyUnqAN0CXUd6cxUGeIvem5I0A8TLb"}]}'
-                    b'-VAn-AABAAAfWrHVECbYrHe5hBQnIdgbbwmNPUO4VFsV0HG9zSwmbA-Qc7PqkQCD3IAZ_CnP5RrV2R_MgeYZtFu7PPwdWw0J-EAB0AAAAAAAAAAAAAAAAAAAAAAB1AAG2025-07-24T16c27c22d043008p00c00'
-                    b'{"v":"KERI10JSON00013a_","t":"ixn",'
-                    b'"d":"EEy7aFHQPBagfqW4MatcUVRVN7yJfft-3RhTzgZvN3Pf",'
-                    b'"i":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
-                    b'"s":"2","p":"EHZquNk1-N_KYQJcdXy_jym_YnwlzvdC_6YmGKp6VvIN",'
-                    b'"a":[{"i":"EAKC8atqn7nuqB7Iqv_FohuGJz6l3ZhWsISbkQFD522D","s":"0","d":"EHFeHZKRISML75268kN2XvkFueHu-mXj3YZAWU8aQxQQ"}]}'
-                    b'-VAn-AABAADnenNyGDisXGeZdQCLSzXl9QoYgBxi7cdYw3baY5ukUonbnIQnUBFBsCqPVvrp_dNibpTPVOWtJSDYNglDTKIH-EAB0AAAAAAAAAAAAAAAAAAAAAAC1AAG2025-07-24T16c53c32d268075p00c00'
-                    b'{"v":"KERI10JSON0000ff_","t":"vcp",'
-                    b'"d":"EK_yp-mT-9YFKVqyUnqAN0CXUd6cxUGeIvem5I0A8TLb",'
-                    b'"i":"EK_yp-mT-9YFKVqyUnqAN0CXUd6cxUGeIvem5I0A8TLb",'
-                    b'"ii":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
-                    b'"s":"0","c":["NB"],"bt":"0","b":[],"n":"0AC-D5XhLUkO-ODnrJMSRPqv"}'
-                    b'-VAS-GAB0AAAAAAAAAAAAAAAAAAAAAABEHZquNk1-N_KYQJcdXy_jym_YnwlzvdC_6YmGKp6VvIN'
-                    b'{"v":"KERI10JSON0000ed_","t":"iss",'
-                    b'"d":"EHFeHZKRISML75268kN2XvkFueHu-mXj3YZAWU8aQxQQ",'
-                    b'"i":"EAKC8atqn7nuqB7Iqv_FohuGJz6l3ZhWsISbkQFD522D",'
-                    b'"s":"0","ri":"EK_yp-mT-9YFKVqyUnqAN0CXUd6cxUGeIvem5I0A8TLb","dt":"2025-07-24T16:21:40.802473+00:00"}'
-                    b'-VAS-GAB0AAAAAAAAAAAAAAAAAAAAAACEEy7aFHQPBagfqW4MatcUVRVN7yJfft-3RhTzgZvN3Pf'
-                    b'{"v":"ACDC10JSON0005f4_",'
-                    b'"d":"EAKC8atqn7nuqB7Iqv_FohuGJz6l3ZhWsISbkQFD522D",'
-                    b'"i":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
-                    b'"ri":"EK_yp-mT-9YFKVqyUnqAN0CXUd6cxUGeIvem5I0A8TLb",'
-                    b'"s":"EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5",'
-                    b'"a":{'
-                    b'"d":"EP75lC-MDk8br72V7r5hxY1S7E7U4pgnsGX2WmGyLPxs",'
-                    b'"dt":"2025-07-24T16:21:40.802473+00:00",'
-                    b'"ids":['
-                    b'"did:web:127.0.0.1%3a7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
-                    b'"did:webs:127.0.0.17677%3a7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
-                    b'"did:web:example.com:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
-                    b'"did:web:foo.com:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
-                    b'"did:webs:foo.comNone:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU"]},'
-                    b'"r":{'
-                    b'"d":"EEVTx0jLLZDQq8a5bXrXgVP0JDP7j8iDym9Avfo8luLw",'
-                    b'"aliasDesignation":{"l":"The issuer of this ACDC designates the identifiers in the ids field as the only allowed namespaced aliases of the issuer\'s AID."},'
-                    b'"usageDisclaimer":{"l":"This attestation only asserts designated aliases of the controller of the AID, that the AID controlled namespaced alias has been designated by the controller. It does not assert that the controller of this AID has control over the infrastructure or anything else related to the namespace other than the included AID."},'
-                    b'"issuanceDisclaimer":{"l":"All information in a valid and non-revoked alias designation assertion is accurate as of the date specified."},'
-                    b'"termsOfUse":{"l":"Designated aliases of the AID must only be used in a manner consistent with the expressed intent of the AID controller."}}}'
-                    b'-VA0-FABEMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU0AAAAAAAAAAAAAAAAAAAAAAAEMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU-AABAAC29a0oQ7ML0dKq_MNsEUElt7d49KH2-folu9qiHztbLbtHfAU5O1X99TbnExPncL8uW2_mVD9ChYk5fZOK-eMO'
+                    bytearray(
+                        b'{'
+                        b'"v":"KERI10JSON00012b_","t":"icp",'
+                        b'"d":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
+                        b'"i":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
+                        b'"s":"0",'
+                        b'"kt":"1","k":["DHfhTX8nqUdiU2yw5gnx3dFguwAPiR0SzK4I9ugjRoRF"],'
+                        b'"nt":"1","n":["EDklD8WWC8ks7U-pdxI_hoftybqLVRTj3KJK70jkq6Ha"],'
+                        b'"bt":"0","b":[],"c":[],"a":[]}'
+                        b'-VAn-AABAAAVeuv7YV_mWaMsye6tH5-G1x58jyJyPJtNePHS3u6vn5UYMlWBFzShMSabVqAtRvW8YW18uEhEGOaZ-cGkcE0J-EAB0AAAAAAAAAAAAAAAAAAAAAAA1AAG2025-07-29T19c40c43d405620p00c00'
+                        b'{'
+                        b'"v":"KERI10JSON00013a_","t":"ixn",'
+                        b'"d":"EHZquNk1-N_KYQJcdXy_jym_YnwlzvdC_6YmGKp6VvIN",'
+                        b'"i":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
+                        b'"s":"1","p":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
+                        b'"a":[{"i":"EK_yp-mT-9YFKVqyUnqAN0CXUd6cxUGeIvem5I0A8TLb","s":"0","d":"EK_yp-mT-9YFKVqyUnqAN0CXUd6cxUGeIvem5I0A8TLb"}]}'
+                        b'-VAn-AABAAAfWrHVECbYrHe5hBQnIdgbbwmNPUO4VFsV0HG9zSwmbA-Qc7PqkQCD3IAZ_CnP5RrV2R_MgeYZtFu7PPwdWw0J-EAB0AAAAAAAAAAAAAAAAAAAAAAB1AAG2025-07-29T19c40c43d430980p00c00'
+                        b'{'
+                        b'"v":"KERI10JSON00013a_","t":"ixn",'
+                        b'"d":"EEy7aFHQPBagfqW4MatcUVRVN7yJfft-3RhTzgZvN3Pf",'
+                        b'"i":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
+                        b'"s":"2","p":"EHZquNk1-N_KYQJcdXy_jym_YnwlzvdC_6YmGKp6VvIN",'
+                        b'"a":[{"i":"EAKC8atqn7nuqB7Iqv_FohuGJz6l3ZhWsISbkQFD522D","s":"0","d":"EHFeHZKRISML75268kN2XvkFueHu-mXj3YZAWU8aQxQQ"}]}'
+                        b'-VAn-AABAADnenNyGDisXGeZdQCLSzXl9QoYgBxi7cdYw3baY5ukUonbnIQnUBFBsCqPVvrp_dNibpTPVOWtJSDYNglDTKIH-EAB0AAAAAAAAAAAAAAAAAAAAAAC1AAG2025-07-29T19c40c43d456239p00c00'
+                        b'{"v":"KERI10JSON0000ff_","t":"vcp",'
+                        b'"d":"EK_yp-mT-9YFKVqyUnqAN0CXUd6cxUGeIvem5I0A8TLb",'
+                        b'"i":"EK_yp-mT-9YFKVqyUnqAN0CXUd6cxUGeIvem5I0A8TLb",'
+                        b'"ii":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
+                        b'"s":"0","c":["NB"],"bt":"0","b":[],"n":"0AC-D5XhLUkO-ODnrJMSRPqv"}'
+                        b'-VAS-GAB0AAAAAAAAAAAAAAAAAAAAAABEHZquNk1-N_KYQJcdXy_jym_YnwlzvdC_6YmGKp6VvIN'
+                        b'{"v":"KERI10JSON0000ed_","t":"iss",'
+                        b'"d":"EHFeHZKRISML75268kN2XvkFueHu-mXj3YZAWU8aQxQQ",'
+                        b'"i":"EAKC8atqn7nuqB7Iqv_FohuGJz6l3ZhWsISbkQFD522D",'
+                        b'"s":"0","ri":"EK_yp-mT-9YFKVqyUnqAN0CXUd6cxUGeIvem5I0A8TLb","dt":"2025-07-24T16:21:40.802473+00:00"}'
+                        b'-VAS-GAB0AAAAAAAAAAAAAAAAAAAAAACEEy7aFHQPBagfqW4MatcUVRVN7yJfft-3RhTzgZvN3Pf'
+                        b'{"v":"ACDC10JSON0005f4_",'
+                        b'"d":"EAKC8atqn7nuqB7Iqv_FohuGJz6l3ZhWsISbkQFD522D",'
+                        b'"i":"EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
+                        b'"ri":"EK_yp-mT-9YFKVqyUnqAN0CXUd6cxUGeIvem5I0A8TLb",'
+                        b'"s":"EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5",'
+                        b'"a":{'
+                            b'"d":"EP75lC-MDk8br72V7r5hxY1S7E7U4pgnsGX2WmGyLPxs",'
+                            b'"dt":"2025-07-24T16:21:40.802473+00:00",'
+                            b'"ids":['
+                                b'"did:web:127.0.0.1%3a7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
+                                b'"did:webs:127.0.0.17677%3a7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
+                                b'"did:web:example.com:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
+                                b'"did:web:foo.com:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU",'
+                                b'"did:webs:foo.comNone:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU"]},'
+                        b'"r":{"d":"EEVTx0jLLZDQq8a5bXrXgVP0JDP7j8iDym9Avfo8luLw",'
+                            b'"aliasDesignation":{'
+                                b'"l":"The issuer of this ACDC designates the identifiers in the ids field as the only allowed namespaced aliases of the issuer\'s AID."},'
+                            b'"usageDisclaimer":{'
+                                b'"l":"This attestation only asserts designated aliases of the controller of the AID, that the AID controlled namespaced alias has been designated by the controller. It does not assert that the controller of this AID has control over the infrastructure or anything else related to the namespace other than the included AID."},'
+                            b'"issuanceDisclaimer":{'
+                                b'"l":"All information in a valid and non-revoked alias designation assertion is accurate as of the date specified."},'
+                            b'"termsOfUse":{'
+                                b'"l":"Designated aliases of the AID must only be used in a manner consistent with the expressed intent of the AID controller."}}}'
+                        b'-VA0-FABEMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU0AAAAAAAAAAAAAAAAAAAAAAAEMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU-AABAAC29a0oQ7ML0dKq_MNsEUElt7d49KH2-folu9qiHztbLbtHfAU5O1X99TbnExPncL8uW2_mVD9ChYk5fZOK-eMO')
                 )
+                # fmt: on
             else:
                 raise ValueError(f'Unexpected URL: {url}')
 
         app = resolving.falcon_app()
         oobiery = oobiing.Oobiery(hby=hby)
-        resolver_end = resolving.UniversalResolverResource(hby=hby, oobiery=oobiery, load_url=mock_load_url)
+        resolver_end = resolving.UniversalResolverResource(hby=hby, rgy=regery, oobiery=oobiery, load_url=mock_load_url)
         app.add_route('/1.0/identifiers/{did}', resolver_end)
         client = testing.TestClient(app=app)
 
@@ -372,29 +506,8 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
 
         assert did_keri_response.content_type == 'application/did+ld+json', 'Content-Type should be application/did+ld+json'
         response_diddoc = json.loads(did_keri_response.content)
-        did_keri_diddoc = didding.generate_did_doc(hby, did=did_keri_did, aid=aid, meta=meta)
+        did_keri_diddoc = didding.generate_did_doc(hby, rgy=regery, did=did_keri_did, aid=aid, meta=meta)
         assert response_diddoc == did_keri_diddoc, 'did:keri response did document does not match expected diddoc'
-
-        # dd, dd_actual = resolving.compare_did_docs(hby=vhby, did=did_webs, aid=aid, dd_res=rdd, kc_res=rkc)
-        # assert dd[didding.DD_FIELD][didding.VMETH_FIELD] != did_web_dd[didding.VMETH_FIELD]
-        # assert dd[didding.DD_FIELD][didding.VMETH_FIELD] == dd_actual[didding.VMETH_FIELD]
-
-        # no metadata
-        # vresult = resolving.verify(dd, dd_actual, meta=False)
-        # assert vresult[didding.VMETH_FIELD] == dd[didding.DD_FIELD][didding.VMETH_FIELD]
-
-        # metadata
-        # vresult = resolving.verify(dd, dd_actual, meta=True)
-        # assert vresult[didding.DD_FIELD][didding.VMETH_FIELD] == dd[didding.DD_FIELD][didding.VMETH_FIELD]
-
-        # should not verify
-        # dd_actual_bad = dd_actual
-        # remove the last character of the id
-        # dd_actual_bad[didding.VMETH_FIELD][0]['id'] = dd_actual_bad[didding.VMETH_FIELD][0]['id'][:-1]
-        # vresult = resolving.verify(dd, dd_actual_bad, meta=True)
-        # assert vresult[didding.DID_RES_META_FIELD]['error'] == 'notVerified'
-
-        # TODO test services, alsoKnownAs, etc.
 
         # TODO test a resolution failure
         # if didding.DID_RES_META_FIELD in vresult:
@@ -404,6 +517,56 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
         # doist.exit()
 
         """Done Test"""
+
+
+def test_universal_resolver_resource_on_get_error_cases():
+    # Some error test cases for the UniversalResolverResource
+    salt = b'0ACB-gtnUTQModt9u_UC3LFQ'
+    registry_nonce = '0AC-D5XhLUkO-ODnrJMSRPqv'
+    with habbing.openHab(salt=salt, name='water', transferable=True, temp=True) as (hby, hab):
+        hby_doer = habbing.HaberyDoer(habery=hby)
+        aid = 'EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU'
+        host = '127.0.0.1'
+        port = f'7677'
+        did_path = 'dws'
+        meta = False
+        # fmt: off
+        did_webs_did = f'did:webs:{host}%3A{port}:{did_path}:{aid}'         # did:webs:127.0.0.1%3A7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU
+        did_keri_did = f'did:keri:{aid}'                                    # did:keri:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU
+        did_json_url = f'http://{host}:{port}/{did_path}/{aid}/did.json'    # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/did.json
+        keri_cesr_url = f'http://{host}:{port}/{did_path}/{aid}/keri.cesr'  # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/keri.cesr
+        # fmt: on
+
+        regery = credentialing.Regery(hby=hby, name=hab.name, temp=hby.temp)
+
+        # Mock load_url to return the did.json and keri.cesr content
+        def mock_load_url(url):
+            if url == did_json_url:
+                return bytearray()
+            elif url == keri_cesr_url:
+                return bytearray()
+            else:
+                raise ValueError(f'Unexpected URL: {url}')
+
+        app = resolving.falcon_app()
+        oobiery = oobiing.Oobiery(hby=hby)
+        resolver_end = resolving.UniversalResolverResource(hby=hby, rgy=regery, oobiery=oobiery, load_url=mock_load_url)
+        app.add_route('/1.0/identifiers/{did}', resolver_end)
+        client = testing.TestClient(app=app)
+
+        # must use on_get directly to simulate executing the request from outside of HIO so it acts
+        # like getting mangled by HIO's use of urllib.parse.quote (PEP 3333 compliance)
+        did = 'did%3Awebs%3A127.0.0.1%3A1234567'
+        rep = mock(falcon.Response)
+        resolver_end.on_get(mock(), rep, did)
+        assert rep.status == falcon.HTTP_400, 'Expected HTTP 400 Bad Request for invalid DID'
+        assert rep.content_type == 'application/json', 'Content-Type should be application/problem+json'
+        assert rep.media == {'message': f'invalid DID: {did}', 'error': '1234567 is an invalid AID'}
+
+        # Get with no DID returns error
+        rep = client.simulate_get(f'/1.0/identifiers/')
+        assert rep.status == falcon.HTTP_400, 'Expected HTTP 400 Not Found for missing DID parameter'
+        assert rep.content.decode() == json.dumps({'error': "invalid resolution request body, 'did' is required"})
 
 
 def test_resolver_with_metadata_returns_correct_doc():
@@ -444,7 +607,7 @@ def test_resolver_with_metadata_returns_correct_doc():
             registry_nonce=registry_nonce,
         )
 
-        did_webs_diddoc = didding.generate_did_doc(hby, did=did_webs_did, aid=aid, meta=meta)
+        did_webs_diddoc = didding.generate_did_doc(hby, rgy=regery, did=did_webs_did, aid=aid, meta=meta)
 
         # Mock load_url to return the did.json and keri.cesr content
         def mock_load_url(url):
@@ -459,11 +622,27 @@ def test_resolver_with_metadata_returns_correct_doc():
                             b'"id": "#DHfhTX8nqUdiU2yw5gnx3dFguwAPiR0SzK4I9ugjRoRF", '
                             b'"type": "JsonWebKey", '
                             b'"controller": "did:webs:127.0.0.1%3A7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU", '
-                            b'"publicKeyJwk": {"kid": "DHfhTX8nqUdiU2yw5gnx3dFguwAPiR0SzK4I9ugjRoRF", "kty": "OKP", "crv": "Ed25519", "x": "d-FNfyepR2JTbLDmCfHd0WC7AA-JHRLMrgj26CNGhEU"}}], '
+                            b'"publicKeyJwk": {'
+                                b'"kid": "DHfhTX8nqUdiU2yw5gnx3dFguwAPiR0SzK4I9ugjRoRF", '
+                                b'"kty": "OKP", '
+                                b'"crv": "Ed25519", '
+                                b'"x": "d-FNfyepR2JTbLDmCfHd0WC7AA-JHRLMrgj26CNGhEU"}}], '
                         b'"service": [], '
-                        b'"alsoKnownAs": []}, '
-                    b'"didResolutionMetadata": {"contentType": "application/did+json", "retrieved": "2025-07-24T19:35:23Z"}, '
-                    b'"didDocumentMetadata": {"witnesses": [], "versionId": "2", "equivalentId": []}}'
+                        b'"alsoKnownAs": ['
+                            b'"did:web:127.0.0.1%3a7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU", '
+                            b'"did:webs:127.0.0.17677%3a7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU", '
+                            b'"did:web:example.com:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU", '
+                            b'"did:web:foo.com:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU", '
+                            b'"did:webs:foo.comNone:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU"]}, '
+                    b'"didResolutionMetadata": {'
+                        b'"contentType": "application/did+json", '
+                        b'"retrieved": "2025-07-29T20:40:30Z"}, '
+                    b'"didDocumentMetadata": {'
+                        b'"witnesses": [], '
+                        b'"versionId": "2", '
+                        b'"equivalentId": ['
+                            b'"did:webs:127.0.0.17677%3a7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU", '
+                            b'"did:webs:foo.comNone:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU"]}}'
                 )
                 # fmt: on
             elif url == keri_cesr_url:
@@ -527,7 +706,7 @@ def test_resolver_with_metadata_returns_correct_doc():
 
         app = resolving.falcon_app()
         oobiery = oobiing.Oobiery(hby=hby)
-        resolver_end = resolving.UniversalResolverResource(hby=hby, oobiery=oobiery, load_url=mock_load_url)
+        resolver_end = resolving.UniversalResolverResource(hby=hby, rgy=regery, oobiery=oobiery, load_url=mock_load_url)
         app.add_route('/1.0/identifiers/{did}', resolver_end)
         client = testing.TestClient(app=app)
 
@@ -551,7 +730,7 @@ def test_resolver_with_metadata_returns_correct_doc():
 
         assert did_keri_response.content_type == 'application/did+ld+json', 'Content-Type should be application/did+ld+json'
         response_diddoc = json.loads(did_keri_response.content)
-        did_keri_diddoc = didding.generate_did_doc(hby, did=did_keri_did, aid=aid, meta=False)
+        did_keri_diddoc = didding.generate_did_doc(hby, rgy=regery, did=did_keri_did, aid=aid, meta=False)
         assert response_diddoc == did_keri_diddoc, 'did:keri response did document does not match expected diddoc'
 
 
@@ -559,20 +738,21 @@ def test_resolver_with_did_keri_resolve_returns_correct_doc(doist=None):
     salt = b'0ACB-gtnUTQModt9u_UC3LFQ'
     with habbing.openHab(salt=salt, name='water', transferable=True, temp=True) as (hby, hab):
         hby_doer = habbing.HaberyDoer(habery=hby)
+        rgy = credentialing.Regery(hby=hby, name=hby.name, base=hby.base, temp=hby.temp)
         aid = 'EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU'
         meta = True
         did_keri_did = f'did:keri:{aid}'  # did:keri:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU
 
-        expected_doc = didding.generate_did_doc(hby, did=did_keri_did, aid=aid, meta=meta)
+        expected_doc = didding.generate_did_doc(hby, rgy=rgy, did=did_keri_did, aid=aid, meta=meta)
 
         # Run the did:keri resolver and verify it returns the expected DID doc
         doist = doing.Doist(limit=1.0, tock=0.03125, real=True) if doist is None else doist
-        keri_resolver = KeriResolver(hby=hby, hby_doer=hby_doer, did=did_keri_did, meta=meta, verbose=True)
+        keri_resolver = KeriResolver(did=did_keri_did, meta=meta, verbose=True, hby=hby, rgy=rgy)
         doist.do([keri_resolver])
         assert keri_resolver.result == expected_doc, 'KeriResolver did not return the expected DID document'
 
         # with an invalid did:keri DID
-        keri_resolver = KeriResolver(hby=hby, hby_doer=hby_doer, did='did:keri:invalid', meta=meta, verbose=True)
+        keri_resolver = KeriResolver(did='did:keri:invalid', meta=meta, verbose=True, hby=hby, rgy=rgy)
         with pytest.raises(ValueError) as excinfo:
             doist.do([keri_resolver])
         assert str(excinfo.value) == 'invalid is an invalid AID'

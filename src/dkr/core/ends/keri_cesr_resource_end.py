@@ -23,15 +23,16 @@ class KeriCesrResourceEnd:
     keri.cesr resource endpoint for accessing all KEL, TEL, and ACDC artifacts needed for did:webs DIDs
     """
 
-    def __init__(self, hby: habbing.Habery):
+    def __init__(self, hby: habbing.Habery, rgy: credentialing.Regery):
         """
         Initialize did:webs keri.cesr artifact endpoint that will pull designated aliases from the specified registry.
 
         Parameters:
             hby (Habery): Database environment for AIDs to expose
+            rgy (Regery): Registry for credential and registry data
         """
-        self.hby = hby
-        self.rgy = credentialing.Regery(hby=self.hby, name=self.hby.name, base=self.hby.base)
+        self.hby: habbing.Habery = hby
+        self.rgy: credentialing.Regery = rgy
 
     def on_get(self, req, rep, aid):
         """GET endpoint for accessing {KERI_CESR} stream for AID
@@ -40,7 +41,6 @@ class KeriCesrResourceEnd:
             req (Request) Falcon HTTP Request object:
             rep (Response) Falcon HTTP Response object:
             aid (str): AID to access {KERI_CESR} stream for
-
         """
         # Read the DID from the parameter extracted from path or manually extract
         if not req.path.endswith(f'/{KERI_CESR}'):

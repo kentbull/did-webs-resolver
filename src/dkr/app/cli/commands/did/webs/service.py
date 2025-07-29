@@ -9,6 +9,7 @@ import argparse
 import viking
 from hio.core import http
 from keri.app import oobiing
+from keri.vdr import credentialing
 
 from dkr import log_name, ogler, set_log_level
 from dkr.core import habs, resolving, webbing
@@ -23,8 +24,8 @@ parser.add_argument(
     help="did:webs path segment in URL format between {host}%3A{port} and {aid}. Example: 'somepath/somesubpath'",
 )
 parser.add_argument('-p', '--http', action='store', default=7676, help='Port on which to listen for did:webs requests')
-parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
-parser.add_argument('-a', '--alias', action='store', default='dkr', help='Alias of controller. Default is dkr.')
+parser.add_argument('-n', '--name', action='store', required=True, help='Name of controller.')
+parser.add_argument('-a', '--alias', action='store', required=True, help='Alias of controller.')
 parser.add_argument(
     '--base', '-b', help='additional optional prefix to file location of KERI keystore', required=False, default=''
 )
@@ -32,7 +33,7 @@ parser.add_argument(
     '--passcode', help='22 character encryption passcode for keystore (is not saved)', dest='bran', default=None
 )  # passcode => bran
 parser.add_argument('--config-dir', '-c', dest='config_dir', help='directory override for configuration data', default=None)
-parser.add_argument('--config-file', dest='config_file', action='store', default='dkr', help='configuration filename override')
+parser.add_argument('--config-file', dest='config_file', action='store', help='configuration filename override')
 parser.add_argument(
     '-m',
     '--meta',
@@ -79,9 +80,10 @@ def launch(args):
 
     cf = habs.get_habery_configer(name=config_file, base=base, head_dir_path=config_dir)
     hby, hby_doer = habs.get_habery_and_doer(name, base, bran, cf)
+    rgy = credentialing.Regery(hby=hby, name=hby.name, base=hby.base, temp=hby.temp)
 
     app = resolving.falcon_app()
-    webbing.load_endpoints(app, hby=hby, did_path=did_path, meta=meta)
+    webbing.load_endpoints(app, hby=hby, rgy=rgy, did_path=did_path, meta=meta)
 
     oobiery = oobiing.Oobiery(hby=hby)
     voodoers = viking.setup(hby=hby, alias=alias)

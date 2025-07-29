@@ -8,7 +8,7 @@ from keri.db import basing
 from keri.vdr import credentialing, viring
 from keri.vdr.credentialing import Regery
 
-from dkr import log_name, ogler
+from dkr import UnknownAID, log_name, ogler
 from dkr.core import didding, ends
 
 logger = ogler.getLogger(log_name)
@@ -28,12 +28,13 @@ def make_keri_cesr_path(output_dir: str, aid: str):
     if not os.path.exists(kc_dir_path):
         logger.debug(f'Creating directory for KERI CESR events: {kc_dir_path}')
         os.makedirs(kc_dir_path)
-    return os.path.join(kc_dir_path, f'{ends.KERI_CESR}')
+    return os.path.join(kc_dir_path)
 
 
 def write_keri_cesr_file(output_dir: str, aid: str, keri_cesr: bytearray):
     """Write the keri.cesr file to output path, making any enclosing directories"""
     kc_file_path = make_keri_cesr_path(output_dir, aid)
+    kc_file_path = os.path.join(kc_file_path, ends.KERI_CESR)
     with open(kc_file_path, 'w') as kcf:
         tmsg = keri_cesr.decode('utf-8')
         logger.debug(f'Writing CESR events to {kc_file_path}: \n{tmsg}')
@@ -114,10 +115,11 @@ def generate_artifacts(hby: Habery, rgy: Regery, did: str, meta: bool = False, o
     domain, port, path, aid, query = didding.parse_did_webs(did)
 
     # generate did doc
-    did_json = didding.generate_did_doc(hby, did=did, aid=aid, oobi=None, meta=meta)
-    if did_json is None:
-        logger.error('DID document failed to generate')
-        return None, None
+    try:
+        did_json = didding.generate_did_doc(hby, did=did, aid=aid, meta=meta)
+    except UnknownAID as e:
+        logger.error(f'Failed to generate DID document for {did}: {e}')
+        raise e
     # Create the directory (and any intermediate directories in the given path) if it doesn't already exist
     dd_dir_path = make_did_json_path(output_dir, aid)
     write_did_json_file(dd_dir_path, did_json, meta)

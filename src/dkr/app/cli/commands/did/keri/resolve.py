@@ -6,7 +6,7 @@ dkr.app.cli.commands module
 
 import argparse
 
-from keri.app import habbing, oobiing
+from keri.app import habbing
 from keri.app.cli.common import existing
 
 from dkr import log_name, ogler, set_log_level
@@ -22,7 +22,6 @@ parser.add_argument(
     '--passcode', help='22 character encryption passcode for keystore (is not saved)', dest='bran', default=None
 )  # passcode => bran
 parser.add_argument('--did', '-d', help='DID to resolve (did:keri method)', required=True)
-parser.add_argument('--oobi', '-o', help='OOBI to use for resolving the DID', required=False)
 parser.add_argument(
     '--meta',
     '-m',
@@ -55,8 +54,5 @@ def handler(args):
     set_log_level(args.loglevel, logger)
     hby = existing.setupHby(name=args.name, base=args.base, bran=args.bran)
     hby_doer = habbing.HaberyDoer(habery=hby)  # setup doer
-    oobiery = oobiing.Oobiery(hby=hby)
-    res = KeriResolver(
-        hby=hby, hby_doer=hby_doer, oobiery=oobiery, did=args.did, oobi=args.oobi, meta=args.meta, verbose=args.verbose
-    )
+    res = KeriResolver(hby=hby, hby_doer=hby_doer, did=args.did, meta=args.meta, verbose=args.verbose)
     return [res]

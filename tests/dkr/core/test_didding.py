@@ -9,12 +9,12 @@ import sys
 
 import pytest
 from hio.help.hicting import Mict
-from keri.app import oobiing
 from keri.core import coring
 from keri.db import basing
 from keri.vdr import credentialing, verifying
 from mockito import mock, unstub, when
 
+from dkr import DidWebsError, UnknownAID
 from dkr.core import didding
 
 sys.path.append(os.path.join(os.path.dirname(__file__)))
@@ -52,8 +52,16 @@ def test_parse_keri_did():
 
         assert isinstance(e.value, ValueError)
 
+    with pytest.raises(ValueError) as e:
+        didding.generate_did_doc(hby=mock(), did='did:keri:', aid='EKW4IEkAZ8VQ_ADXbtRsSOQ_Gk0cRxp6U4qKSr4Eb8zg')
+
 
 def test_parse_webs_did():
+    with pytest.raises(ValueError) as e:
+        did = 'did:example'
+        didding.parse_did_webs(did)
+    assert str(e.value) == f'{did} is not a valid did:web(s) DID'
+
     with pytest.raises(ValueError) as e:
         did = 'did:webs:127.0.0.1:1234567'
         domain, port, path, aid, query = didding.parse_did_webs(did)
@@ -166,7 +174,7 @@ def test_generate_did_doc_bad_aid():
     aid = 'EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HD'
 
     with pytest.raises(ValueError) as e:
-        didding.generate_did_doc(hby=hby, aid=aid, did=did)
+        didding.generate_did_doc(hby=hby, did=did, aid=aid)
 
     assert isinstance(e.value, ValueError)
     assert str(e.value) == (
@@ -192,11 +200,14 @@ def test_generate_did_doc_unknown_aid():
     hby.db = db
     hby.kevers = {'a different aid': kever}
 
-    with pytest.raises(ValueError) as e:
-        didding.generate_did_doc(hby=hby, aid=aid, did=did)
+    with pytest.raises(UnknownAID) as e:
+        didding.generate_did_doc(hby=hby, did=did, aid=aid)
 
-    assert isinstance(e.value, ValueError)
-    assert str(e.value) == 'unknown EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4'
+    assert isinstance(e.value, UnknownAID)
+    assert (
+        str(e.value)
+        == 'Unknown AID EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4 found in did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4'
+    )
 
 
 def test_generate_did_doc_single_sig():
@@ -288,7 +299,7 @@ def test_generate_did_doc_single_sig():
 
     when(rgy.reger).cloneCreds([], hab_db).thenReturn([])
 
-    diddoc = didding.generate_did_doc(hby=hby, aid=aid, did=did)
+    diddoc = didding.generate_did_doc(hby=hby, did=did, aid=aid)
 
     assert diddoc == {
         'id': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4',
@@ -414,7 +425,7 @@ def test_generate_did_doc_single_sig_with_designated_alias(mock_helping_now_utc)
     }
     when(rgy.reger).cloneCreds([cred1, cred2], hab_db).thenReturn([cloned_cred1, cloned_cred2])
 
-    diddoc = didding.generate_did_doc(hby=hby, aid=aid, did=did)
+    diddoc = didding.generate_did_doc(hby=hby, did=did, aid=aid)
     assert diddoc == {
         'id': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4',
         'verificationMethod': [
@@ -499,7 +510,7 @@ def test_generate_did_doc_single_sig_with_designated_alias(mock_helping_now_utc)
     }
     when(rgy.reger).cloneCreds([cred1, cred2], hab_db).thenReturn([cloned_cred1, cloned_cred2])
 
-    diddoc = didding.generate_did_doc(hby=hby, aid=aid, did=did, meta=True)
+    diddoc = didding.generate_did_doc(hby=hby, did=did, aid=aid, meta=True)
     assert diddoc == {
         'didDocument': {
             'id': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4',
@@ -622,7 +633,7 @@ def test_generate_did_doc_single_sig_meta(mock_helping_now_utc):
 
     when(rgy.reger).cloneCreds([], hab_db).thenReturn([])
 
-    diddoc = didding.generate_did_doc(hby=hby, aid=aid, did=did, meta=True)
+    diddoc = didding.generate_did_doc(hby=hby, did=did, aid=aid, meta=True)
 
     assert diddoc == {
         'didDocument': {
@@ -755,7 +766,7 @@ def test_generate_did_doc_multi_sig():
 
     when(rgy.reger).cloneCreds([], hab_db).thenReturn([])
 
-    diddoc = didding.generate_did_doc(hby=hby, aid=aid, did=did)
+    diddoc = didding.generate_did_doc(hby=hby, did=did, aid=aid)
 
     assert diddoc == {
         'id': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4',
@@ -856,7 +867,7 @@ def test_generate_did_doc_multi_sig():
 
     when(rgy.reger).cloneCreds([], hab_db).thenReturn([])
 
-    diddoc = didding.generate_did_doc(hby=hby, aid=aid, did=did)
+    diddoc = didding.generate_did_doc(hby=hby, did=did, aid=aid)
 
     assert diddoc == {
         'id': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4',
@@ -912,44 +923,6 @@ def test_generate_did_doc_multi_sig():
     unstub()
 
 
-def test_generate_did_doc_single_sig_with_oobi():
-    hby = mock()
-    hab = mock()
-    hab_db = mock()
-    db = mock()
-    roobi = mock()
-
-    did = 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4'
-    aid = 'EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4'
-    hab.name = 'test_hab'
-    hab.db = hab_db
-    hby.habs = {aid: hab}
-    db.roobi = roobi
-    hby.db = db
-
-    when(hby.db.roobi).get(keys=('with_oobi',)).thenReturn(None)
-
-    diddoc = didding.generate_did_doc(hby=hby, aid=aid, did=did, oobi='with_oobi')
-
-    assert (
-        diddoc
-        == b'{"msg": "OOBI resolution for did did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4 failed."}'
-    )
-    unstub()
-
-    obr = basing.OobiRecord(state=oobiing.Result.failed)
-    when(hby.db.roobi).get(keys=('with_oobi_2',)).thenReturn(obr)
-
-    diddoc = didding.generate_did_doc(hby=hby, aid=aid, did=did, oobi='with_oobi_2')
-
-    assert (
-        diddoc
-        == b'{"msg": "OOBI resolution for did did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4 failed."}'
-    )
-
-    unstub()
-
-
 def test_to_did_web():
     diddoc = {'id': 'did:webs:example:123', 'verificationMethod': [{'controller': 'did:webs:example:123'}]}
 
@@ -959,6 +932,10 @@ def test_to_did_web():
 
     assert result['id'] == 'did:web:example:123'
     assert result['verificationMethod'][0]['controller'] == 'did:web:example:123'
+
+    with pytest.raises(DidWebsError) as excinfo:
+        to_did_web(None)
+    assert str(excinfo.value) == 'Cannot convert empty diddoc to did:web'
 
     unstub()
 
@@ -974,6 +951,10 @@ def test_from_did_web():
     assert result['id'] == 'did:webs:example:123'
     assert result['verificationMethod'][0]['controller'] == 'did:webs:example:123'
 
+    with pytest.raises(ValueError) as excinfo:
+        from_did_web(diddoc, meta=True)
+    assert str(excinfo.value) == f"Expected '{didding.DD_FIELD}' in did.json when indicating resolution metadata in use."
+
     unstub()
 
 
@@ -988,3 +969,81 @@ def test_from_did_web_no_change():
     assert result['verificationMethod'][0]['controller'] == 'did:webs:example:123'
 
     unstub()
+
+
+def test_parse_did_webs_no_match_raises():
+    did = 'did:webs:example:123'
+    with pytest.raises(ValueError) as excinfo:
+        didding.parse_did_webs(did)
+        assert str(excinfo.value) == f'{did} is not a valid did:web(s) DID'
+
+
+def test_parse_query_string_false_param():
+    query_string = '?param1=value1&param2=false'
+    result = didding.parse_query_string(query_string)
+    assert result == {'param1': 'value1', 'param2': False}
+
+
+def test_parse_query_string_with_int_parse_as_int():
+    query_string = '?param1=value1&param2=42'
+    result = didding.parse_query_string(query_string)
+    assert result == {'param1': 'value1', 'param2': 42}
+
+
+def test_re_encode_invalid_did_webs_adds_raises_for_no_match():
+    valid_did = 'did:webs:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4'
+    with pytest.raises(ValueError) as excinfo:
+        didding.re_encode_invalid_did_webs(valid_did)
+        assert str(excinfo.value) == f'{valid_did} is not an invalidly encoded did:web(s) DID'
+
+
+def test_re_encode_invalid_did_webs_invalid_aid_raises():
+    invalid_aid = 'EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk'
+    # it is invalidly encoded because it has an unencoded colon after the domain instead of the percent-encoded %3A string.
+    invl_did_invl_aid = f'did:webs:127.0.0.1:7676:{invalid_aid}'
+    with pytest.raises(ValueError) as excinfo:
+        didding.re_encode_invalid_did_webs(invl_did_invl_aid)
+        assert str(excinfo.value) == f'{invl_did_invl_aid} is an invalid AID'
+
+
+def test_re_encode_invalid_did_webs_did_adds_domain_port_path_aid_query_parts():
+    domain = 'example.com'
+    port = '8080'
+    path = 'some:path:for:did'
+    aid = 'EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4'
+    query = '?meta=True'
+    # it is invalidly encoded because it has an unencoded colon after the domain instead of the percent-encoded %3A string.
+    invalidly_encoded_did = f'did:webs:{domain}:{port}:{path}:{aid}{query}'
+    expected_did = f'did:webs:{domain}%3A{port}:{path}:{aid}{query}'
+    result = didding.re_encode_invalid_did_webs(invalidly_encoded_did)
+    assert result == expected_did, f'Expected {expected_did}, but got {result}'
+    assert domain in result, 'Domain should be present in the result'
+    assert port in result, 'Port should be present in the result'
+    assert path in result, 'Path should be present in the result'
+    assert aid in result, 'AID should be present in the result'
+    assert query in result, 'Query should be present in the result'
+    assert result.startswith('did:webs:'), "Result should start with 'did:webs:'"
+    assert result.count(':') == 7, 'Result should have exactly 7 colons'
+    assert '%3A' in result, "Result should contain the encoded colon '%3A' after the domain"
+
+
+def test_re_encode_invalid_did_raises_for_non_did_webs_or_keri_did():
+    non_did_webs_did = 'did:example:123'
+    with pytest.raises(ValueError) as excinfo:
+        didding.re_encode_invalid_did(non_did_webs_did)
+        assert str(excinfo.value) == f'{non_did_webs_did} is not a valid did:webs or did:keri DID'
+
+
+def test_re_encode_invalid_did_encodes_did_webs_did():
+    invalidly_encoded_did = (
+        f'did:webs:example.com:1234:my:path:components:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4?meta=true'
+    )
+    expected_did = f'did:webs:example.com%3A1234:my:path:components:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4?meta=true'
+    result = didding.re_encode_invalid_did(invalidly_encoded_did)
+    assert result == expected_did, f'Expected {expected_did}, but got {result}'
+
+
+def test_re_encode_invalid_did_encodes_did_keri_did():
+    did_keri_did = f'did:keri:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4'
+    result = didding.re_encode_invalid_did(did_keri_did)
+    assert result == did_keri_did, f'Expected {did_keri_did}, but got {result}'

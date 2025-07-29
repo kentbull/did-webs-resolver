@@ -25,20 +25,6 @@ from dkr.core import didding, ends
 logger = ogler.getLogger(log_name)
 
 
-def load_file(file_path):
-    # Read the file in binary mode
-    with open(file_path, 'rb') as file:
-        msgs = file.read()
-        return msgs
-
-
-def load_json_file(file_path):
-    # Read the file in binary mode
-    with open(file_path, 'r', encoding='utf-8') as file:
-        msgs = json.load(file)
-        return msgs
-
-
 def load_url_with_requests(url: str) -> bytes:
     try:
         response = requests.get(url=url)
@@ -48,27 +34,6 @@ def load_url_with_requests(url: str) -> bytes:
     # Ensure the request was successful
     response.raise_for_status()
     return response.content
-
-
-def split_cesr(s, char):
-    # Find the last occurrence of the character
-    index = s.rfind(char)
-
-    # If the character is not found, return the whole string and an empty string
-    if index == -1:
-        return s, ''
-
-    json_str = s[: index + 1]
-    # quote escaped starts with single quote and double quote and the split will lose the closing single/double quote
-    if json_str.startswith('"'):
-        json_str = json_str + '"'
-
-    cesr_sig = s[index + 1 :]
-    if cesr_sig.endswith('"'):
-        cesr_sig = '"' + json_str
-
-    # Split the string into two parts
-    return json_str, cesr_sig
 
 
 def get_urls(did: str) -> (str, str, str):
@@ -119,7 +84,7 @@ def get_generated_did_doc(
     meta: bool,
 ):
     aid, dd_url, kc_url = get_urls(did=did)
-    dd = didding.generate_did_doc(hby, did=did, aid=aid, oobi=None, meta=meta)
+    dd = didding.generate_did_doc(hby, did=did, aid=aid, meta=meta)
     if meta:
         dd[didding.DD_META_FIELD]['didDocUrl'] = dd_url
         dd[didding.DD_META_FIELD]['keriCesrUrl'] = kc_url
@@ -307,9 +272,9 @@ def setup_resolver(
         http_port (int): external port to listen on for HTTP messages
         static_files_dir (str): directory to serve static files from, default is None (disabled)
         did_path (str): path segment of the did:webs URL to host the did:webs artifacts on, disabled if None
-        keypath (str): path to the TLS private key file, default is None (disabled)
-        certpath (str): path to the TLS certificate file, default is None (disabled)
-        cafilepath (str): path to the CA certificate file, default is None (disabled)
+        keypath (str | None): path to the TLS private key file, default is None (disabled)
+        certpath (str | None): path to the TLS certificate file, default is None (disabled)
+        cafilepath (str | None): path to the CA certificate file, default is None (disabled)
     Returns:
         list: list of Doers to run in the Tymist
     """
@@ -434,9 +399,6 @@ class UniversalResolverResource(doing.DoDoer):
         elif did.startswith('did:keri'):
             # Option 1 - does not support OOBI resolution
             result, data = resolve_did_keri(self.hby, did, oobi, meta)
-
-            # Option 2 - shelling out, supports OOBI resolution
-            # result, data = resolve_did_keri_cli(self.hby.name, did, oobi, meta)
         else:
             rep.status = falcon.HTTP_400
             rep.media = {'error': "invalid 'did'"}
@@ -448,31 +410,8 @@ class UniversalResolverResource(doing.DoDoer):
         return
 
 
-def resolve_did_keri_cli(hby_name: str, did: str, oobi: str = None, meta: bool = False):
-    """Shell out to a new process using the CLI to run `dkr did keri resolve"""
-    cmd = f'dkr did keri resolve --name {hby_name} --did {did} --verbose'
-    if oobi is not None:
-        cmd += f'--oobi {oobi} '
-    if meta:
-        cmd += '--meta '
-    pipe = os.popen(cmd)
-    output = str(pipe.read()).rstrip()
-    status = pipe.close()
-    if status is not None:
-        exit_code = os.waitstatus_to_exitcode(status)
-        if exit_code != 0:
-            logger.error(f'Error resolving did:keri DID {did} with OOBI {oobi}: {output}')
-            return False, {'error': f'Error resolving did:keri DID {did} with OOBI {oobi}: {output}'}
-        else:
-            logger.info(f'Successfully resolved did:keri DID {did} with OOBI {oobi}: {output}')
-            return True, output
-    else:
-        logger.info(f"Command '{cmd}' might not have returned an exit code, assuming success")
-        return True, output
-
-
 def resolve_did_keri(hby: Habery, did: str, oobi: str = None, meta: bool = False):
     aid = didding.parse_did_keri(did)
     if oobi is not None and hby.db.roobi.get(keys=(oobi,)) is None:
         return False, {'error': f'OOBI {oobi} not found in the Habery'}
-    return True, didding.generate_did_doc(hby, did=did, aid=aid, oobi=oobi, meta=meta)
+    return True, didding.generate_did_doc(hby, did=did, aid=aid, meta=meta)

@@ -12,12 +12,12 @@ import urllib.parse
 from base64 import urlsafe_b64encode
 from functools import reduce
 
-from keri.app import habbing, oobiing
+from keri.app import habbing
 from keri.core import coring
 from keri.help import helping
 from keri.vdr import credentialing, verifying
 
-from dkr import log_name, ogler
+from dkr import DidWebsError, UnknownAID, log_name, ogler
 
 logger = ogler.getLogger(log_name)
 
@@ -115,7 +115,7 @@ def parse_query_string(query: str):
 def re_encode_invalid_did_webs(did: str):
     match = DID_WEBS_UNENCODED_PORT_RE.match(did)
     if match is None:
-        raise ValueError(f'{did} is not a valid did:web(s) DID')
+        raise ValueError(f'{did} is not an invalidly encoded did:web(s) DID')
 
     domain, port, path, aid, query = match.group('domain', 'port', 'path', 'aid', 'query')
 
@@ -133,7 +133,7 @@ def re_encode_invalid_did_webs(did: str):
     if aid:
         encoded += f':{aid}'
     if query:
-        encoded += f'?{query}'
+        encoded += f'{query}'
     return encoded
 
 
@@ -147,7 +147,7 @@ def re_encode_invalid_did(did: str):
     """
     if did.startswith('did:webs:'):
         return re_encode_invalid_did_webs(did)
-    elif did.startswith('did:keri:'):
+    elif did.startswith('did:keri:'):  # included for completion's sake and uniformity when parsing DIDs
         return f'did:keri:{parse_did_keri(did)}'
     else:
         raise ValueError(f'{did} is not a valid did:webs or did:keri DID')
@@ -326,9 +326,9 @@ def genDidResolutionResult(witness_list, seq_no, equivalent_ids, did, vms, serv_
     )
 
 
-def generate_did_doc(hby: habbing.Habery, did, aid, oobi=None, meta=False):
+def generate_did_doc(hby: habbing.Habery, did, aid, meta=False):
     """
-    Generates a DID document for the given DID and AID using the provided OOBI and metadata.
+    Generates a DID document for the given DID and AID.
 
     The DID document will have one of the following structures:
     - If `meta` is True:
@@ -342,7 +342,6 @@ def generate_did_doc(hby: habbing.Habery, did, aid, oobi=None, meta=False):
         hby (habbing.Habery): The habery instance containing the necessary data.
         did (str): The DID to generate the document for.
         aid (str): The AID associated with the DID.
-        oobi (str, optional): An OOBI identifier to resolve. Defaults to None.
         meta (bool, optional): If True, include metadata in the response. Defaults to False.
 
     Returns:
@@ -355,24 +354,17 @@ def generate_did_doc(hby: habbing.Habery, did, aid, oobi=None, meta=False):
     if did.startswith('did:keri'):
         if (did and aid) and not did.endswith(aid):
             raise ValueError(f'{did} does not end with {aid}')
-    logger.debug(f'Generating DID document for\n\t{did}\nwith aid\n\t{aid}\nusing oobi\n\t{oobi}\nand metadata\n\t{meta}')
+    logger.debug(f'Generating DID document for\n\t{did}\nwith aid\n\t{aid}\nand metadata\n\t{meta}')
 
     hab = None
     if aid in hby.habs:
         hab = hby.habs[aid]
 
-    if oobi is not None:
-        obr = hby.db.roobi.get(keys=(oobi,))
-        if obr is None or obr.state == oobiing.Result.failed:
-            msg = dict(msg=f'OOBI resolution for did {did} failed.')
-            data = json.dumps(msg)
-            return data.encode('utf-8')
-
     kever = None
     if aid in hby.kevers:
         kever = hby.kevers[aid]
     else:
-        raise ValueError(f'unknown {aid}')
+        raise UnknownAID(aid, did)
 
     vms = generate_verification_methods(kever.verfers, kever.tholder.thold, did, aid)
 
@@ -415,15 +407,14 @@ def to_did_web(diddoc: dict, meta=False):
 
     If metadata is present then the didDocument field is replaced with the converted DID document.
     """
-    if diddoc:
-        if meta:
-            replaced = diddoc_to_did_web(diddoc[DD_FIELD])
-            diddoc[DD_FIELD] = replaced
-            return diddoc
-        else:
-            return diddoc_to_did_web(diddoc)
+    if not diddoc:
+        raise DidWebsError('Cannot convert empty diddoc to did:web')
+    if meta:
+        replaced = diddoc_to_did_web(diddoc[DD_FIELD])
+        diddoc[DD_FIELD] = replaced
+        return diddoc
     else:
-        return {}
+        return diddoc_to_did_web(diddoc)
 
 
 def diddoc_to_did_web(diddoc: dict):

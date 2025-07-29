@@ -1,17 +1,23 @@
 import json
 import urllib.parse
+from unittest.mock import MagicMock, Mock, patch
 
 import falcon
+import pytest
+import requests
 from falcon import testing
 from hio.base import doing
-from keri import core
+from keri import core, kering
 from keri.app import agenting, configing, delegating, forwarding, grouping, habbing, indirecting, oobiing
 from keri.core import coring, eventing, scheming, serdering
 from keri.vdr import credentialing, verifying
+from mockito import mock, when
 
-from dkr.core import artifacting, didding, resolving
+from dkr.core import artifacting, didding, generating, requesting, resolving
+from dkr.core.didkeri import KeriResolver
 from dkr.core.ends import monitoring
-from tests.conftest import HabbingHelpers, TestHelpers, TestWitness, assemble_did_web_did, assemble_did_webs_did
+from tests import conftest
+from tests.conftest import CredentialHelpers, HabbingHelpers, WitnessContext, self_attested_aliases_cred_subj
 
 
 def test_health_end():
@@ -25,29 +31,6 @@ def test_health_end():
     assert rep.status == falcon.HTTP_200
     assert rep.content_type == falcon.MEDIA_JSON
     assert 'Health is okay' in rep.text
-
-
-def self_attested_aliases_cred_subj(domain: str, aid: str, port: str = None, path: str = None):
-    """
-    Generate test self attested credential data using the domain, AID, port, path, and assembler functions.
-
-    Parameters:
-        domain (str): domain for did:webs DID
-        aid (str): alias identifier for did:webs DID
-        port (str): optional port for did:webs DID
-        path (str): optional path for did:webs DID
-    """
-    return dict(
-        d='',
-        dt='2025-07-24T16:21:40.802473+00:00',  # using fixed date so ACDC SAID stays the same
-        ids=[
-            assemble_did_web_did(domain, aid, port, path),
-            assemble_did_webs_did(domain, aid, port, path),
-            assemble_did_web_did('example.com', aid, None, None),
-            assemble_did_web_did('foo.com', aid, None, None),
-            assemble_did_webs_did('foo.com', aid, None, None),
-        ],
-    )
 
 
 def test_resolver_with_witnesses():
@@ -84,7 +67,7 @@ def test_resolver_with_witnesses():
             wit_hby,
             wit_hab,
         ),
-        TestWitness.with_witness(name='wan', hby=wit_hby) as wan_wit,
+        WitnessContext.with_witness(name='wan', hby=wit_hby) as wan_wit,
         habbing.openHab(salt=salt, name='crackers', transferable=True, temp=True, cf=ckr_cf) as (ck_hby, ck_hab),
     ):
         wan_pre = 'BPwwr5VkI1b7ZA2mVbzhLL47UPjsGBX4WeO6WRv6c7H-'
@@ -92,7 +75,6 @@ def test_resolver_with_witnesses():
         doist = doing.Doist(limit=0.0, tock=tock, real=True)
         # Doers and deeds for witness wan
         wit_deeds = doist.enter(doers=wan_wit.doers)
-        # doist.do(wan_wit.doers)
 
         # Resolve OOBI
         oobiery = oobiing.Oobiery(hby=ck_hby)
@@ -133,12 +115,15 @@ def test_resolver_with_witnesses():
         keri_cesr_url = f'http://{host}:{port}/{did_path}/{aid}/keri.cesr'            # http://127.0.0.1:7677/dws/EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v/keri.cesr
         # fmt: on
 
-        schema_json = json.loads(open('./local/schema/designated-aliases-public-schema.json', 'rb').read())
-        rules_json = json.loads(open('./local/schema/rules/desig-aliases-public-schema-rules.json', 'rb').read())
+        schema_json = conftest.load_designated_aliases_schema_json()
+        rules_json = conftest.load_designated_aliases_schema_rules_json()
         subject_data = self_attested_aliases_cred_subj(host, aid, port, did_path)
-        _, _, _, regery = TestHelpers.add_cred_to_aid(
+        regery = credentialing.Regery(hby=ck_hby, name=cracker_1_hab.name, temp=ck_hby.temp)
+        CredentialHelpers.add_cred_to_aid(
             hby=ck_hby,
+            hby_doer=ck_hby_doer,
             hab=cracker_1_hab,
+            regery=regery,
             schema_said='EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5',  # Designated Aliases Public Schema
             schema_json=schema_json,
             subject_data=subject_data,
@@ -151,52 +136,49 @@ def test_resolver_with_witnesses():
         # get keri.cesr
         reger = regery.reger
         keri_cesr = bytearray()
-        # self.retrieve_kel_via_oobi() # not currently used; an alternative to relying on a local KEL keystore
         keri_cesr.extend(artifacting.gen_kel_cesr(ck_hby.db, aid))  # add KEL CESR stream
         keri_cesr.extend(artifacting.gen_des_aliases_cesr(cracker_1_hab, reger, aid))
 
-        did_webs_diddoc = didding.generate_did_doc(ck_hby, did=did_webs_did, aid=aid, oobi=None, meta=meta)
+        did_webs_diddoc = didding.generate_did_doc(ck_hby, did=did_webs_did, aid=aid, meta=meta)
+        assert did_webs_diddoc[didding.DD_FIELD]['alsoKnownAs'] != [], 'alsoKnownAs field should contain designated aliases'
 
-        # Mock load_url to return the did.json and keri.cesr content
-        def mock_load_url(url):
-            if url == did_json_url:
-                # whitespace added for readability - this is just bytes and the whitespace does not impact the actual content
-                # fmt: off
-                return (
-                    b'{"didDocument": {'
-                        b'"id": "did:webs:127.0.0.1%3A7677:dws:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v?meta=true", '
-                        b'"verificationMethod": [{'
-                            b'"id": "#DGffNrpmV4X_VuWih2p0j1H7s2C1SrXdxUaigYiRDH0l", '
-                            b'"type": "JsonWebKey", '
-                            b'"controller": "did:webs:127.0.0.1%3A7677:dws:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v", '
-                            b'"publicKeyJwk": {'
-                                b'"kid": "DGffNrpmV4X_VuWih2p0j1H7s2C1SrXdxUaigYiRDH0l", '
-                                b'"kty": "OKP", '
-                                b'"crv": "Ed25519", '
-                                b'"x": "Z982umZXhf9W5aKHanSPUfuzYLVKtd3FRqKBiJEMfSU"}}], '
-                        b'"service": [{"id": "#BPwwr5VkI1b7ZA2mVbzhLL47UPjsGBX4WeO6WRv6c7H-/witness", '
-                            b'"type": "witness", '
-                            b'"serviceEndpoint": {"http": "http://127.0.0.1:6642/", "tcp": "tcp://127.0.0.1:6632/"}}], '
-                        b'"alsoKnownAs": []}, '
-                    b'"didResolutionMetadata": {"contentType": "application/did+json", "retrieved": "2025-07-25T17:32:34Z"}, '
-                    b'"didDocumentMetadata": {'
-                        b'"witnesses": ['
-                            b'{"idx": 0, "scheme": "http", "url": "http://127.0.0.1:6642/"}, '
-                            b'{"idx": 0, "scheme": "tcp", "url": "tcp://127.0.0.1:6632/"}], '
-                        b'"versionId": "2", '
-                        b'"equivalentId": []}}'
-                )
-                # fmt: on
-            elif url == keri_cesr_url:
-                # whitespace added for readability - this is just bytes and the whitespace does not impact the actual content
-                # fmt: off
-                return (
-                    bytearray(
-                        b'{"v":"KERI10JSON000159_","t":"icp","d":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","i":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","s":"0","kt":"1","k":["DGffNrpmV4X_VuWih2p0j1H7s2C1SrXdxUaigYiRDH0l"],"nt":"1","n":["EItS87xyPgbqB13_k-6wd455iDQkgDWCaSs4sQdwFIxp"],"bt":"1","b":["BPwwr5VkI1b7ZA2mVbzhLL47UPjsGBX4WeO6WRv6c7H-"],"c":[],"a":[]}-VA--AABAAApgK2AZ1Bt_RHeoRr8X7r9weRNjl-AezJ5BDkAlXIUJhFx23aoQ3hbl3UhLzL8jyIabWoKPvcCRVDvVPxfH2IA-BABAAALv8G-TZT9JQfA06lBg8gKbCRgsSqxIBeWE6FcqNy6FFauxApDtRuXuZ0TyVXlr3hZ0uw5HGRUTqJx0C2U7LkD-EAB0AAAAAAAAAAAAAAAAAAAAAAA1AAG2025-07-25T18c00c18d452164p00c00{"v":"KERI10JSON00013a_","t":"ixn","d":"EHd6LeBUXVhA1iGbFRdjwJUvMcPZk8Bs7j7H9n2Wd941","i":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","s":"1","p":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","a":[{"i":"EIEHG-VBVOvZ9Nn3fpXp6-n4UkXDQRrxiQS3Aiv_7Z80","s":"0","d":"EIEHG-VBVOvZ9Nn3fpXp6-n4UkXDQRrxiQS3Aiv_7Z80"}]}-VA--AABAADlZqq96WvF1ZyxmFnT5G8KMTMcjig1ZZajJFjAUUa5ww43xeezPYPgnitrIJyBg6k1CMnMSOHMzzJFu7iBMA0I-BABAADh36iZMZxXHWHhocG0fN260TvRFUW9gL4MwVrlUDVNYcWQQPWo2r8P487SsGd5p-zLQ13L7c65fZNYfNwBX2ML-EAB0AAAAAAAAAAAAAAAAAAAAAAB1AAG2025-07-25T18c00c18d510748p00c00{"v":"KERI10JSON00013a_","t":"ixn","d":"ELZ9O1lJPitYo_1ApCUVC6QiNtP1JNCLnak8boEWRqEZ","i":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","s":"2","p":"EHd6LeBUXVhA1iGbFRdjwJUvMcPZk8Bs7j7H9n2Wd941","a":[{"i":"EDvxqLUTmTHMCWLENtVofsMPaoStDTCuFugmlbUjAmJV","s":"0","d":"EPIk-Cn1kT-f8MerR740yXsOpYBCiwZRqiXnYcWaTGjH"}]}-VA--AABAABJb2TU9G70ufj0Bvf0RFfuDTCwvDscfM3GIkQKOqqJostv_IcUfT71d8MQwKFgHHZH8VRW43bFFFFv9NBjSlkB-BABAACri395yGrRg-381KDAaahF3d2mqlPP7S4mRpmq4W8mO4vgZ5QAPCj21Aa2vDLpab_dpnlxuMc4wkReBlMFcnQB-EAB0AAAAAAAAAAAAAAAAAAAAAAC1AAG2025-07-25T18c00c18d579248p00c00{"v":"KERI10JSON0000ff_","t":"vcp","d":"EIEHG-VBVOvZ9Nn3fpXp6-n4UkXDQRrxiQS3Aiv_7Z80","i":"EIEHG-VBVOvZ9Nn3fpXp6-n4UkXDQRrxiQS3Aiv_7Z80","ii":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","s":"0","c":["NB"],"bt":"0","b":[],"n":"0ADV24br-aaezyRTB-oUsZJE"}-VAS-GAB0AAAAAAAAAAAAAAAAAAAAAABEHd6LeBUXVhA1iGbFRdjwJUvMcPZk8Bs7j7H9n2Wd941{"v":"KERI10JSON0000ed_","t":"iss","d":"EPIk-Cn1kT-f8MerR740yXsOpYBCiwZRqiXnYcWaTGjH","i":"EDvxqLUTmTHMCWLENtVofsMPaoStDTCuFugmlbUjAmJV","s":"0","ri":"EIEHG-VBVOvZ9Nn3fpXp6-n4UkXDQRrxiQS3Aiv_7Z80","dt":"2025-07-24T16:21:40.802473+00:00"}-VAS-GAB0AAAAAAAAAAAAAAAAAAAAAACELZ9O1lJPitYo_1ApCUVC6QiNtP1JNCLnak8boEWRqEZ{"v":"ACDC10JSON0005f4_","d":"EDvxqLUTmTHMCWLENtVofsMPaoStDTCuFugmlbUjAmJV","i":"EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","ri":"EIEHG-VBVOvZ9Nn3fpXp6-n4UkXDQRrxiQS3Aiv_7Z80","s":"EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5","a":{"d":"EH2gd7OAdVGdsuUXt_QWSfjnbE-o_QY17tep4JLQm_TU","dt":"2025-07-24T16:21:40.802473+00:00","ids":["did:web:127.0.0.1%3a7677:dws:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","did:webs:127.0.0.17677%3a7677:dws:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","did:web:example.com:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","did:web:foo.com:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v","did:webs:foo.comNone:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v"]},"r":{"d":"EEVTx0jLLZDQq8a5bXrXgVP0JDP7j8iDym9Avfo8luLw","aliasDesignation":{"l":"The issuer of this ACDC designates the identifiers in the ids field as the only allowed namespaced aliases of the issuer\'s AID."},"usageDisclaimer":{"l":"This attestation only asserts designated aliases of the controller of the AID, that the AID controlled namespaced alias has been designated by the controller. It does not assert that the controller of this AID has control over the infrastructure or anything else related to the namespace other than the included AID."},"issuanceDisclaimer":{"l":"All information in a valid and non-revoked alias designation assertion is accurate as of the date specified."},"termsOfUse":{"l":"Designated aliases of the AID must only be used in a manner consistent with the expressed intent of the AID controller."}}}-VA0-FABEEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v0AAAAAAAAAAAAAAAAAAAAAAAEEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v-AABAACR1-_S62-tjeC4r6Mntt1cqTVlaa6vyeJNcsCAHgKlBB8vlSmtSIv-NVqQM4hN9M-w8fy6_LHehDdS8z17zRQK')
-                )
-                # fmt: on
-            else:
-                raise ValueError(f'Unexpected URL: {url}')
+        # generate DID artifacts and store them locally so I can resolve them.
+        output_dir = f'./tests/artifact_output_dir/{did_path}'
+        did_art_gen = generating.DIDArtifactGenerator(
+            name=ck_hby.name,
+            base=ck_hby.base,
+            bran=None,
+            hby=ck_hby,
+            hby_doer=ck_hby_doer,
+            regery=regery,
+            did=did_webs_did,
+            meta=meta,
+            output_dir=output_dir,
+            verbose=True,
+            cf=ckr_cf,
+        )
+        doist.do([did_art_gen])
+
+        # Start up a universal resolver to test that resolution works
+        resolver_doers = resolving.setup_resolver(
+            ck_hby,
+            ck_hby_doer,
+            oobiery,
+            http_port=7677,
+            static_files_dir='./tests/artifact_output_dir',
+            did_path='dws',
+            keypath=None,
+            certpath=None,
+            cafilepath=None,
+        )
+        resolver_deeds = doist.enter(doers=resolver_doers)
+        client, client_doer = requesting.create_http_client(method='GET', url=did_json_url)
+        resolution_deed = doist.enter(doers=[client_doer])
+        while client.responses is None or len(client.responses) == 0:
+            doist.recur(deeds=ck1_deeds + resolver_deeds + resolution_deed)
+        resp = client.respond()
+        resp_body = bytes(resp.body)
+        assert did_webs_diddoc == json.loads(resp_body.decode('utf-8')), 'DID Document does not match expected output'
 
 
 def test_resolver_with_did_webs_did_returns_correct_doc():
@@ -233,7 +215,7 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
         deeds = doist.enter(doers=[hby_doer, counselor, registrar, credentialer, regery_doer])
 
         # Add schema to resolver schema cache
-        raw_schema = json.loads(open('./local/schema/designated-aliases-public-schema.json', 'rb').read())
+        raw_schema = conftest.load_designated_aliases_schema_json()
         schemer = scheming.Schemer(
             raw=bytes(json.dumps(raw_schema), 'utf-8'), typ=scheming.JSONSchema(), code=coring.MtrDex.Blake3_256
         )
@@ -255,13 +237,13 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
 
         # Create and issue the self-attested credential
         credSubject = self_attested_aliases_cred_subj(host, aid, port, did_path)
-        rules = json.loads(open('./local/schema/rules/desig-aliases-public-schema-rules.json', 'rb').read())
+        rules_json = conftest.load_designated_aliases_schema_rules_json()
         creder = credentialer.create(
             regname=issuer_reg.name,
             recp=None,
             schema='EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5',  # Designated Aliases Public Schema
             source=None,
-            rules=rules,
+            rules=rules_json,
             data=credSubject,
             private=False,
             private_credential_nonce=None,
@@ -283,14 +265,13 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
         state = issuer_reg.tever.vcState(vci=creder.said)
         assert state.et == coring.Ilks.iss
 
-        # get
-        # reger = regery.reger
-        # keri_cesr = bytearray()
-        # # self.retrieve_kel_via_oobi() # not currently used; an alternative to relying on a local KEL keystore
-        # keri_cesr.extend(artifacting.gen_kel_cesr(hby.db, aid))  # add KEL CESR stream
-        # keri_cesr.extend(artifacting.gen_des_aliases_cesr(hab, reger, aid))
-        #
-        did_webs_diddoc = didding.generate_did_doc(hby, did=did_webs_did, aid=aid, oobi=None, meta=meta)
+        # get the keri.cesr and did.json for later verification
+        reger = regery.reger
+        keri_cesr = bytearray()
+        keri_cesr.extend(artifacting.gen_kel_cesr(hby.db, aid))  # add KEL CESR stream
+        keri_cesr.extend(artifacting.gen_des_aliases_cesr(hab, reger, aid))
+
+        did_webs_diddoc = didding.generate_did_doc(hby, did=did_webs_did, aid=aid, meta=meta)
 
         # Mock load_url to return the did.json and keri.cesr content
         def mock_load_url(url):
@@ -391,7 +372,7 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
 
         assert did_keri_response.content_type == 'application/did+ld+json', 'Content-Type should be application/did+ld+json'
         response_diddoc = json.loads(did_keri_response.content)
-        did_keri_diddoc = didding.generate_did_doc(hby, did=did_keri_did, aid=aid, oobi=None, meta=meta)
+        did_keri_diddoc = didding.generate_did_doc(hby, did=did_keri_did, aid=aid, meta=meta)
         assert response_diddoc == did_keri_diddoc, 'did:keri response did document does not match expected diddoc'
 
         # dd, dd_actual = resolving.compare_did_docs(hby=vhby, did=did_webs, aid=aid, dd_res=rdd, kc_res=rkc)
@@ -446,11 +427,14 @@ def test_resolver_with_metadata_returns_correct_doc():
         keri_cesr_url = f'http://{host}:{port}/{did_path}/{aid}/keri.cesr'            # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/keri.cesr
         # fmt: on
 
-        schema_json = json.loads(open('./local/schema/designated-aliases-public-schema.json', 'rb').read())
-        rules_json = json.loads(open('./local/schema/rules/desig-aliases-public-schema-rules.json', 'rb').read())
+        regery = credentialing.Regery(hby=hby, name=hab.name, temp=hby.temp)
+        schema_json = conftest.load_designated_aliases_schema_json()
+        rules_json = conftest.load_designated_aliases_schema_rules_json()
         subject_data = self_attested_aliases_cred_subj(host, aid, port, did_path)
-        TestHelpers.add_cred_to_aid(
+        CredentialHelpers.add_cred_to_aid(
             hby=hby,
+            hby_doer=hby_doer,
+            regery=regery,
             hab=hab,
             schema_said='EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5',  # Designated Aliases Public Schema
             schema_json=schema_json,
@@ -460,7 +444,7 @@ def test_resolver_with_metadata_returns_correct_doc():
             registry_nonce=registry_nonce,
         )
 
-        did_webs_diddoc = didding.generate_did_doc(hby, did=did_webs_did, aid=aid, oobi=None, meta=meta)
+        did_webs_diddoc = didding.generate_did_doc(hby, did=did_webs_did, aid=aid, meta=meta)
 
         # Mock load_url to return the did.json and keri.cesr content
         def mock_load_url(url):
@@ -567,5 +551,79 @@ def test_resolver_with_metadata_returns_correct_doc():
 
         assert did_keri_response.content_type == 'application/did+ld+json', 'Content-Type should be application/did+ld+json'
         response_diddoc = json.loads(did_keri_response.content)
-        did_keri_diddoc = didding.generate_did_doc(hby, did=did_keri_did, aid=aid, oobi=None, meta=False)
+        did_keri_diddoc = didding.generate_did_doc(hby, did=did_keri_did, aid=aid, meta=False)
         assert response_diddoc == did_keri_diddoc, 'did:keri response did document does not match expected diddoc'
+
+
+def test_resolver_with_did_keri_resolve_returns_correct_doc(doist=None):
+    salt = b'0ACB-gtnUTQModt9u_UC3LFQ'
+    with habbing.openHab(salt=salt, name='water', transferable=True, temp=True) as (hby, hab):
+        hby_doer = habbing.HaberyDoer(habery=hby)
+        aid = 'EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU'
+        meta = True
+        did_keri_did = f'did:keri:{aid}'  # did:keri:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU
+
+        expected_doc = didding.generate_did_doc(hby, did=did_keri_did, aid=aid, meta=meta)
+
+        # Run the did:keri resolver and verify it returns the expected DID doc
+        doist = doing.Doist(limit=1.0, tock=0.03125, real=True) if doist is None else doist
+        keri_resolver = KeriResolver(hby=hby, hby_doer=hby_doer, did=did_keri_did, meta=meta, verbose=True)
+        doist.do([keri_resolver])
+        assert keri_resolver.result == expected_doc, 'KeriResolver did not return the expected DID document'
+
+        # with an invalid did:keri DID
+        keri_resolver = KeriResolver(hby=hby, hby_doer=hby_doer, did='did:keri:invalid', meta=meta, verbose=True)
+        with pytest.raises(ValueError) as excinfo:
+            doist.do([keri_resolver])
+        assert str(excinfo.value) == 'invalid is an invalid AID'
+
+
+def test_load_url_with_requests_fails_on_connection_error():
+    # Mock out the requests library
+    with patch('requests.get') as mock_get:
+        mock_get.side_effect = requests.exceptions.ConnectionError('Connection failed')
+        with pytest.raises(requests.exceptions.ConnectionError) as excinfo:
+            resolving.load_url_with_requests('http://example.com')
+        assert str(excinfo.value) == 'Connection failed', 'Expected ConnectionError with specific message'
+
+    with patch('requests.get') as mock_get:
+        # mock returning a byte array in response.content
+        mock_get.return_value.content = b'{"key": "value"}'
+        result = resolving.load_url_with_requests('http://example.com')
+        assert result == b'{"key": "value"}', 'Expected byte array response from mocked requests.get'
+
+
+def test_save_cesr_aid_not_in_kevers_raises():
+    # Mock out the get item call
+    hby = MagicMock()
+    hby.psr = mock()
+    mydict = {}
+    hby.kevers = MagicMock()
+    hby.kevers.__getitem__.side_effect = mydict.get
+
+    kc_res = b''
+    aid = 'EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU'
+    when(hby.kevers).__getitem__(aid).thenReturn([])
+    with pytest.raises(kering.KeriError) as excinfo:
+        resolving.save_cesr(hby, kc_res, aid)
+
+
+def test_tls_falcon_server_keypath_present_returns_server_tls():
+    app = Mock(spec=falcon.App)
+    mock_servant = MagicMock()
+    with patch('hio.core.tcp.ServerTls') as mock_tls, patch('hio.core.http.Server') as mock_server:
+        mock_tls.return_value = mock_servant
+
+        resolving.tls_falcon_server(app, 10, 'path', 'path', 'path')
+        mock_tls.assert_called_once_with(
+            certify=False,
+            keypath='path',
+            certpath='path',
+            cafilepath='path',
+            port=10,
+        )
+        mock_server.assert_called_once_with(port=10, app=app, servant=mock_servant)
+
+    with patch('hio.core.http.Server') as mock_server:
+        server = resolving.tls_falcon_server(app, 10, None, None, None)
+        mock_server.assert_called_once_with(port=10, app=app, servant=None)

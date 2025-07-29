@@ -22,5 +22,19 @@ def set_log_level(loglevel, logger):
     logger.setLevel(ogler.level)
 
 
+class DidWebsError(Exception):
+    """Base class for all exceptions raised by the dkr.app.cli.commands.did.webs module."""
+
+    pass
+
+
+class UnknownAID(DidWebsError):
+    """Exception raised when an unknown AID is encountered."""
+
+    def __init__(self, aid: str, did: str):
+        super().__init__(f'Unknown AID {aid} found in {did}')
+        self.aid = aid
+
+
 # Versioning
 __version__ = '0.2.1'  # also change in pyproject.toml

@@ -216,23 +216,21 @@ function resolve_didkeri(){
     print_yellow "Using metadata for did:keri resolution"
     dkr did keri resolve \
       --name "${KEYSTORE_NAME}" \
-      --did "did:keri:${MY_AID}" \
-      --oobi "${MY_OOBI}" \
+      --did "did:keri:${MY_AID}"
       --meta
     status=$?
   else
     print_yellow "Not using metadata for did:keri resolution"
     dkr did keri resolve \
       --name "${KEYSTORE_NAME}" \
-      --did "did:keri:${MY_AID}" \
-      --oobi "${MY_OOBI}"
+      --did "did:keri:${MY_AID}"
     status=$?
   fi
   if [ $status -ne 0 ]; then
       print_red "DID resolution failed for ${MY_DIDWEBS_DID}"
       exit 1
   else
-      print_green "DID resolution succeeded for ${MY_DIDWEBS_DID}"
+      print_green "DID resolution succeeded for did:keri:${MY_AID}"
   fi
 }
 resolve_didkeri

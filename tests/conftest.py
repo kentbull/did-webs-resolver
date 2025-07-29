@@ -14,11 +14,12 @@ import pytest
 from hio.base import doing
 from hio.help import decking
 from keri import core
-from keri.app import grouping, habbing, indirecting, keeping
-from keri.app.habbing import openHby
+from keri.app import agenting, delegating, forwarding, grouping, habbing, indirecting, keeping
+from keri.app.habbing import HaberyDoer, openHby
 from keri.core import coring, eventing, scheming, serdering
 from keri.help import helping
 from keri.vdr import credentialing, verifying
+from keri.vdr.credentialing import Regery
 
 
 @pytest.fixture()
@@ -59,10 +60,14 @@ def assemble_did_web_did(domain, aid, port=None, path=None):
     return did
 
 
-class TestHelpers:
+class CredentialHelpers:
+    """Test helpers for issuing credentials using AID and schema."""
+
     @staticmethod
     def add_cred_to_aid(
         hby: habbing.Habery,
+        hby_doer: HaberyDoer,
+        regery: Regery,
         hab: habbing.Hab,
         schema_said: str,
         schema_json: dict,
@@ -76,12 +81,11 @@ class TestHelpers:
         private_subject_nonce: str = None,
         additional_deeds: List[doing.Doer] = None,
     ):
+        """Issues a credential with a given AID using the schema, subject data, rules, edges (source), and recipient (recp)."""
         additional_deeds = additional_deeds or decking.deque(
             []
         )  # To avoid NoneType errors when concatenating with the existing deeds deque
         # Components needed for issuance
-        hby_doer = habbing.HaberyDoer(habery=hby)
-        regery = credentialing.Regery(hby=hby, name=hab.name, temp=hby.temp)
         counselor = grouping.Counselor(hby=hby)
         registrar = credentialing.Registrar(hby=hby, rgy=regery, counselor=counselor)
         verifier = verifying.Verifier(hby=hby, reger=regery.reger)
@@ -108,6 +112,7 @@ class TestHelpers:
 
         while not registrar.complete(pre=issuer_reg.regk, sn=0):
             doist.recur(deeds=deeds + additional_deeds)  # run until registry is incepted
+            verifier.processEscrows()
 
         assert issuer_reg.regk in regery.reger.tevers
 
@@ -139,13 +144,19 @@ class TestHelpers:
 
         state = issuer_reg.tever.vcState(vci=creder.said)
         assert state.et == coring.Ilks.iss
-        return creder, reg_iss_serder, anc_serder, regery
+        return creder, reg_iss_serder, anc_serder
 
 
-class TestWitness:
+class WitnessContext:
+    """
+    An instance of the doers for a witness that enable running a witness as a set of doers with the
+    static context manager function `with_witness`. This facilitates debuggable testability of any
+    functionality involving witnesses.
+    """
+
     def __init__(self, name: str, hby: habbing.Habery, tcp_port: int = 6632, http_port: int = 6642):
         """
-        Initialize the TestWitness context manager with a witness name and habery.
+        Initialize the WitnessContext context manager with a witness name and habery.
 
         Args:
             name (str): The name of the witness.
@@ -166,8 +177,8 @@ class TestWitness:
 
     @contextmanager
     @staticmethod
-    def with_witness(name, hby):
-        yield TestWitness(name, hby)
+    def with_witness(name, hby, tcp_port=6632, http_port=6642):
+        yield WitnessContext(name, hby, tcp_port, http_port)
 
 
 class HabbingHelpers:
@@ -196,3 +207,52 @@ class HabbingHelpers:
                 hab = hby.makeHab(name=name, icount=1, isith='1', ncount=1, nsith='1', cf=cf, **kwa)
 
             yield hby, hab
+
+    @staticmethod
+    def habery_doers(hby: habbing.Habery):
+        """
+        Return the list of Doers needed to run a controller using a Doist and the WitnessReceiptor.
+        The WitnessReceiptorDoer is used to check whether there are any unprocessed cues so the
+        Doist knows when to stop running.
+
+        Useful for running a Controller in a test.
+        """
+        hby_doer = habbing.HaberyDoer(habery=hby)
+        anchorer = delegating.Anchorer(hby=hby, proxy=None)
+        postman = forwarding.Poster(hby=hby)
+        mbx = indirecting.MailboxDirector(hby=hby, topics=['/receipt', '/replay', '/reply'])
+        wit_rcptr_doer = agenting.WitnessReceiptor(hby=hby)
+        receiptor = agenting.Receiptor(hby=hby)
+        doers = [hby_doer, anchorer, postman, mbx, wit_rcptr_doer, receiptor]
+        return doers, hby_doer, wit_rcptr_doer
+
+
+def self_attested_aliases_cred_subj(domain: str, aid: str, port: str = None, path: str = None):
+    """
+    Generate test self attested credential data using the domain, AID, port, path, and assembler functions.
+
+    Parameters:
+        domain (str): domain for did:webs DID
+        aid (str): alias identifier for did:webs DID
+        port (str): optional port for did:webs DID
+        path (str): optional path for did:webs DID
+    """
+    return dict(
+        d='',
+        dt='2025-07-24T16:21:40.802473+00:00',  # using fixed date so ACDC SAID stays the same
+        ids=[
+            assemble_did_web_did(domain, aid, port, path),
+            assemble_did_webs_did(domain, aid, port, path),
+            assemble_did_web_did('example.com', aid, None, None),
+            assemble_did_web_did('foo.com', aid, None, None),
+            assemble_did_webs_did('foo.com', aid, None, None),
+        ],
+    )
+
+
+def load_designated_aliases_schema_json():
+    return json.loads(open('./local/schema/designated-aliases-public-schema.json', 'rb').read())
+
+
+def load_designated_aliases_schema_rules_json():
+    return json.loads(open('./local/schema/rules/desig-aliases-public-schema-rules.json', 'rb').read())

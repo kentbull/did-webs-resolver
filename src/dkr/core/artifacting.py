@@ -1,6 +1,8 @@
 import json
 import os
 
+import viking
+from hio.core import http
 from keri.app import habbing
 from keri.app.habbing import Habery
 from keri.core import serdering
@@ -9,7 +11,7 @@ from keri.vdr import credentialing, viring
 from keri.vdr.credentialing import Regery
 
 from dkr import UnknownAID, log_name, ogler
-from dkr.core import didding, ends
+from dkr.core import didding, ends, resolving, webbing
 
 logger = ogler.getLogger(log_name)
 
@@ -133,3 +135,31 @@ def generate_artifacts(hby: Habery, rgy: Regery, did: str, meta: bool = False, o
     write_keri_cesr_file(output_dir, aid, keri_cesr)
 
     return did_json, keri_cesr
+
+
+def dyn_artifact_svr_doers(
+    hby, rgy, alias: str, http_port, did_path=None, meta=False, keypath=None, certpath=None, cafilepath=None
+):
+    """
+    Parameters:
+        hby (habbing.Habery): identifier database environment
+        rgy (credentialing.Regery): Doer for the identifier database environment
+        alias (str): alias for the KERI AID to dynamically generate and serve did:webs and did:keri artifacts for.
+        http_port (int): external port to listen on for HTTP messages
+        meta (bool): whether to include metadata in the DID document, default is False
+        did_path (str): path segment of the did:webs URL to host the did:webs artifacts on, disabled if None
+        keypath (str | None): path to the TLS private key file, default is None (disabled)
+        certpath (str | None): path to the TLS certificate file, default is None (disabled)
+        cafilepath (str | None): path to the CA certificate file, default is None (disabled)
+    Returns:
+        list: list of Doers to run in the Tymist
+    """
+    doers = []
+    app = resolving.falcon_app()
+    webbing.load_endpoints(app, hby=hby, rgy=rgy, did_path=did_path, meta=meta)
+    voodoers = viking.setup(hby=hby, alias=alias)
+    server = resolving.tls_falcon_server(app, http_port, keypath, certpath, cafilepath)
+    http_server_doer = http.ServerDoer(server=server)
+    doers.extend([http_server_doer])
+    doers += voodoers
+    return doers

@@ -5,14 +5,14 @@ dkr.app.cli.commands module
 """
 
 import argparse
+from typing import List
 
-import viking
-from hio.core import http
+from hio.base import Doer
 from keri.app import oobiing
 from keri.vdr import credentialing
 
 from dkr import log_name, ogler, set_log_level
-from dkr.core import habs, resolving, webbing
+from dkr.core import artifacting, habs
 
 parser = argparse.ArgumentParser(description='Launch web server capable of serving KERI AIDs as did:webs and did:web DIDs')
 parser.set_defaults(handler=lambda args: launch(args), transferable=True)
@@ -57,40 +57,63 @@ logger = ogler.getLogger(log_name)
 
 
 def launch(args):
-    """Create list of Doers for serving did:webs artifacts."""
+    """Handle CLI command for serving did:webs artifacts."""
     set_log_level(args.loglevel, logger)
-    name = args.name
-    alias = args.alias
-    base = args.base
-    bran = args.bran
-    config_file = args.config_file
-    config_dir = args.config_dir
     http_port = args.http
-    keypath = args.keypath
-    certpath = args.certpath
-    cafilepath = args.cafilepath
     try:
         http_port = int(http_port)
     except ValueError:
         logger.error(f'Invalid port number: {http_port}. Must be an integer.')
-        return []
+        raise
 
-    did_path = args.did_path
-    meta = args.meta
+    logger.info(f'Launched did:webs artifact webserver: {http_port}')
+    return create_artifact_server_doers(
+        name=args.name,
+        base=args.base,
+        bran=args.bran,
+        config_file=args.config_file,
+        config_dir=args.config_dir,
+        alias=args.alias,
+        meta=args.meta,
+        did_path=args.did_path,
+        http_port=http_port,
+        keypath=args.keypath,
+        certpath=args.certpath,
+        cafilepath=args.cafilepath,
+    )
 
+
+def create_artifact_server_doers(
+    name: str,
+    base: str,
+    bran: str,
+    config_file: str,
+    config_dir: str,
+    alias: str,
+    meta: bool,
+    did_path: str,
+    http_port: int,
+    keypath: str = None,
+    certpath: str = None,
+    cafilepath: str = None,
+) -> List[Doer]:
+    """Create a list of Doers for serving did:webs artifacts."""
     cf = habs.get_habery_configer(name=config_file, base=base, head_dir_path=config_dir)
     hby, hby_doer = habs.get_habery_and_doer(name, base, bran, cf)
     rgy = credentialing.Regery(hby=hby, name=hby.name, base=hby.base, temp=hby.temp)
-
-    app = resolving.falcon_app()
-    webbing.load_endpoints(app, hby=hby, rgy=rgy, did_path=did_path, meta=meta)
-
     oobiery = oobiing.Oobiery(hby=hby)
-    voodoers = viking.setup(hby=hby, alias=alias)
-    server = resolving.tls_falcon_server(app, http_port, keypath, certpath, cafilepath)
-    http_server_doer = http.ServerDoer(server=server)
-    doers = oobiery.doers + [hby_doer, http_server_doer]
-    doers.extend(voodoers)
+    doers = oobiery.doers + [hby_doer]
 
-    logger.info(f'Launched did:webs artifact webserver: {http_port}')
+    doers += artifacting.dyn_artifact_svr_doers(
+        hby=hby,
+        rgy=rgy,
+        alias=alias,
+        http_port=http_port,
+        did_path=did_path,
+        meta=meta,
+        keypath=keypath,
+        certpath=certpath,
+        cafilepath=cafilepath,
+    )
+
     return doers

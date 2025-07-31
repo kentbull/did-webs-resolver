@@ -6,7 +6,7 @@ dkr.core.serving module
 
 import json
 import os
-from typing import Callable
+from typing import Callable, List
 
 import falcon
 import requests
@@ -120,6 +120,7 @@ def verify(dd_expected: dict, dd_actual: dict, meta: bool = False) -> (bool, dic
     """
     dd_exp = dd_expected
     dd_act = dd_actual
+    # only compare the did document, not the DID resolution metadata
     if meta:
         dd_exp = dd_expected[didding.DD_FIELD]
         dd_act = dd_actual[didding.DD_FIELD]
@@ -218,6 +219,15 @@ def _compare_dicts(expected, actual, path=''):
     return differences
 
 
+def wrap_metadata(did_doc: dict, did: str, aid: str, hby: habbing.Habery, rgy: credentialing.Regery) -> dict:
+    # wrap the loaded DID document with resolution metadata if it is missing
+    kever = hby.kevers[aid]
+    equiv_ids, _ = didding.get_equiv_aka_ids(did, aid, hby, rgy)
+    return didding.gen_did_resolution_result(
+        did_doc=did_doc, witness_list=didding.get_witness_list(hby.db, kever), seq_no=kever.sner.num, equivalent_ids=equiv_ids
+    )
+
+
 def resolve(
     hby: habbing.Habery,
     rgy: credentialing.Regery,
@@ -236,28 +246,50 @@ def resolve(
         logger.error(f'Unexpected error while resolving DID {did}: {e}')
         return False, {'error': f'Unexpected error while resolving DID {did}: {e}'}
     save_cesr(hby=hby, kc_res=kc_res, aid=aid)
-    dd_actual = didding.from_did_web(json.loads(dd_res.decode('utf-8')), meta)
+    loaded_dd = json.loads(dd_res.decode('utf-8'))
+    if meta and didding.DD_FIELD not in loaded_dd:
+        loaded_dd = wrap_metadata(loaded_dd, did, aid, hby, rgy)
+    dd_actual = didding.from_did_web(loaded_dd, meta)
     dd_expected = get_generated_did_doc(hby=hby, rgy=rgy, did=did, meta=meta)
     return verify(dd_expected, dd_actual, meta=meta)
 
 
+def keri_headers() -> List[str]:
+    return [
+        'cesr-attachment',
+        'cesr-date',
+        'content-type',
+        'signature',
+        'signature-input',
+        'signify-resource',
+        'signify-timestamp',
+    ]
+
+
+def cors_middleware() -> falcon.CORSMiddleware:
+    return falcon.CORSMiddleware(
+        allow_origins='*',
+        allow_credentials='*',
+        expose_headers=keri_headers(),
+    )
+
+
+class RequestLoggerMiddleware:
+    def process_request(self, req: falcon.Request, resp: falcon.Response):
+        """Log incoming requests."""
+        logger.info(f'Request received : {req.method} {req.url}')
+        logger.debug(f'Request headers : {req.headers}')
+        logger.debug(f'Request body    : {req.stream.read().decode("utf-8") if req.content_length else "No body"}')
+
+    def process_response(self, req: falcon.Request, resp: falcon.Response, resource, req_succeeded):
+        """Log outgoing responses."""
+        logger.info(f'Response status  : {resp.status} on {req.method} {req.url}')
+        logger.debug(f'Response headers: {resp.headers}')
+
+
 def falcon_app() -> falcon.App:
     """Create a Falcon app instance with open CORS settings."""
-    app = falcon.App(
-        middleware=falcon.CORSMiddleware(
-            allow_origins='*',
-            allow_credentials='*',
-            expose_headers=[
-                'cesr-attachment',
-                'cesr-date',
-                'content-type',
-                'signature',
-                'signature-input',
-                'signify-resource',
-                'signify-timestamp',
-            ],
-        )
-    )
+    app = falcon.App(middleware=[cors_middleware(), RequestLoggerMiddleware()])
     app.req_options.media_handlers = media.Handlers(
         {
             'application/json': media.JSONHandler(),
@@ -275,7 +307,9 @@ def falcon_app() -> falcon.App:
     return app
 
 
-def tls_falcon_server(app: falcon.App, http_port: int, keypath: str, certpath: str, cafilepath: str) -> http.Server:
+def tls_falcon_server(
+    app: falcon.App, http_port: int, keypath: str | None, certpath: str | None, cafilepath: str | None
+) -> http.Server:
     """Add TLS support to a Falcon server."""
     if keypath is not None:
         servant = tcp.ServerTls(certify=False, keypath=keypath, certpath=certpath, cafilepath=cafilepath, port=http_port)
@@ -333,10 +367,11 @@ def get_serve_dir(static_files_dir: str | None, did_doc_dir: str):
 def serve_artifacts(app: falcon.App, hby: habbing.Habery, static_files_dir: str | None = None, did_path: str = ''):
     """Set up static file serving for did.json and keri.cesr files"""
     if static_files_dir is not None:
-        did_doc_dir = get_serve_dir(static_files_dir, hby.cf.get().get('did.doc.dir', 'dws'))
-        logger.info(f'Serving static files from {did_doc_dir}')
+        did_doc_dir = get_serve_dir(static_files_dir, hby.cf.get().get('did.doc.dir', ''))
+        route = '' if did_path is None else f'/{did_path}'
+        logger.info(f'Serving static files from {did_doc_dir} at route {route}')
         # Host did:webs artifacts only if static path specified
-        app.add_static_route('' if did_path is None else f'/{did_path}', did_doc_dir)
+        app.add_static_route(route, did_doc_dir)
 
 
 def load_ends(
@@ -395,6 +430,7 @@ class UniversalResolverResource:
             did (str): The DID to resolve.
         """
         if did is None or did == '':
+            logger.error(f'Missing DID: {did}')
             rep.status = falcon.HTTP_400
             rep.content_type = 'application/json'
             rep.media = {'error': "invalid resolution request body, 'did' is required"}
@@ -403,6 +439,7 @@ class UniversalResolverResource:
         try:
             did = didding.requote(did)  # Re-quote the DID to ensure it is valid for resolution
         except ValueError as e:
+            logger.error(f'Invalid DID: {did}')
             rep.status = falcon.HTTP_400
             rep.content_type = 'application/json'
             rep.media = {'message': f'invalid DID: {did}', 'error': str(e)}
@@ -432,16 +469,18 @@ class UniversalResolverResource:
         elif did.startswith('did:keri'):
             result, data = resolve_did_keri(self.hby, self.rgy, did, oobi, meta)
         else:
+            logger.error(f'Failed to resolve invalid DID: {did}')
             rep.status = falcon.HTTP_400
             rep.media = {'error': f'invalid DID: {did}'}
             return
 
         if not result:
-            logger.error(f'Failed to resolve DID {did}: {data}')
+            logger.error(f'Failed to resolve DID {did}')
             rep.status = falcon.HTTP_417
             rep.media = data
             return
 
+        logger.info(f'Successfully resolved {did}')
         rep.status = falcon.HTTP_200
         rep.set_header('Content-Type', 'application/did+ld+json')
         rep.media = data

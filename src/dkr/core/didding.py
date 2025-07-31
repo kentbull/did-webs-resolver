@@ -14,6 +14,8 @@ from functools import reduce
 
 from keri.app import habbing
 from keri.core import coring
+from keri.core.eventing import Kever
+from keri.db.basing import Baser
 from keri.help import helping
 from keri.vdr import credentialing
 
@@ -330,24 +332,21 @@ def gen_did_document(did, vms, service_endpoints, also_known_as):
     return dict(id=did, verificationMethod=vms, service=service_endpoints, alsoKnownAs=also_known_as)
 
 
-def gen_did_resolution_result(witness_list, seq_no, equivalent_ids, did, vms, serv_ends, aka_ids):
+def gen_did_resolution_result(did_doc, witness_list, seq_no, equivalent_ids):
     """
     Generate a DID resolution result structure.
 
     Parameters:
+        did_doc (dict): The DID document to include in the resolution result.
         witness_list (list): A list of witnesses AIDs
         seq_no (int): The sequence number of the latest KEL event for the AID generating the DID document.
         equivalent_ids (list): A list of equivalent IDs.
-        did (str): The DID to include in the document.
-        vms (list): A list of verification methods.
-        serv_ends (list): A list of service endpoints.
-        aka_ids (list): A list of alternative identifiers.
 
     Returns:
         dict: A DID resolution result structure containing the DID document, resolution metadata, and document metadata.
     """
     return dict(
-        didDocument=gen_did_document(did, vms, serv_ends, aka_ids),
+        didDocument=did_doc,
         didResolutionMetadata=dict(contentType='application/did+json', retrieved=helping.nowUTC().strftime(DID_TIME_FORMAT)),
         didDocumentMetadata=dict(
             witnesses=witness_list,
@@ -355,6 +354,25 @@ def gen_did_resolution_result(witness_list, seq_no, equivalent_ids, did, vms, se
             equivalentId=equivalent_ids,
         ),
     )
+
+
+def get_witness_list(baser: Baser, kever: Kever):
+    witness_list = []
+    for idx, eid in enumerate(kever.wits):
+        for (tid, scheme), loc in baser.locs.getItemIter(keys=(eid,)):
+            witness_list.append(dict(idx=idx, scheme=scheme, url=loc.url))
+    return witness_list
+
+
+def get_equiv_aka_ids(did: str, aid: str, hby: habbing.Habery, rgy: credentialing.Regery):
+    equiv_ids = []
+    aka_ids = []
+    if did.startswith('did:webs') or did.startswith('did:web'):
+        for s in designated_aliases(hby, rgy, aid):
+            if s.startswith('did:webs'):
+                equiv_ids.append(s)
+            aka_ids.append(s)
+    return equiv_ids, aka_ids
 
 
 def generate_did_doc(hby: habbing.Habery, rgy: credentialing.Regery, did, aid, meta=False):
@@ -400,11 +418,6 @@ def generate_did_doc(hby: habbing.Habery, rgy: credentialing.Regery, did, aid, m
 
     vms = generate_verification_methods(kever.verfers, kever.tholder.thold, did, aid)
 
-    witness_list = []
-    for idx, eid in enumerate(kever.wits):
-        for (tid, scheme), loc in hby.db.locs.getItemIter(keys=(eid,)):
-            witness_list.append(dict(idx=idx, scheme=scheme, url=loc.url))
-
     serv_ends = []
     if hab and hasattr(hab, 'fetchRoleUrls'):
         ends = hab.fetchRoleUrls(cid=aid)
@@ -412,26 +425,18 @@ def generate_did_doc(hby: habbing.Habery, rgy: credentialing.Regery, did, aid, m
         ends = hab.fetchWitnessUrls(cid=aid)
         serv_ends.extend(add_ends(ends))
 
-    equiv_ids = []
-    aka_ids = []
-    if did.startswith('did:webs') or did.startswith('did:web'):
-        for s in designated_aliases(hby, rgy, aid):
-            if s.startswith('did:webs'):
-                equiv_ids.append(s)
-            aka_ids.append(s)
+    equiv_ids, aka_ids = get_equiv_aka_ids(did, aid, hby, rgy)
 
+    did_doc = gen_did_document(did, vms, serv_ends, aka_ids)
     if meta is True:
         return gen_did_resolution_result(
-            witness_list=witness_list,
+            did_doc=did_doc,
+            witness_list=get_witness_list(hby.db, kever),
             seq_no=kever.sner.num,
             equivalent_ids=equiv_ids,
-            did=did,
-            vms=vms,
-            serv_ends=serv_ends,
-            aka_ids=aka_ids,
         )
     else:
-        return gen_did_document(did, vms, serv_ends, aka_ids)
+        return did_doc
 
 
 def to_did_web(diddoc: dict, meta=False):

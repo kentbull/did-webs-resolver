@@ -1,6 +1,5 @@
 import json
 
-import hio
 import pytest
 from hio.base import doing
 
@@ -28,7 +27,7 @@ def test_load_url_with_hio_invalid_url_throws():
     assert 'Port could not be cast' in str(exc_info.value)
 
 
-def test_create_http_client_with_body_encodes(doist=None):
+def test_create_http_client_with_body_encodes():
     url = 'http://example.com/api'
     body = json.dumps({'key': 'value'})
     headers = {'Content-Type': 'application/json'}

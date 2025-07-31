@@ -13,6 +13,7 @@ from hio.base import doing
 from keri import core, kering
 from keri.app import agenting, configing, delegating, forwarding, grouping, habbing, indirecting, oobiing
 from keri.core import coring, eventing, scheming, serdering
+from keri.db import basing
 from keri.db.basing import dbdict
 from keri.vdr import credentialing, verifying
 from mockito import mock, when
@@ -21,7 +22,6 @@ from dkr import ArtifactResolveError
 from dkr.core import artifacting, didding, generating, requesting, resolving
 from dkr.core.didkeri import KeriResolver
 from dkr.core.ends import monitoring
-from dkr.core.resolving import UniversalResolverResource
 from tests import conftest
 from tests.conftest import CredentialHelpers, HabbingHelpers, WitnessContext, self_attested_aliases_cred_subj
 
@@ -87,7 +87,7 @@ def test_resolver_with_witnesses():
         # Doers and deeds for witness wan
         wit_deeds = doist.enter(doers=wan_wit.doers)
 
-        # Resolve OOBI
+        # Have Cracker Hab Resolve Wan's witness OOBI
         oobiery = oobiing.Oobiery(hby=ck_hby)
         authn = oobiing.Authenticator(hby=ck_hby)
         oobiery_deeds = doist.enter(doers=oobiery.doers + authn.doers)
@@ -178,14 +178,14 @@ def test_resolver_with_witnesses():
             resolver_regery,
             resolver_oobiery,
             http_port=7677,
-            static_files_dir='./tests/artifact_output_dir',
-            did_path='dws',
+            static_files_dir='./tests/artifact_output_dir/',
+            did_path='',  # don't need to specify 'dws' as did_path here because the directory structure already has a 'dws' subdir being served from '/'
             keypath=None,
             certpath=None,
             cafilepath=None,
         )
         resolver_deeds = doist.enter(doers=resolver_doers)
-        client, client_doer = requesting.create_http_client(method='GET', url=did_json_url)
+        client, client_doer = requesting.create_http_client(method='GET', url=f'{did_json_url}')
         resolution_deed = doist.enter(doers=[client_doer])
         while client.responses is None or len(client.responses) == 0:
             doist.recur(deeds=ck1_deeds + resolver_deeds + resolution_deed)
@@ -293,6 +293,127 @@ def test_resolver_with_witnesses():
             assert 'resolution timed out' in keri_resolver.result['error'], (
                 'KeriResolver result did not contain expected timeout error'
             )
+
+
+def test_artifact_server_hosts_artifacts():
+    # test using the dynamic artifact server allows retrieval of did.json and keri.cesr
+    aid_salt = b'0ACuuzf-aYxlda5fB6HzsEfP'
+    resolver_salt = b'0ADzZCSm8LTeyIiYWW1pg1gr'
+
+    wit_name = 'wes'
+    wit_aid = 'BJ2nSXbH8aH8jSdkjpq-ZU-hPTa4DJWx5OoJTZUe4WJP'  # determine by running once and hardcoding it here
+    wit_tcp = 6635
+    wit_http = 6645
+    wit_salt = core.Salter(raw=b'abcdef012345678X').qb64
+    wit_cf = configing.Configer(name='wes', temp=False, reopen=True, clear=False)
+    wit_cf.put(
+        json.loads(f"""{{
+          "dt": "2022-01-20T12:57:59.823350+00:00",
+          "{wit_name}": {{
+            "dt": "2022-01-20T12:57:59.823350+00:00",
+            "curls": ["tcp://127.0.0.1:{wit_tcp}/", "http://127.0.0.1:{wit_http}/"]}}}}""")
+    )
+    wit_oobi = f'http://127.0.0.1:{wit_http}/oobi/{wit_aid}/controller?name={wit_name}&tag=witness'
+
+    # Config of the AID controller keystore who is having their did:webs or did:keri artifacts resolved
+    ctlr_name = 'ada'
+    ctlr_cf = configing.Configer(name=ctlr_name, temp=False, reopen=True, clear=False)
+    ctlr_cf.put(
+        json.loads(f"""{{
+                  "dt": "2022-01-20T12:57:59.823350+00:00",
+                  "iurls": [
+                    "http://127.0.0.1:{wit_http}/oobi/{wit_aid}/controller?name={wit_name}&tag=witness"
+                  ]}}""")
+    )
+    ctlr_aid_name = 'ada_aid1'
+
+    # Open the witness Habery and Hab, feed it into the witness setup, and then create the AID controller Habery and Hab
+    with (
+        HabbingHelpers.openHab(salt=bytes(wit_salt, 'utf-8'), name=wit_name, transferable=False, temp=True, cf=wit_cf) as (
+            wit_hby,
+            wit_hab,
+        ),
+        WitnessContext.with_witness(name=wit_name, hby=wit_hby, http_port=wit_http, tcp_port=wit_tcp) as wit_ctx,
+        habbing.openHab(salt=aid_salt, name=ctlr_name, transferable=True, temp=True, cf=ctlr_cf) as (ctlr_hby, ctlr_hab),
+    ):
+        tock = 0.03125
+        doist = doing.Doist(limit=0.0, tock=tock, real=True)
+        # Doers and deeds for witness wan
+        wit_deeds = doist.enter(doers=wit_ctx.doers)
+
+        # Have Cracker Hab Resolve Wan's witness OOBI
+        ctlr_oobiery = oobiing.Oobiery(hby=ctlr_hby)
+        authn = oobiing.Authenticator(hby=ctlr_hby)
+        oobiery_deeds = doist.enter(doers=ctlr_oobiery.doers + authn.doers)
+        while not ctlr_oobiery.hby.db.roobi.get(keys=(wit_oobi,)):
+            doist.recur(deeds=wit_deeds + oobiery_deeds)
+            ctlr_hby.kvy.processEscrows()  # process any escrows from witness receipts
+        print(f'Resolved OOBI: {wit_oobi} to {ctlr_oobiery.hby.db.roobi.get(keys=(wit_oobi,))}')
+
+        ctlr_hby_doer = habbing.HaberyDoer(habery=ctlr_hby)
+        rgy = credentialing.Regery(hby=ctlr_hby, name=ctlr_hby.name, base=ctlr_hby.base, temp=ctlr_hby.temp)
+        anchorer = delegating.Anchorer(hby=ctlr_hby, proxy=None)
+        postman = forwarding.Poster(hby=ctlr_hby)
+        mbx = indirecting.MailboxDirector(hby=ctlr_hby, topics=['/receipt', '/replay', '/reply'])
+        wit_rcptr_doer = agenting.WitnessReceiptor(hby=ctlr_hby)
+        receiptor = agenting.Receiptor(hby=ctlr_hby)
+        ctlr_doers = [ctlr_hby_doer, anchorer, postman, mbx, wit_rcptr_doer, receiptor]
+        ctlr_deeds = doist.enter(doers=ctlr_doers)
+
+        ctlr_aid1_hab = ctlr_hby.makeHab(name=ctlr_aid_name, isith='1', icount=1, toad=1, wits=[wit_aid])
+
+        # Waiting for witness receipts...
+        wit_rcptr_doer.msgs.append(dict(pre=ctlr_aid1_hab.pre))
+        while not wit_rcptr_doer.cues:
+            doist.recur(deeds=wit_deeds + ctlr_deeds)
+
+        # set up dynamic artifact server doers and load keri.cesr and did.json artifacts
+        aid = 'EDKswKm3X0gxReQewbLjBbPzXPD67KsrLq0tI6kJU3sQ'  # ctlr_aid1_hab.pre
+        artifact_svr_doers = artifacting.dyn_artifact_svr_doers(
+            hby=ctlr_hby, rgy=rgy, alias=ctlr_aid_name, http_port=7678, meta=False
+        )
+
+        def run_artifact_server_other_thread(event: threading.Event):
+            """
+            Run the artifact server in a separate thread to allow it to serve artifacts while the test runs.
+            """
+            artifact_doist = doing.Doist(limit=0.0, tock=tock, real=True)
+            deeds = artifact_doist.enter(doers=artifact_svr_doers + [ctlr_hby_doer])
+            while not event.is_set():
+                artifact_doist.recur(deeds=deeds)
+
+        stop_event = threading.Event()
+        art_svr_thread = threading.Thread(target=run_artifact_server_other_thread, args=(stop_event,))
+        art_svr_thread.start()
+
+        # perform did.json request
+        did_json_url = f'http://127.0.0.1:{7678}/{aid}/did.json'
+        client, client_doer = requesting.create_http_client(method='GET', url=did_json_url)
+        did_json_deeds = doist.enter(doers=[client_doer])
+        while client.responses is None or len(client.responses) == 0:
+            doist.recur(deeds=did_json_deeds)
+
+        rep = client.respond()
+        assert rep.status == 200, f'Expected 200 for did.json artifact: {did_json_url}'
+        resp_body = json.loads(rep.body)
+        assert 'verificationMethod' in resp_body, 'Expected verificationMethod in did.json response'
+        assert 'id' in resp_body, 'Expected id in did.json response'
+        assert resp_body['id'] == f'did:web:127.0.0.1%3A7678:{aid}'
+
+        # perform keri.cesr request, reusing the artifact server thread from above
+        keri_cesr_url = f'http://127.0.0.1:{7678}/{aid}/keri.cesr'
+        client, client_doer = requesting.create_http_client(method='GET', url=keri_cesr_url)
+        keri_cesr_deeds = doist.enter(doers=[client_doer])
+        while client.responses is None or len(client.responses) == 0:
+            doist.recur(deeds=keri_cesr_deeds)
+
+        rep = client.respond()
+        assert rep.status == 200, f'Expected 200 for keri.cesr artifact: {keri_cesr_url}'
+        resp_body = rep.body
+        assert len(resp_body) > 0, 'Expected non-empty keri.cesr response'
+
+        stop_event.set()  # end artifact server thread since response is received
+        art_svr_thread.join()  # clean up the artifact server thread
 
 
 def test_resolution_failure():
@@ -853,7 +974,7 @@ def test_resolver_with_metadata_returns_correct_doc():
         assert response_diddoc == did_keri_diddoc, 'did:keri response did document does not match expected diddoc'
 
 
-def test_resolver_with_did_keri_resolve_returns_correct_doc(doist=None):
+def test_resolver_with_did_keri_resolve_returns_correct_doc():
     salt = b'0ACB-gtnUTQModt9u_UC3LFQ'
     with habbing.openHab(salt=salt, name='water', transferable=True, temp=True) as (hby, hab):
         hby_doer = habbing.HaberyDoer(habery=hby)
@@ -865,7 +986,7 @@ def test_resolver_with_did_keri_resolve_returns_correct_doc(doist=None):
         expected_doc = didding.generate_did_doc(hby, rgy=rgy, did=did_keri_did, aid=aid, meta=meta)
 
         # Run the did:keri resolver and verify it returns the expected DID doc
-        doist = doing.Doist(limit=1.0, tock=0.03125, real=True) if doist is None else doist
+        doist = doing.Doist(limit=1.0, tock=0.03125, real=True)
         keri_resolver = KeriResolver(did=did_keri_did, meta=meta, verbose=True, hby=hby, rgy=rgy)
         doist.do([keri_resolver])
         assert keri_resolver.result == expected_doc, 'KeriResolver did not return the expected DID document'
@@ -909,6 +1030,67 @@ def test_resolve_error_conditions():
         mock_get_artifacts.side_effect = Exception('Unexpected error')
         result, err = resolving.resolve(hby, rgy, 'did:webs:example.com:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v')
         assert not result, 'Expected result to be False for unexpected error'
+
+
+def test_resolve_meta_true_yet_no_returned_metadata_wraps_in_meta():
+    """
+    Tests the branch where metadata is requested yet the retrieved did.json document does not contain metadata
+    so the document is wrapped in metadata.
+    """
+    aid = 'EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft'
+    hby = mock(habbing.Habery)
+    hby.db = mock(basing.Baser)
+    rgy = mock(credentialing.Regery)
+    hby.kevers = dbdict()
+    kever = mock(eventing.Kever)
+    hby.kevers[aid] = kever
+    kever.sner = mock(serdering.SerderKERI)
+    kever.sner.num = 0
+
+    did = 'did:webs:127.0.0.1%3A7676:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft'
+    did_doc = b"""{
+        "id": "did:webs:127.0.0.1%3A7676:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft",
+        "verificationMethod": [
+          {
+            "id": "#DLocH0g8QYMUqaxn7UcxQbiy-vp5m_1LQY4DsHu0CRrw",
+            "type": "JsonWebKey",
+            "controller": "did:webs:127.0.0.1%3A7676:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft",
+            "publicKeyJwk": {
+              "kid": "DLocH0g8QYMUqaxn7UcxQbiy-vp5m_1LQY4DsHu0CRrw",
+              "kty": "OKP",
+              "crv": "Ed25519",
+              "x": "uhwfSDxBgxSprGftRzFBuLL6-nmb_UtBjgOwe7QJGvA"
+            }
+          }
+        ],
+        "service": [],
+        "alsoKnownAs": []
+      }"""
+    keri_cesr = b''
+    with (
+        patch('dkr.core.resolving.get_did_artifacts') as mock_get_artifacts,
+        patch('dkr.core.resolving.save_cesr') as mock_save_cesr,
+        # patch('dkr.core.didding.from_did_web') as mock_from_did_web,
+        patch('dkr.core.resolving.get_generated_did_doc') as mock_get_gen_did_doc,
+        patch('dkr.core.resolving.verify') as mock_verify,
+        patch('dkr.core.didding.get_equiv_aka_ids') as mock_get_equiv_aka_ids,
+        patch('dkr.core.didding.get_witness_list') as mock_get_witness_list,
+    ):
+        mock_get_witness_list.return_value = []
+        mock_get_equiv_aka_ids.return_value = [], []
+
+        # Mock the return value to simulate no metadata
+        mock_get_artifacts.return_value = (aid, did_doc, keri_cesr)
+
+        wrapped_dd = resolving.wrap_metadata(json.loads(did_doc.decode()), did, aid, hby, rgy)
+        dd_actual = didding.from_did_web(wrapped_dd, True)
+
+        mock_get_gen_did_doc.return_value = {}
+        mock_verify.return_value = True, {}
+
+        result, err = resolving.resolve(hby, rgy, did, meta=True)
+
+        mock_verify.assert_called_once_with({}, dd_actual, meta=True)
 
 
 def test_save_cesr_aid_not_in_kevers_raises():

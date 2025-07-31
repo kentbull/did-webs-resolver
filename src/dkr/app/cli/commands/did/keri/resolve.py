@@ -6,9 +6,6 @@ dkr.app.cli.commands module
 
 import argparse
 
-from keri.app import habbing
-from keri.app.cli.common import existing
-
 from dkr import log_name, ogler, set_log_level
 from dkr.core.didkeri import KeriResolver
 

@@ -2,13 +2,11 @@ import datetime
 import urllib.parse
 from typing import List, Optional, Tuple
 
-import hio
 from hio.base import doing
 from hio.core import http
-from keri import kering
 from keri.help import helping
 
-from dkr import ArtifactResolveError, DidWebsError
+from dkr import ArtifactResolveError
 
 
 def load_url_with_hio(url: str, timeout: float = 5.0, method: str = 'GET') -> bytes:
@@ -88,6 +86,10 @@ class HTTPClienter(doing.DoDoer):
 
     def __init__(self, tymth=None, timeout: float = 5.0):
         """
+        Parameters:
+            tymth: Tymth instance for time management. If None, uses the default DoDoer's tymth.
+            timeout: Timeout in seconds for each HTTP client request.
+
         Attributes:
             clients: List of tuples containing (http.clienting.Client, ClientDoer, datetime) for each client.
             always: If False, shut down the Clienter when no clients remain. If true, run indefinitely.

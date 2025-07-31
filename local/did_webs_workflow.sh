@@ -26,7 +26,7 @@ command -v dkr >/dev/null 2>&1 || { print_red "dkr is not installed or not avail
 
 # need to run witness network
 DOMAIN=127.0.0.1
-DID_PORT=7677
+DID_PORT=7676
 print_dark_gray "Assumes witnesses started and running..."
 WAN_PRE=BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
 
@@ -157,7 +157,7 @@ kli vc list --name "${KEYSTORE_NAME}" --alias "${AID_ALIAS}" --issued \
 echo
 
 # generate controller did:webs for DOMAIN
-# example: did:webs:127.0.0.1%3A7677:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft
+# example: did:webs:127.0.0.1%3A7676:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft
 MY_DIDWEBS_DID="did:webs:${DOMAIN}%3A${DID_PORT}:${ARTIFACT_PATH}:${MY_AID}"
 print_yellow "Generating did:webs DID for ${KEYSTORE_NAME} on ${DOMAIN} with AID ${MY_AID} in ${WEB_DIR}/${ARTIFACT_PATH}"
 print_yellow "       of: ${MY_DIDWEBS_DID}"
@@ -179,6 +179,7 @@ fi
 
 resolver_service_pid=""
 dkr did webs resolver-service \
+  --http 7676 \
   --name "${KEYSTORE_NAME}" \
   --config-dir="${CONFIG_DIR}/controller" \
   --config-file "${KEYSTORE_NAME}" \
@@ -186,7 +187,7 @@ dkr did webs resolver-service \
   --did-path "${ARTIFACT_PATH}" &
 resolver_service_pid=$!
 
-# Sample DID: "did:webs:127.0.0.1%3A7677:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft
+# Sample DID: "did:webs:127.0.0.1%3A7676:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft
 status=0
 function resolve_didwebs(){
   if [[ "${METADATA_TRUE}" = true ]] ; then

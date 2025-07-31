@@ -11,25 +11,31 @@ from typing import Callable
 import falcon
 import requests
 from falcon import media
+from hio.base import doing
 from hio.core import http, tcp
 from keri import kering
 from keri.app import habbing, oobiing
 from keri.app.habbing import Habery
 from keri.app.oobiing import Oobiery
+from keri.db import basing
+from keri.help import helping
 from keri.vdr import credentialing
 
-from dkr import log_name, ogler
+from dkr import ArtifactResolveError, log_name, ogler
 from dkr.core import didding, ends, requesting
 
 logger = ogler.getLogger(log_name)
 
 
-def load_url_with_requests(url: str) -> bytes:
+def load_url_with_requests(url: str, timeout: float = 5.0) -> bytes:
     try:
-        response = requests.get(url=url)
+        response = requests.get(url=url, timeout=timeout)
     except requests.exceptions.ConnectionError as e:
         logger.error(f'Failed to connect to URL {url}: {e}')
-        raise
+        raise ArtifactResolveError(f'Failed to connect to URL {url}') from e
+    except Exception as e:
+        logger.error(f'Failed to load URL {url}: {e}')
+        raise ArtifactResolveError(f'Failed to load URL {url}') from e
     # Ensure the request was successful
     response.raise_for_status()
     return response.content
@@ -52,17 +58,17 @@ def get_urls(did: str) -> (str, str, str):
     return aid, dd_url, kc_url
 
 
-def get_did_artifacts(did: str, load_url: Callable = load_url_with_requests) -> (str, bytes, bytes):
+def get_did_artifacts(did: str, load_url: Callable = load_url_with_requests, timeout: float = 5.0) -> (str, bytes, bytes):
     aid, dd_url, kc_url = get_urls(did=did)
 
     # Load the did doc
     logger.info(f'Loading DID Doc from {dd_url}')
-    dd_res = load_url(dd_url)
+    dd_res = load_url(dd_url, timeout=timeout)
     logger.debug(f'Got DID doc: {dd_res.decode("utf-8")}')
 
     # Load the KERI CESR
     logger.info(f'Loading KERI CESR from {kc_url}')
-    kc_res = load_url(kc_url)
+    kc_res = load_url(kc_url, timeout=timeout)
     logger.debug(f'Got KERI CESR: {kc_res.decode("utf-8")}')
 
     return aid, dd_res, kc_res
@@ -213,10 +219,22 @@ def _compare_dicts(expected, actual, path=''):
 
 
 def resolve(
-    hby: habbing.Habery, rgy: credentialing.Regery, did: str, meta: bool = False, load_url: Callable = load_url_with_requests
+    hby: habbing.Habery,
+    rgy: credentialing.Regery,
+    did: str,
+    meta: bool = False,
+    load_url: Callable = load_url_with_requests,
+    timeout: float = 5.0,
 ) -> (bool, dict):
     """Resolve a did:webs DID and returl the verification result."""
-    aid, dd_res, kc_res = get_did_artifacts(did=did, load_url=load_url)
+    try:
+        aid, dd_res, kc_res = get_did_artifacts(did=did, load_url=load_url, timeout=timeout)
+    except ArtifactResolveError as e:
+        logger.error(f'Failed to resolve DID {did}: {e}')
+        return False, {'error': str(e)}
+    except Exception as e:
+        logger.error(f'Unexpected error while resolving DID {did}: {e}')
+        return False, {'error': f'Unexpected error while resolving DID {did}: {e}'}
     save_cesr(hby=hby, kc_res=kc_res, aid=aid)
     dd_actual = didding.from_did_web(json.loads(dd_res.decode('utf-8')), meta)
     dd_expected = get_generated_did_doc(hby=hby, rgy=rgy, did=did, meta=meta)
@@ -341,6 +359,8 @@ class UniversalResolverResource:
     HTTP Resource enabling the Universal Resolver to resolve did:webs and did:keri DIDs using the /v1.0/identifiers/{did}  endpoint.
     """
 
+    TimeoutArtifactResolution = 5.0  # seconds to wait for artifact resolution before timing out
+
     def __init__(
         self,
         hby: habbing.Habery,
@@ -406,7 +426,9 @@ class UniversalResolverResource:
             query_vars = didding.parse_query_string(query)
             if 'meta' in query_vars:
                 meta = query_vars['meta']
-            result, data = resolve(hby=self.hby, rgy=self.rgy, did=did, meta=meta, load_url=self.load_url)
+            result, data = resolve(
+                hby=self.hby, rgy=self.rgy, did=did, meta=meta, load_url=self.load_url, timeout=self.TimeoutArtifactResolution
+            )
         elif did.startswith('did:keri'):
             result, data = resolve_did_keri(self.hby, self.rgy, did, oobi, meta)
         else:
@@ -427,7 +449,20 @@ class UniversalResolverResource:
 
 
 def resolve_did_keri(hby: habbing.Habery, rgy: credentialing.Regery, did: str, oobi: str = None, meta: bool = False):
-    aid = didding.parse_did_keri(did)
-    if oobi is not None and hby.db.roobi.get(keys=(oobi,)) is None:
-        return False, {'error': f'OOBI {oobi} not found in the Habery'}
+    aid, query = didding.parse_did_keri(did)
+    if oobi is None and hby.kevers.get(aid) is None:
+        return False, {'error': f'Unknown AID, cannot resolve DID {did}'}
+    if hby.kevers.get(aid) is not None:  # return early if AID is known
+        return True, didding.generate_did_doc(hby, rgy, did=did, aid=aid, meta=meta)
+    oobiery = oobiing.Oobiery(hby=hby)
+    doist = doing.Doist(limit=10.0, tock=0.03125, real=True)
+    deeds = doist.enter(oobiery.doers)
+
+    # Add OOBI record to Baser.oobis so it will be resolved
+    obr = basing.OobiRecord(date=helping.nowIso8601())
+    obr.cid = aid
+    hby.db.oobis.pin(keys=(oobi,), val=obr)
+    while hby.db.roobi.get(keys=(oobi,)) is None:
+        doist.recur(deeds)
+
     return True, didding.generate_did_doc(hby, rgy, did=did, aid=aid, meta=meta)

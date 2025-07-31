@@ -13,7 +13,7 @@ build-dws-base: .warn
 	@docker build \
 		--platform=linux/amd64,linux/arm64 \
 		-f images/dws-base.dockerfile \
-		-t gleif/webs:$(VERSION) .
+		-t gleif/dws-base:$(VERSION) .
 
 publish-dws-base:
 	@docker push gleif/dws-base:$(VERSION)
@@ -21,30 +21,30 @@ publish-dws-base:
 tag-dws-base-latest:
 	@$(MAKE) tag IMAGE_NAME=gleif/dws-base VERSION=$(VERSION)
 
-tag-latest: tag-dws-base-latest tag-dws-web-service-latest tag-dws-resolver-latest
+tag-latest: tag-dws-base-latest tag-dws-web-service-latest tag-did-webs-resolver-latest
 
 build-dws-web-service: .warn
 	@docker build \
 		--platform=linux/amd64,linux/arm64 \
-		-f images/dws-webs-service.dockerfile \
+		-f images/dws-web-service.dockerfile \
 		-t gleif/did-webs-service:latest \
 		-t gleif/did-webs-service:$(VERSION) .
 
 publish-dws-web-service:
-	@docker push gleif/dws-web-service:$(VERSION)
+	@docker push gleif/did-webs-service:$(VERSION)
 
 tag-dws-web-service-latest:
 	@$(MAKE) tag IMAGE_NAME=gleif/dws-web-service VERSION=$(VERSION)
 
-build-did-webs-resolver: .warn
+build-did-webs-resolver-service: .warn
 	@docker build \
 		--platform=linux/amd64,linux/arm64 \
-		-f images/did-webs-resolver.dockerfile \
-		-t gleif/did-webs-resolver:latest \
-		-t gleif/did-webs-resolver:$(VERSION) .
+		-f images/dws-resolver-service.dockerfile \
+		-t gleif/did-webs-resolver-service:latest \
+		-t gleif/did-webs-resolver-service:$(VERSION) .
 
-publish-did-webs-resolver:
-	@docker push gleif/did-webs-resolver:$(VERSION)
+publish-did-webs-resolver-service:
+	@docker push gleif/did-webs-resolver-service:$(VERSION)
 
 tag-did-webs-resolver-latest:
 	@$(MAKE) tag IMAGE_NAME=gleif/did-webs-resolver VERSION=$(VERSION)

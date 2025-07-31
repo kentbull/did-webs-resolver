@@ -28,6 +28,10 @@ class DidWebsError(Exception):
     pass
 
 
+class ArtifactResolveError(DidWebsError):
+    pass
+
+
 class UnknownAID(DidWebsError):
     """Exception raised when an unknown AID is encountered."""
 

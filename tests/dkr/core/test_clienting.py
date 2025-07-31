@@ -4,6 +4,7 @@ import hio
 import pytest
 from hio.base import doing
 
+from dkr import ArtifactResolveError
 from dkr.core import requesting
 
 
@@ -46,11 +47,11 @@ def test_create_http_client_with_body_encodes(doist=None):
 
 def test_load_url_with_hio_timeout_causes_hio_error():
     bad_url = 'https://example.com/oobi/EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5/'
-    with pytest.raises(hio.HioError) as exc_info:
+    with pytest.raises(ArtifactResolveError) as exc_info:
         requesting.load_url_with_hio(bad_url, timeout=0.1)
     assert 'Failed to load URL' in str(exc_info.value), 'Should raise HioError on timeout'
 
     # requesting.load_url_with_hio_clienter(bad_url, timeout=1.0)
-    with pytest.raises(hio.HioError) as exc_info:
+    with pytest.raises(ArtifactResolveError) as exc_info:
         requesting.load_url_with_hio_clienter(bad_url, timeout=0.1)
     assert 'Failed to load URL' in str(exc_info.value), 'Should raise HioError on timeout'

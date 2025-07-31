@@ -28,7 +28,7 @@ did = 'did:webs:127.0.0.1:ECCoHcHP1jTAW8Dr44rI2kWzfF71_U0sZwvV-J_q4YE7'
 def test_parse_keri_did():
     # Valid did:keri DID
     did = 'did:keri:EKW4IEkAZ8VQ_ADXbtRsSOQ_Gk0cRxp6U4qKSr4Eb8zg'
-    aid = didding.parse_did_keri(did)
+    aid, query = didding.parse_did_keri(did)
     assert aid == 'EKW4IEkAZ8VQ_ADXbtRsSOQ_Gk0cRxp6U4qKSr4Eb8zg'
 
     # Invalid AID in did:keri
@@ -1059,6 +1059,17 @@ def test_re_encode_invalid_did_encodes_did_keri_did():
     assert result == did_keri_did, f'Expected {did_keri_did}, but got {result}'
 
 
+def test_did_keri_regex_match_parses_query():
+    aid = 'EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v'
+    query = '?meta=true&oobi=http%3A//127.0.0.1%3A6642/oobi/EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v/witness/BPwwr5VkI1b7ZA2mVbzhLL47UPjsGBX4WeO6WRv6c7H-'
+    did_keri_did = f'did:keri:{aid}{query}'
+    matched_aid, matched_query = didding.parse_did_keri(did_keri_did)
+    assert matched_aid is not None, f'Expected AID to be parsed, but got {aid}'
+    assert matched_query is not None, f'Expected query to be parsed, but got {query}'
+    assert matched_aid == aid, f'Expected matched AID to be {aid}, but got {matched_aid}'
+    assert matched_query == query, f'Expected matched query to be {query}, but got {matched_query}'
+
+
 def test_requote_did_re_encodes_improperly_url_encoded_dids():
     invalidly_encoded_did = (
         f'did%3Awebs%3Aexample.com%3A8443%3Amy%3Apath%3Acomponents%3AEKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4?meta=true'
@@ -1078,6 +1089,7 @@ def test_extract_desg_alias_from_cred_rev_status_returns_none():
 
 def test_keri_resolver_with_empty_hby_creates_hby():
     hby_mock = mock(habbing.Habery)
+    hby_mock.db = mock(basing.Baser)
     hby_doer_mock = mock(habbing.HaberyDoer)
     rgy_mock = mock(credentialing.Regery)
     with patch('dkr.core.habs.get_habery_and_doer') as mock_get_habery_and_doer:

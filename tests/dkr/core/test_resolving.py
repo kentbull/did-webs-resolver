@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+import threading
 import urllib.parse
 from unittest.mock import MagicMock, Mock, patch
 
@@ -12,12 +13,15 @@ from hio.base import doing
 from keri import core, kering
 from keri.app import agenting, configing, delegating, forwarding, grouping, habbing, indirecting, oobiing
 from keri.core import coring, eventing, scheming, serdering
+from keri.db.basing import dbdict
 from keri.vdr import credentialing, verifying
 from mockito import mock, when
 
+from dkr import ArtifactResolveError
 from dkr.core import artifacting, didding, generating, requesting, resolving
 from dkr.core.didkeri import KeriResolver
 from dkr.core.ends import monitoring
+from dkr.core.resolving import UniversalResolverResource
 from tests import conftest
 from tests.conftest import CredentialHelpers, HabbingHelpers, WitnessContext, self_attested_aliases_cred_subj
 
@@ -40,7 +44,8 @@ def test_resolver_with_witnesses():
     This test spins up an actual witness and performs proper, receipted inception and credential
     issuance for an end-to-end integration test of the universal resolver endpoints.
     """
-    salt = b'0AAB_Fidf5WeZf6VFc53IxVw'
+    aid_salt = b'0AAB_Fidf5WeZf6VFc53IxVw'
+    resolver_salt = b'0AAl3nvsqKGyKHp2Hz9wLy9t'
     registry_nonce = '0ADV24br-aaezyRTB-oUsZJE'
     wit_salt = core.Salter(raw=b'abcdef0123456789').qb64
     wit_cf = configing.Configer(name='wan', temp=False, reopen=True, clear=False)
@@ -70,7 +75,11 @@ def test_resolver_with_witnesses():
             wit_hab,
         ),
         WitnessContext.with_witness(name='wan', hby=wit_hby) as wan_wit,
-        habbing.openHab(salt=salt, name='crackers', transferable=True, temp=True, cf=ckr_cf) as (ck_hby, ck_hab),
+        habbing.openHab(salt=aid_salt, name='crackers', transferable=True, temp=True, cf=ckr_cf) as (ck_hby, ck_hab),
+        habbing.openHab(salt=resolver_salt, name='resolver', transferable=True, temp=True, cf=None) as (
+            resolver_hby,
+            resolver_hab,
+        ),
     ):
         wan_pre = 'BPwwr5VkI1b7ZA2mVbzhLL47UPjsGBX4WeO6WRv6c7H-'
         tock = 0.03125
@@ -162,10 +171,12 @@ def test_resolver_with_witnesses():
         doist.do([did_art_gen])
 
         # Start up a universal resolver to test that resolution works
+        resolver_regery = credentialing.Regery(hby=resolver_hby, name=resolver_hby.name, temp=resolver_hby.temp)
+        resolver_oobiery = oobiing.Oobiery(hby=resolver_hby)
         resolver_doers = resolving.setup_resolver(
-            ck_hby,
-            regery,
-            oobiery,
+            resolver_hby,
+            resolver_regery,
+            resolver_oobiery,
             http_port=7677,
             static_files_dir='./tests/artifact_output_dir',
             did_path='dws',
@@ -189,15 +200,32 @@ def test_resolver_with_witnesses():
         controller_oobi = f'http://127.0.0.1:6642/oobi/{aid}/witness/{wan_pre}'
         did_keri_did = f'{did_keri_did}?meta=true&oobi={urllib.parse.quote(controller_oobi)}'
         did_keri_url = f'http://{host}:{7677}/1.0/identifiers/{did_keri_did}'
+
+        # Separate witness thread so it can respond to the OOBI request without blocking this main
+        # test thread
+        def run_witness_other_thread(event: threading.Event):
+            wit_doist = doing.Doist(limit=0.0, tock=tock, real=True)
+            while not event.is_set():
+                wit_doist.recur(deeds=wit_deeds)
+
+        stop_event = threading.Event()
+        wit_thread = threading.Thread(target=run_witness_other_thread, args=(stop_event,))
+        wit_thread.start()
+
         client, client_doer = requesting.create_http_client(method='GET', url=did_keri_url)
-        # client, client_doer = requesting.create_http_client(method='GET', url=f'http://{host}:{7677}/health')
         resolution_deed = doist.enter(doers=[client_doer])
         while client.responses is None or len(client.responses) == 0:
             doist.recur(deeds=ck1_deeds + resolver_deeds + resolution_deed)
+        stop_event.set()  # end witness thread since response is received
+        wit_thread.join()  # clean up the witness thread
+
         rep = client.respond()
-        assert rep.status == 417
         resp_body = json.loads(rep.body)
-        assert resp_body['error'] == f'OOBI {controller_oobi} not found in the Habery'
+        # Expected did doc
+        resolver_regery = credentialing.Regery(hby=resolver_hby, name=resolver_hby.name, temp=resolver_hby.temp)
+        exp_did_keri_diddoc = didding.generate_did_doc(resolver_hby, rgy=resolver_regery, did=did_keri_did, aid=aid, meta=meta)
+        assert rep.status == 200
+        assert resp_body == exp_did_keri_diddoc, f'actual and expected did doc did not match for did:keri DID: {did_keri_did}'
 
         # resolve did:dud fails as invalid did
         did_dud = 'did:dud:invalid'
@@ -210,6 +238,106 @@ def test_resolver_with_witnesses():
         assert rep.status == 400
         resp_body = json.loads(rep.body)
         assert resp_body['error'] == f'invalid DID: {urllib.parse.quote(did_dud)}'
+
+        # Test resolving did:keri did from Habery that doesn't know about it triggers OOBI resolution
+        with habbing.openHab(salt=resolver_salt, name='other', transferable=True, temp=True, cf=None) as (
+            other_hby,
+            other_hab,
+        ):
+            # Start witness thread in background to respond to OOBI requests
+            stop_event = threading.Event()
+            wit_thread = threading.Thread(target=run_witness_other_thread, args=(stop_event,))
+            wit_thread.start()
+
+            # get did:keri resolver ready and run it
+            other_regery = credentialing.Regery(hby=other_hby, name=other_hby.name, temp=other_hby.temp)
+            KeriResolver.TimeoutOOBIResolve = 10.0  # set timeout back to 10 seconds for this test
+            keri_resolver = KeriResolver(did=did_keri_did, meta=False, verbose=False, hby=other_hby, rgy=other_regery)
+            other_doist = doing.Doist(limit=5.0, tock=0.03125, real=True)
+            other_doist.do([keri_resolver])
+
+            stop_event.set()
+            wit_thread.join()
+            exp_did_doc = didding.generate_did_doc(hby=other_hby, rgy=other_regery, did=did_keri_did, aid=aid, meta=False)
+            assert keri_resolver.result is not None, 'KeriResolver did not return a result'
+            assert keri_resolver.result == exp_did_doc, 'KeriResolver result did not match expected DID Document'
+
+        # Test resolving did:keri did from Habery that doesn't know about with bad OOBI triggers timeout
+        with habbing.openHab(salt=resolver_salt, name='another', transferable=True, temp=True, cf=None) as (
+            another_hby,
+            another_hab,
+        ):
+            did_keri_did = f'did:keri:{aid}'
+            bad_controller_oobi = f'http://127.0.0.1:6646/oobi/{aid}/witness/{wan_pre}'
+            bad_did_keri_did = f'{did_keri_did}?meta=true&oobi={urllib.parse.quote(bad_controller_oobi)}'
+            # Start witness thread in background to respond to OOBI requests
+            stop_event = threading.Event()
+            wit_thread = threading.Thread(target=run_witness_other_thread, args=(stop_event,))
+            wit_thread.start()
+
+            # get did:keri resolver ready and run it
+            another_regery = credentialing.Regery(hby=another_hby, name=another_hby.name, temp=another_hby.temp)
+            KeriResolver.TimeoutOOBIResolve = 0.1  # set timeout to 1 second for this test
+            keri_resolver = KeriResolver(did=bad_did_keri_did, meta=False, verbose=False, hby=another_hby, rgy=another_regery)
+            other_doist = doing.Doist(limit=10.0, tock=0.03125, real=True)
+            with pytest.raises(kering.KeriError) as exc_info:
+                other_doist.do([keri_resolver])
+            assert 'resolution timed out' in str(exc_info.value), 'KeriResolver did not raise timeout error as expected'
+
+            stop_event.set()
+            try:
+                wit_thread.join()
+            except Exception as e:
+                pass  # ignore any witness thread join exceptions
+            assert 'error' in keri_resolver.result, 'KeriResolver did not return an error result'
+            assert 'resolution timed out' in keri_resolver.result['error'], (
+                'KeriResolver result did not contain expected timeout error'
+            )
+
+
+def test_resolution_failure():
+    # TODO rework and reenable this test
+    # test a resolution failure
+    # UniversalResolverResource.TimeoutArtifactResolution = 0.1  # set timeout to 1 second for this test
+    # unknown_did_webs_did = f'did:webs:{host}%3A{7678}:{did_path}:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5X'  # Invalid AID
+    # did_webs_url = f'http://{host}:{7677}/1.0/identifiers/{unknown_did_webs_did}'
+    #
+    # cracker_static_doers = resolving.setup_resolver(
+    #     ck_hab,
+    #     regery,
+    #     oobiery,
+    #     http_port=7678,
+    #     static_files_dir='./tests/artifact_output_dir',
+    #     did_path='dws',
+    #     keypath=None,
+    #     certpath=None,
+    #     cafilepath=None,
+    # )
+    # cracker_static_deeds = doist.enter(doers=cracker_static_doers)
+    #
+    # def run_static_server_other_thread(event: threading.Event):
+    #     wit_doist = doing.Doist(limit=0.0, tock=tock, real=True)
+    #     while not event.is_set():
+    #         wit_doist.recur(deeds=cracker_static_deeds)
+    #
+    # stop_event = threading.Event()
+    # resolver_thread = threading.Thread(target=run_static_server_other_thread, args=(stop_event,))
+    # resolver_thread.start()
+    #
+    # client, client_doer = requesting.create_http_client(method='GET', url=did_webs_url)
+    # resolution_deed = doist.enter(doers=[client_doer])
+    # while client.responses is None or len(client.responses) == 0:
+    #     doist.recur(deeds=resolver_deeds + resolution_deed)
+    # stop_event.set()  # end witness thread since response is received
+    # resolver_thread.join()  # clean up the witness thread
+    #
+    # rep = client.respond()
+    # assert rep.status == 417, f'Expected 417 for unknown did:webs DID: {unknown_did_webs_did}'
+    # resp_body = json.loads(rep.body)
+    # assert 'error' in resp_body, 'Expected error in response body for unknown did:webs DID'
+    # assert 'Failed to load URL' in resp_body['error'], f'Expected error message for unknown did:webs DID: {unknown_did_webs_did}'
+    # # UniversalResolverResource.TimeoutArtifactResolution = 5.0  # reset timeout
+    pass
 
 
 def test_compare_dicts_returns_differences_when_present():
@@ -388,7 +516,7 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
         did_webs_diddoc = didding.generate_did_doc(hby, rgy=regery, did=did_webs_did, aid=aid, meta=meta)
 
         # Mock load_url to return the did.json and keri.cesr content
-        def mock_load_url(url):
+        def mock_load_url(url, timeout=None):
             if url == did_json_url:
                 # whitespace added for readability - this is just bytes and the whitespace does not impact the actual content
                 # fmt: off
@@ -509,15 +637,6 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
         did_keri_diddoc = didding.generate_did_doc(hby, rgy=regery, did=did_keri_did, aid=aid, meta=meta)
         assert response_diddoc == did_keri_diddoc, 'did:keri response did document does not match expected diddoc'
 
-        # TODO test a resolution failure
-        # if didding.DID_RES_META_FIELD in vresult:
-        #     if vresult[didding.DID_RES_META_FIELD]['error'] == 'notVerified':
-        #         assert False, "DID verification failed"
-
-        # doist.exit()
-
-        """Done Test"""
-
 
 def test_universal_resolver_resource_on_get_error_cases():
     # Some error test cases for the UniversalResolverResource
@@ -540,7 +659,7 @@ def test_universal_resolver_resource_on_get_error_cases():
         regery = credentialing.Regery(hby=hby, name=hab.name, temp=hby.temp)
 
         # Mock load_url to return the did.json and keri.cesr content
-        def mock_load_url(url):
+        def mock_load_url(url, timeout=None):
             if url == did_json_url:
                 return bytearray()
             elif url == keri_cesr_url:
@@ -610,7 +729,7 @@ def test_resolver_with_metadata_returns_correct_doc():
         did_webs_diddoc = didding.generate_did_doc(hby, rgy=regery, did=did_webs_did, aid=aid, meta=meta)
 
         # Mock load_url to return the did.json and keri.cesr content
-        def mock_load_url(url):
+        def mock_load_url(url, timeout=None):
             if url == did_json_url:
                 # whitespace added for readability - this is just bytes and the whitespace does not impact the actual content
                 # fmt: off
@@ -762,15 +881,34 @@ def test_load_url_with_requests_fails_on_connection_error():
     # Mock out the requests library
     with patch('requests.get') as mock_get:
         mock_get.side_effect = requests.exceptions.ConnectionError('Connection failed')
-        with pytest.raises(requests.exceptions.ConnectionError) as excinfo:
+        with pytest.raises(ArtifactResolveError) as excinfo:
             resolving.load_url_with_requests('http://example.com')
-        assert str(excinfo.value) == 'Connection failed', 'Expected ConnectionError with specific message'
+        assert 'Failed to connect to URL' in str(excinfo.value), 'Expected error message for ArtifactResolveError'
+
+        mock_get.side_effect = Exception('Unexpected error')
+        with pytest.raises(ArtifactResolveError) as excinfo:
+            resolving.load_url_with_requests('http://example.com')
+        assert 'Failed to load URL' in str(excinfo.value), 'Expected error message for ArtifactResolveError'
 
     with patch('requests.get') as mock_get:
         # mock returning a byte array in response.content
         mock_get.return_value.content = b'{"key": "value"}'
         result = resolving.load_url_with_requests('http://example.com')
         assert result == b'{"key": "value"}', 'Expected byte array response from mocked requests.get'
+
+
+def test_resolve_error_conditions():
+    hby = mock()
+    rgy = mock()
+    with patch('dkr.core.resolving.get_did_artifacts') as mock_get_artifacts:
+        mock_get_artifacts.side_effect = ArtifactResolveError('Failed to resolve artifacts')
+        result, err = resolving.resolve(hby, rgy, 'did:webs:example.com:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v')
+        assert not result, 'Expected result to be False for resolution failure'
+        assert err == {'error': 'Failed to resolve artifacts'}, 'Expected error message for resolution failure'
+
+        mock_get_artifacts.side_effect = Exception('Unexpected error')
+        result, err = resolving.resolve(hby, rgy, 'did:webs:example.com:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v')
+        assert not result, 'Expected result to be False for unexpected error'
 
 
 def test_save_cesr_aid_not_in_kevers_raises():
@@ -807,3 +945,28 @@ def test_tls_falcon_server_keypath_present_returns_server_tls():
     with patch('hio.core.http.Server') as mock_server:
         server = resolving.tls_falcon_server(app, 10, None, None, None)
         mock_server.assert_called_once_with(port=10, app=app, servant=None)
+
+
+def test_resolution_failure_with_mocks():
+    hby = mock()
+    rgy = mock()
+    oobiery = mock()
+    load_url = mock()
+    with patch('dkr.core.resolving.resolve') as mock_resolve:
+        mock_resolve.return_value = False, {}
+        resolver = resolving.UniversalResolverResource(hby=hby, rgy=rgy, oobiery=oobiery, load_url=load_url)
+        req = mock()
+        req.params = {}
+        rep = mock(falcon.Response)
+        resolver.on_get(req, rep, 'did:webs:example.com:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v')
+        assert rep.status == falcon.HTTP_417, 'Expected HTTP 417 Expectation Failed for resolution failure'
+
+
+def test_resolve_did_keri_error_cases():
+    hby = mock()
+    hby.kevers = dbdict()
+    rgy = mock()
+    did = 'did:keri:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU'
+    result, err = resolving.resolve_did_keri(hby, rgy, did)
+    assert not result, 'Expected result to be False for invalid did:keri'
+    assert err == {'error': f'Unknown AID, cannot resolve DID {did}'}

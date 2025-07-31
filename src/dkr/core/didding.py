@@ -21,9 +21,15 @@ from dkr import DidWebsError, UnknownAID, log_name, ogler
 
 logger = ogler.getLogger(log_name)
 
-DID_KERI_RE = re.compile(r'\Adid:keri:(?P<aid>[^:]+)\Z', re.IGNORECASE)
+DID_KERI_RE = re.compile(
+    pattern=r'\Adid:keri:'
+    r'(?:(?P<aid>[^:?]+))'
+    r'(?P<query>\?.*)?\Z',
+    flags=re.IGNORECASE,
+)
 DID_WEBS_RE = re.compile(
-    pattern=r'\Adid:web(s)?:(?P<domain>[^%:]+)'
+    pattern=r'\Adid:web(s)?:'
+    r'(?P<domain>[^%:]+)'
     r'(?:%3a(?P<port>\d+))?'
     r'(?::(?P<path>.+?))?'
     r'(?::(?P<aid>[^:?]+))'
@@ -31,7 +37,8 @@ DID_WEBS_RE = re.compile(
     flags=re.IGNORECASE,
 )
 DID_WEBS_UNENCODED_PORT_RE = re.compile(
-    pattern=r'\Adid:web(s)?:(?P<domain>[^%:]+)'
+    pattern=r'\Adid:web(s)?:'
+    r'(?P<domain>[^%:]+)'
     r'(?::(?P<port>\d+))?'
     r'(?::(?P<path>.+?))?'
     r'(?::(?P<aid>[^:?]+))'
@@ -62,13 +69,14 @@ def parse_did_keri(did):
         raise ValueError(f'{did} is not a valid did:keri DID')
 
     aid = match.group('aid')
+    query = match.group('query')
 
     try:
         _ = coring.Prefixer(qb64=aid)
     except Exception as e:
         raise ValueError(f'{aid} is an invalid AID')
 
-    return aid
+    return aid, query
 
 
 def parse_did_webs(did: str):
@@ -92,7 +100,7 @@ def parse_did_webs(did: str):
     return domain, port, path, aid, query
 
 
-def parse_query_string(query: str):
+def parse_query_string(query: str) -> dict:
     if not query or query == '?':
         return {}
     query = query.lstrip('?')
@@ -170,7 +178,8 @@ def re_encode_invalid_did(did: str):
     if did.startswith('did:webs:'):
         return re_encode_invalid_did_webs(did)
     elif did.startswith('did:keri:'):  # included for completion's sake and uniformity when parsing DIDs
-        return f'did:keri:{parse_did_keri(did)}'
+        aid, query = parse_did_keri(did)
+        return f'did:keri:{aid}{query if query else ""}'
     else:
         raise ValueError(f'{did} is not a valid did:webs or did:keri DID')
 
@@ -321,7 +330,7 @@ def gen_did_document(did, vms, service_endpoints, also_known_as):
     return dict(id=did, verificationMethod=vms, service=service_endpoints, alsoKnownAs=also_known_as)
 
 
-def genDidResolutionResult(witness_list, seq_no, equivalent_ids, did, vms, serv_ends, aka_ids):
+def gen_did_resolution_result(witness_list, seq_no, equivalent_ids, did, vms, serv_ends, aka_ids):
     """
     Generate a DID resolution result structure.
 
@@ -375,8 +384,8 @@ def generate_did_doc(hby: habbing.Habery, rgy: credentialing.Regery, did, aid, m
         if (did and aid) and parsed_aid != aid:
             raise ValueError(f'{did} does not contain AID {aid}')
     if did.startswith('did:keri'):
-        if (did and aid) and not did.endswith(aid):
-            raise ValueError(f'{did} does not end with {aid}')
+        aid, query = parse_did_keri(did=did)
+        did = f'did:keri:{aid}'  # strip of query for did doc generation as is not needed. OOBI should be resolved by now.
     logger.debug(f'Generating DID document for\n\t{did}\nwith aid\n\t{aid}\nand metadata\n\t{meta}')
 
     hab = None
@@ -405,13 +414,14 @@ def generate_did_doc(hby: habbing.Habery, rgy: credentialing.Regery, did, aid, m
 
     equiv_ids = []
     aka_ids = []
-    for s in designated_aliases(hby, rgy, aid):
-        if s.startswith('did:webs'):
-            equiv_ids.append(s)
-        aka_ids.append(s)
+    if did.startswith('did:webs') or did.startswith('did:web'):
+        for s in designated_aliases(hby, rgy, aid):
+            if s.startswith('did:webs'):
+                equiv_ids.append(s)
+            aka_ids.append(s)
 
     if meta is True:
-        return genDidResolutionResult(
+        return gen_did_resolution_result(
             witness_list=witness_list,
             seq_no=kever.sner.num,
             equivalent_ids=equiv_ids,

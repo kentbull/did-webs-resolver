@@ -8,6 +8,8 @@ from hio.core import http
 from keri import kering
 from keri.help import helping
 
+from dkr import ArtifactResolveError, DidWebsError
+
 
 def load_url_with_hio(url: str, timeout: float = 5.0, method: str = 'GET') -> bytes:
     """Load a URL using the HIO HTTP client, respecting timeout and method."""
@@ -56,7 +58,7 @@ def http_request(
         rep = client.respond()
         return bytes(rep.body)
     else:
-        raise hio.HioError(f'Failed to load URL {url}, no responses received')
+        raise ArtifactResolveError(f'Failed to load URL {url}, no responses received')
 
 
 def load_url_with_hio_clienter(url: str, timeout: float = 5.0, method: str = 'GET') -> bytes:
@@ -75,7 +77,7 @@ def load_url_with_hio_clienter(url: str, timeout: float = 5.0, method: str = 'GE
         rep = client.respond()
         return bytes(rep.body)
     else:
-        raise hio.HioError(f'Failed to load URL {url}, no responses received')
+        raise ArtifactResolveError(f'Failed to load URL {url}, no responses received')
 
 
 class HTTPClienter(doing.DoDoer):

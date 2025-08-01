@@ -9,7 +9,11 @@ x-python-envs: &python-envs
   PYTHONWARNINGS: ignore::SyntaxWarning # Ignore regular expression syntax warning
 
 volumes:
+    witness_keystore:
     controller_keystore:
+    static_host_keystore:
+    resolver_keystore:
+    dws_shell_keystore:
 
 services:
     # Witnesses used for the AID controller
@@ -20,6 +24,7 @@ services:
         platform: linux/amd64
         volumes:
             - ./docker/config/witnesses/keri/cf/main/:/keripy/scripts/keri/cf/main/
+            - witness_keystore:/usr/local/var/keri
         healthcheck:
             # healthcheck needs to be different in 1.2.6+ because it uses the Alpine base image and curl is not present
             test: [ "CMD", "wget", "--spider", "--tries=1", "--no-verbose", "http://127.0.0.1:5642/oobi" ]
@@ -55,6 +60,45 @@ services:
             - controller_keystore:/usr/local/var/keri
         entrypoint: /dws/controller-init.sh
 
+    # Hosts the did.json and keri.cesr files on behalf of the AID controller dws-controller
+    dws-static-service:
+        image: gleif/did-webs-resolver:latest
+        container_name: dws-static-server
+        hostname: dws-static-server
+        environment:
+            <<: *python-envs
+            DEBUG_DKR: true
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://127.0.0.1:7679/health" ]
+            <<: *healthcheck
+        depends_on:
+            witnesses:
+                condition: service_healthy
+            artifact-generator:
+                condition: service_completed_successfully
+        build:
+            context: .
+            dockerfile: images/dws-static-service.dockerfile
+        stop_grace_period: 1s
+        ports:
+            - "7679:7679"
+        volumes:
+            - ./docker/config/controller:/dws/config/controller
+            - ./docker/scripts:/dws/scripts
+            - ./docker/artifacts:/dws/web/dws
+            - static_host_keystore:/usr/local/var/keri
+        entrypoint: [
+            "dkr", "did", "webs", "resolver-service",
+            "--http", "7679",
+            "--name", "static-host-keystore",
+            "--config-dir", "/dws/config/controller",
+            "--config-file", "static-host-keystore",
+            "--static-files-dir", "/dws/web",
+            "--did-path", "dws",
+            "--loglevel", "INFO"
+        ]
+
+    # Main resolver service that can hit either of the static or dynamic did:webs artifact hosts
     dws-resolver:
         image: gleif/did-webs-resolver:latest
         container_name: dws-resolver
@@ -69,6 +113,8 @@ services:
                 condition: service_healthy
             artifact-generator:
                 condition: service_completed_successfully
+            dws-static-service:
+                condition: service_healthy
         build:
             context: .
             dockerfile: images/dws-resolver-service.dockerfile
@@ -79,16 +125,17 @@ services:
             - ./docker/config/controller:/dws/config/controller
             - ./docker/scripts:/dws/scripts
             - ./docker/artifacts:/dws/web/dws
-            - controller_keystore:/usr/local/var/keri
+            - resolver_keystore:/usr/local/var/keri
         entrypoint: [
             "dkr", "did", "webs", "resolver-service",
+                "--http", "7677",
                 "--name", "my-keystore",
                 "--config-dir", "/dws/config/controller",
                 "--config-file", "my-keystore",
-                "--static-files-dir", "/dws/web",
                 "--loglevel", "INFO"
         ]
 
+    # Shell for debugging and manual operations
     dws-shell:
         image: gleif/dws-base:latest # depends on dws-base built above
         container_name: dws-shell
@@ -100,6 +147,8 @@ services:
                 condition: service_healthy
             artifact-generator:
                 condition: service_completed_successfully
+            dws-static-service:
+                condition: service_healthy
             dws-resolver:
                 condition: service_healthy
         stop_grace_period: 1s
@@ -112,35 +161,36 @@ services:
         entrypoint: tail -f /dev/null
         tty: true
 
-    # TODO enable the dws-web-service once the dws-webs-service is ready
-#    dws-web-service:
-#        image: gleif/did-webs-service:latest
-#        container_name: gleif/dws-web-service
-#        hostname: dws-web-service
-#        build:
-#            context: .
-#            dockerfile: ./images/dws-web-service.dockerfile
-#        stop_grace_period: 1s
-#        environment:
-#            <<: *python-envs
-#        depends_on:
-#            witnesses:
-#                condition: service_healthy
-#            artifact-generator:
-#                condition: service_completed_successfully
-#        healthcheck:
-#            test: [ "CMD", "curl", "-f", "http://127.0.0.1:7676/health" ]
-#            <<: *healthcheck
-#        ports:
-#            - "7676:7676"
-#        volumes:
-#            - ./docker/scripts:/dkr/scripts
-#            - ./docker/dws:/dkr/web/dws
-#            - controller_keystore:/usr/local/var/keri
-#        entrypoint: [
-#            "dkr", "did", "webs", "service",
-#            "--name", "my-keystore",
-#            "--config-dir", "/dws/config/controller",
-#            "--config-file", "my-keystore",
-#            "--loglevel", "INFO"
-#        ]
+    dws-dynamic-service:
+        image: gleif/did-webs-service:latest
+        container_name: dws-service
+        hostname: dws-service
+        build:
+            context: .
+            dockerfile: images/dws-dynamic-service.dockerfile
+        stop_grace_period: 1s
+        environment:
+            <<: *python-envs
+        depends_on:
+            witnesses:
+                condition: service_healthy
+            artifact-generator:
+                condition: service_completed_successfully
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://127.0.0.1:7680/health" ]
+            <<: *healthcheck
+        ports:
+            - "7680:7680"
+        volumes:
+            - ./docker/scripts:/dkr/scripts
+            - ./docker/dws:/dkr/web/dws
+            - controller_keystore:/usr/local/var/keri
+        entrypoint: [
+            "dkr", "did", "webs", "service",
+            "--name", "my-keystore",
+            "--alias", "my-controller",
+            "--config-dir", "/dws/config/controller",
+            "--config-file", "my-keystore",
+            "--did-path", "dws",
+            "--loglevel", "INFO"
+        ]

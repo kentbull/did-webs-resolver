@@ -106,8 +106,8 @@ function set_up_aid() {
     print_dark_gray "does not exist, creating..."
     create_aid
     kli oobi resolve --name "${KEYSTORE_NAME}" \
-    --oobi-alias "designated-alias-public" \
-    --oobi "https://weboftrust.github.io/oobi/${DESG_ALIASES_SCHEMA}"
+      --oobi-alias "designated-alias-public" \
+      --oobi "https://weboftrust.github.io/oobi/${DESG_ALIASES_SCHEMA}"
   fi
 }
 set_up_aid

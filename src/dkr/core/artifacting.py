@@ -123,7 +123,9 @@ def gen_loc_schemes_cesr(hab: habbing.Hab, aid: str, role: str = None, scheme=''
     if not role or role == kering.Roles.witness:
         for eid in kever.wits:
             msgs.extend(hab.loadLocScheme(eid=eid, scheme=scheme))
-            msgs.extend(hab.loadEndRole(cid=eid, eid=eid, role=kering.Roles.controller))  # loading the witnesses controller endpoint roles ('curls' config from witness config passed as rpy messages)
+            msgs.extend(
+                hab.loadEndRole(cid=eid, eid=eid, role=kering.Roles.controller)
+            )  # loading the witnesses controller endpoint roles ('curls' config from witness config passed as rpy messages)
     # Get agent and mailbox location schemes and endpoint roles
     if not role or role == kering.Roles.agent:  # in preparation for working with KERIA agents
         for (_, erole, eid), _ in hab.db.ends.getItemIter(keys=(aid, kering.Roles.agent)):

@@ -6,7 +6,20 @@ A demonstration of a `did:webs` service and resolver. Implements the
 [![CI](https://github.com/GLEIF-IT/did-webs-resolver/actions/workflows/ci.yml/badge.svg)](https://github.com/GLEIF-IT/did-webs-resolver/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/GLEIF-IT/did-webs-resolver/branch/main/graph/badge.svg?token=sUADtbanWC)](https://codecov.io/gh/GLEIF-IT/did-webs-resolver)
 
-### Developers - Getting Started
+Components:
+- **did:webs** static artifact generator - generates did.json and keri.cesr for did:webs DIDs.
+- **did:webs** resolver in **static server mode** - serves static `did.json` and `keri.cesr` files from a local directory for did:webs DIDs. Works with the Universal Resolver subcomponent of the did:webs resolver below.
+- **did:webs** dynamic artifact resolver - dynamically generates `did.json` and `keri.cesr` files upon receiving HTTP requests to `/{did path}/{aid}/{did.json,keri.cesr}`.
+- **did:webs** resolver service - supports the DIF [Universal Resolver](https://dev.uniresolver.io/) at `/1.0/identifiers/{did}`
+  - supports both **did:webs** and **did:keri** DID resolution. 
+
+## Quick Start
+
+### Docker
+
+### Local Shell Script
+
+## Developers - Getting Started
 
 Developers who want to jump into using the `did:webs` reference implementation should follow
 the [Getting Started](docs/getting_started) guide.
@@ -54,3 +67,7 @@ did:keri resolver by Philip Feairheller @pfeairheller [here](https://github.com/
 
 Thank you to Markus Sabadello @peacekeeper from DanubeTech who started the original tutorial for
 IIW37 [here](https://github.com/peacekeeper/did-webs-iiw-tutorial)
+
+# Development Warnings
+
+- Some of the tests in test_habs.py and test_clienting.py are flaky, so re-running the tests is fine. We need to use more mocks there. The problem in habbing gets down to how the "temp=False" option causes Filer to use or not use temporary filesystem files. We should just mock this out. The problem in clienter is likely due to timeouts not being set with enough of a margin of error. Mocking here might be the best solution as well. 

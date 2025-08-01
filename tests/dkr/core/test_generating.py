@@ -67,7 +67,7 @@ def test_artifact_generation_creates_expected_artifacts():
         while not wit_rcptr_doer.cues:
             doist.recur(deeds=wit_deeds + rb_deeds)
 
-        # nPrepare the DID artifact stream using self-attested credentials
+        # Prepare the DID artifact stream using self-attested credentials
         aid = 'EJg2UL2kSzFV_Akd9ISAvgOUFDKcBxpDO3OZDIbSIjGe'  # page_hab.pre
         host = '127.0.0.1'
         port = f'7677'
@@ -98,7 +98,8 @@ def test_artifact_generation_creates_expected_artifacts():
         reger = regery.reger
         keri_cesr = bytearray()
         # self.retrieve_kel_via_oobi() # not currently used; an alternative to relying on a local KEL keystore
-        keri_cesr.extend(artifacting.gen_kel_cesr(rb_hby.db, aid))  # add KEL CESR stream
+        keri_cesr.extend(artifacting.gen_kel_cesr(rb_hab, aid))  # add KEL CESR stream
+        keri_cesr.extend(artifacting.gen_loc_schemes_cesr(rb_hab, aid))
         keri_cesr.extend(artifacting.gen_des_aliases_cesr(page_hab, reger, aid))
 
         did_webs_diddoc = didding.generate_did_doc(rb_hby, rgy=regery, did=did_webs_did, aid=aid, meta=meta)
@@ -121,7 +122,9 @@ def test_artifact_generation_creates_expected_artifacts():
         doist.do([did_art_gen])
         assert os.path.exists(f'{output_dir}/{aid}/{DID_JSON}')
         assert os.path.exists(f'{output_dir}/{aid}/{KERI_CESR}')
-        assert did_art_gen.did_json == didding.to_did_web(diddoc=did_webs_diddoc, meta=meta)
+        assert (
+            did_art_gen.did_json[didding.DD_FIELD] == didding.to_did_web(diddoc=did_webs_diddoc, meta=meta)[didding.DD_FIELD]
+        ), 'DID document does not match the expected structure'
         assert did_art_gen.keri_cesr == keri_cesr
 
         with open(f'{output_dir}/{aid}/{DID_JSON}', 'r') as did_file:

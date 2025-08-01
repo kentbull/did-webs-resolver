@@ -2,7 +2,8 @@ import falcon
 import pytest
 from keri import kering
 from keri.app import habbing
-from keri.db import subing
+from keri.core import eventing
+from keri.db import basing, koming, subing
 from keri.vdr import credentialing
 from mockito import mock, when
 
@@ -17,7 +18,10 @@ def test_keri_cesr_resource_end_on_get_single_sig():
 
     hab = mock()
     hab.kever = mock()
-    hab.kever.wits = ['BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha']
+    kever = mock(eventing.Kever)
+    kever.wits = ['BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha']
+    hab.kevers = {'test_aid': kever}
+    # hab.kever.wits = ['BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha']
 
     hby.db = mock()
     hby.db.ends = mock()
@@ -26,6 +30,9 @@ def test_keri_cesr_resource_end_on_get_single_sig():
     hby.habs = {'test_aid': hab}
     hby.kvy = mock()
     hby.kevers = {'test_aid': mock()}
+
+    hab.db = mock(basing.Baser)
+    hab.db.ends = mock(koming.Komer)
 
     rgy = mock(credentialing.Regery)
     rgy.reger = mock(credentialing.Reger)
@@ -36,26 +43,23 @@ def test_keri_cesr_resource_end_on_get_single_sig():
 
     req.path = '/test_aid/keri.cesr'
 
-    mock_serder_raw = [
-        bytearray(
-            b'{'
-            b'"v":"KERI10JSON0001b7_","t":"icp",'
-            b'"d":"EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4",'
-            b'"i":"EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4",'
-            b'"s":"0",'
-            b'"kt":"1","k":["DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K"],'
-            b'"nt":"1","n":["EHlpcaxffvtcpoUUMTc6tpqAVtb2qnOYVk_3HRsZ34PH"],'
-            b'"bt":"2","b":['
-            b'"BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",'
-            b'"BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",'
-            b'"BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"],'
-            b'"c":[],"a":[]}'
-            b'-VBq-AABAABpDqK4TQytiWO_S-2VvfigdPs6T2pEWPfbgqy7DzYhakD9EmW-wGGa7i5VoF7Re8pkCCLIAO35_BtZOfNV4WIA-BADAADBrKDUOPHm9IFvg_EeEmMMzAvXB4xu6MdnzTohJkeK3Ome__5IWtnWZmXRYyIYau5BPqVXM9RptPc2DCmDg2wKABDrSZ3pVsK7DNlSS_fcT3QO3adZyhcIxcWiJUc5dYsHlEu-A3AVu8nkqXLeYXqE9Z_JKTJen-GfHU3tVp16GPIEACDUzCmXCwY-E6bCbz7umsvnvBS2MS83-03CbCuZ3DZN1GQLlH-A3bUKlhabdqjYW56JtifgcljgGvN7mJk8oa8P-EAB0AAAAAAAAAAAAAAAAAAAAAAA1AAG2025-03-18T17c57c24d927822p00c00'
-        )
-    ]
-    when(hby.db).clonePreIter(pre='test_aid').thenReturn(mock_serder_raw)
+    mock_serder_raw = bytearray(
+        b'{'
+        b'"v":"KERI10JSON0001b7_","t":"icp",'
+        b'"d":"EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4",'
+        b'"i":"EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4",'
+        b'"s":"0",'
+        b'"kt":"1","k":["DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K"],'
+        b'"nt":"1","n":["EHlpcaxffvtcpoUUMTc6tpqAVtb2qnOYVk_3HRsZ34PH"],'
+        b'"bt":"2","b":["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha","BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM","BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"],'
+        b'"c":[],"a":[]}'
+        b'-VBq-AABAABpDqK4TQytiWO_S-2VvfigdPs6T2pEWPfbgqy7DzYhakD9EmW-wGGa7i5VoF7Re8pkCCLIAO35_BtZOfNV4WIA-BADAADBrKDUOPHm9IFvg_EeEmMMzAvXB4xu6MdnzTohJkeK3Ome__5IWtnWZmXRYyIYau5BPqVXM9RptPc2DCmDg2wKABDrSZ3pVsK7DNlSS_fcT3QO3adZyhcIxcWiJUc5dYsHlEu-A3AVu8nkqXLeYXqE9Z_JKTJen-GfHU3tVp16GPIEACDUzCmXCwY-E6bCbz7umsvnvBS2MS83-03CbCuZ3DZN1GQLlH-A3bUKlhabdqjYW56JtifgcljgGvN7mJk8oa8P-EAB0AAAAAAAAAAAAAAAAAAAAAAA1AAG2025-03-18T17c57c24d927822p00c00'
+    )
 
-    when(hab).loadLocScheme(eid='BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha').thenReturn(
+    # when(hby.db).clonePreIter(pre='test_aid').thenReturn(mock_serder_raw)
+    when(hab).replay(pre='test_aid').thenReturn(mock_serder_raw)
+
+    when(hab).loadLocScheme(eid='BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha', scheme='').thenReturn(
         bytearray(
             b'{'
             b'"v":"KERI10JSON0000fa_","t":"rpy",'
@@ -73,7 +77,11 @@ def test_keri_cesr_resource_end_on_get_single_sig():
             b'-VAi-CABBBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha0BCsK_YJIDH8djf5ncLs0VPJ1In104Hiu1392AlIMVFhmIxDP6gxgzMtklcOIyhQwRe7Mvgjniynjdv95iTCPWEL'
         )
     )
-    when(hab).makeEndRole(eid='BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha', role=kering.Roles.witness).thenReturn(
+    when(hab).loadEndRole(
+        cid='BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha',
+        eid='BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha',
+        role=kering.Roles.controller,
+    ).thenReturn(
         bytearray(
             b'{'
             b'"v":"KERI10JSON000113_","t":"rpy",'
@@ -84,16 +92,23 @@ def test_keri_cesr_resource_end_on_get_single_sig():
             b'-VA0-FABEKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk40AAAAAAAAAAAAAAAAAAAAAAAEKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4-AABAAAsb68BJ6XGB77xP37tPiDjZOd6oB4nxshznxz6GMy1dTmvpi5yltfvTpBNLZQYlhpRzUI3K0GD_4DNTiUldHAL'
         )
     )
+    when(hab.db.ends).getItemIter(keys=('test_aid', kering.Roles.agent)).thenReturn([])
 
-    when(hby.db.ends).getItemIter(keys=('test_aid', kering.Roles.mailbox)).thenReturn(
+    when(hab.db.ends).getItemIter(keys=('test_aid', kering.Roles.mailbox)).thenReturn(
         [((None, 'mailbox', 'BDilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'), None)]
     )
     when(hab).loadLocScheme(eid='BDilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha').thenReturn(
-        bytearray(b'{BDilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha-loc-scheme}')
+        bytearray(
+            b'{"r":"/loc/scheme","a":{"eid":"BDilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha","scheme":"tcp","url":"tcp://127.0.0.1:5632/"}}'
+        )
     )
-    when(hab).makeEndRole(
+    when(hab).loadEndRole(
         cid='test_aid', eid='BDilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha', role=kering.Roles.mailbox
-    ).thenReturn(bytearray(b'{BDilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha-end-role}'))
+    ).thenReturn(
+        bytearray(
+            b'{"r":"/end/role/add","a":{"eid":"BDilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha","role":"mailbox","cid":"test_aid"}}'
+        )
+    )
 
     resource = KeriCesrResourceEnd(hby, rgy)
     resource.on_get(req, rep, 'test_aid')
@@ -128,7 +143,9 @@ def test_keri_cesr_resource_end_on_get_single_sig():
         b'"dt":"2025-03-21T14:33:26.196052+00:00",'
         b'"r":"/end/role/add",'
         b'"a":{"cid":"EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4","role":"witness","eid":"BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"}}'
-        b'-VA0-FABEKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk40AAAAAAAAAAAAAAAAAAAAAAAEKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4-AABAAAsb68BJ6XGB77xP37tPiDjZOd6oB4nxshznxz6GMy1dTmvpi5yltfvTpBNLZQYlhpRzUI3K0GD_4DNTiUldHAL{BDilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha-loc-scheme}'
+        b'-VA0-FABEKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk40AAAAAAAAAAAAAAAAAAAAAAAEKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4-AABAAAsb68BJ6XGB77xP37tPiDjZOd6oB4nxshznxz6GMy1dTmvpi5yltfvTpBNLZQYlhpRzUI3K0GD_4DNTiUldHAL'
+        b'{"r":"/loc/scheme","a":{"eid":"BDilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha","scheme":"tcp","url":"tcp://127.0.0.1:5632/"}}'
+        b'{"r":"/end/role/add","a":{"eid":"BDilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha","role":"mailbox","cid":"test_aid"}}'
     )
 
 

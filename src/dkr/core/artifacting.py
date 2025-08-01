@@ -119,16 +119,21 @@ def gen_loc_schemes_cesr(hab: habbing.Hab, aid: str, role: str = None, scheme=''
     """
     kever = hab.kevers[aid]
     msgs = bytearray()
-    if role == kering.Roles.witness:
+    # Get witness location schemes and endpoint roles
+    if not role or role == kering.Roles.witness:
         for eid in kever.wits:
             msgs.extend(hab.loadLocScheme(eid=eid, scheme=scheme))
-            msgs.extend(hab.makeEndRole(eid=eid, role=role))
-    elif role == kering.Roles.agent:
-        # TODO handle agent role -> get agent (mailbox) location scheme and add it to the msgs
-        pass
-    elif role == kering.Roles.mailbox:
-        # TODO handle mailbox role -> get mailbox location scheme and add it to the msgs
-        pass
+            msgs.extend(hab.loadEndRole(cid=eid, eid=eid, role=kering.Roles.controller))  # loading the witnesses controller endpoint roles ('curls' config from witness config passed as rpy messages)
+    # Get agent and mailbox location schemes and endpoint roles
+    if not role or role == kering.Roles.agent:  # in preparation for working with KERIA agents
+        for (_, erole, eid), _ in hab.db.ends.getItemIter(keys=(aid, kering.Roles.agent)):
+            msgs.extend(hab.loadLocScheme(eid=eid) or bytearray())
+            msgs.extend(hab.loadEndRole(cid=aid, eid=eid, role=erole) or bytearray())
+    # Get mailbox location schemes and endpoint roles
+    if not role or role == kering.Roles.mailbox:
+        for (_, erole, eid), _ in hab.db.ends.getItemIter(keys=(aid, kering.Roles.mailbox)):
+            msgs.extend(hab.loadLocScheme(eid=eid) or bytearray())
+            msgs.extend(hab.loadEndRole(cid=aid, eid=eid, role=erole) or bytearray())
 
     return msgs
 
@@ -166,7 +171,7 @@ def generate_artifacts(hby: Habery, rgy: Regery, did: str, meta: bool = False, o
     reger = rgy.reger
     keri_cesr = bytearray()
     keri_cesr.extend(gen_kel_cesr(hab, aid))  # add KEL CESR stream
-    keri_cesr.extend(gen_loc_schemes_cesr(hab, aid, role=kering.Roles.witness))  # add witness location schemes
+    keri_cesr.extend(gen_loc_schemes_cesr(hab, aid))  # add witness location schemes
     keri_cesr.extend(gen_des_aliases_cesr(hab, reger, aid))  # add designated aliases TELs and ACDCs
     write_keri_cesr_file(output_dir, aid, keri_cesr)
 

@@ -1,6 +1,11 @@
 import pytest
+from keri import kering
+from keri.app import habbing
 from keri.app.habbing import Habery
+from keri.core import eventing
+from keri.db import basing, koming
 from keri.vdr.credentialing import Regery
+from mockito import mock, when
 
 from dkr import DidWebsError
 from dkr.core import artifacting
@@ -46,3 +51,20 @@ def test_generate_artifacts_no_diddoc_raises_didwebs_error():
 
     with pytest.raises(DidWebsError):
         artifacting.generate_artifacts(hby, rgy, did, meta=True, output_dir='./tests/artifact_output_dir')
+
+
+def test_gen_loc_schemes_cesr_for_agent_returns_loc_scheme_and_endrole():
+    aid = 'test_aid'
+    eid = 'test_eid'
+    role = kering.Roles.agent
+    hab = mock(habbing.Hab)
+    kever = mock(eventing.Kever)
+    hab.kevers = {aid: kever}
+    hab.db = mock(basing.Baser)
+    hab.db.ends = mock(koming.Komer)
+    when(hab.db.ends).getItemIter(keys=(aid, kering.Roles.agent)).thenReturn([((None, kering.Roles.agent, eid), None)])
+    when(hab).loadLocScheme(eid=eid).thenReturn(bytearray(b'loc_scheme_data'))
+    when(hab).loadEndRole(cid=aid, eid=eid, role=kering.Roles.agent).thenReturn(bytearray(b'end_role_data'))
+
+    msgs = artifacting.gen_loc_schemes_cesr(hab, aid, role=role)
+    assert msgs == bytearray(b'loc_scheme_dataend_role_data')

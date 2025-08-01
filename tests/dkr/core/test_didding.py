@@ -12,7 +12,7 @@ import pytest
 from hio.help.hicting import Mict
 from keri.app import habbing
 from keri.core import coring
-from keri.db import basing
+from keri.db import basing, subing
 from keri.vdr import credentialing, verifying
 from mockito import mock, unstub, when
 
@@ -1097,3 +1097,21 @@ def test_keri_resolver_with_empty_hby_creates_hby():
         resolver = didkeri.KeriResolver(did='fake:did', name='test_resolver', base='test_base', rgy=rgy_mock)
         assert resolver.hby == hby_mock, 'Expected KeriResolver to create a new Habery instance'
         assert hby_doer_mock in resolver.doers, 'Expected KeriResolver to add HaberyDoer to its doers'
+
+
+def test_designated_aliases_generation_returns_creds_when_non_local_aid():
+    hby = mock(habbing.Habery)
+    hby.db = mock(basing.Baser)
+    hby.habs = {}
+    rgy = mock(credentialing.Regery)
+    rgy.reger = mock(credentialing.Reger)
+    rgy.reger.issus = mock(subing.CesrDupSuber)
+    rgy.reger.schms = mock(subing.CesrDupSuber)
+
+    test_saider = coring.Saider(qb64='EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5')
+
+    when(rgy.reger.issus).get(keys='test_aid').thenReturn([test_saider])
+    when(rgy.reger.schms).get(keys='EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5').thenReturn([test_saider])
+    when(rgy.reger).cloneCreds([test_saider], hby.db).thenReturn([])
+    da = didding.gen_designated_aliases(hby, rgy, 'test_aid')
+    assert da == [], 'Expected empty list for designated aliases when no credentials are found'

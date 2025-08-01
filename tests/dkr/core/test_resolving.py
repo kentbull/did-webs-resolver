@@ -147,7 +147,8 @@ def test_resolver_with_witnesses():
         # get keri.cesr
         reger = regery.reger
         keri_cesr = bytearray()
-        keri_cesr.extend(artifacting.gen_kel_cesr(ck_hby.db, aid))  # add KEL CESR stream
+        keri_cesr.extend(artifacting.gen_kel_cesr(cracker_1_hab, aid))  # add KEL CESR stream
+        keri_cesr.extend(artifacting.gen_loc_schemes_cesr(cracker_1_hab, aid))
         keri_cesr.extend(artifacting.gen_des_aliases_cesr(cracker_1_hab, reger, aid))
 
         did_webs_diddoc = didding.generate_did_doc(ck_hby, rgy=regery, did=did_webs_did, aid=aid, meta=meta)
@@ -631,7 +632,8 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
         # get the keri.cesr and did.json for later verification
         reger = regery.reger
         keri_cesr = bytearray()
-        keri_cesr.extend(artifacting.gen_kel_cesr(hby.db, aid))  # add KEL CESR stream
+        keri_cesr.extend(artifacting.gen_kel_cesr(hab, aid))  # add KEL CESR stream
+        keri_cesr.extend(artifacting.gen_loc_schemes_cesr(hab, aid))
         keri_cesr.extend(artifacting.gen_des_aliases_cesr(hab, reger, aid))
 
         did_webs_diddoc = didding.generate_did_doc(hby, rgy=regery, did=did_webs_did, aid=aid, meta=meta)

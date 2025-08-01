@@ -369,7 +369,7 @@ def get_equiv_aka_ids(did: str, aid: str, hby: habbing.Habery, rgy: credentialin
     equiv_ids = []
     aka_ids = []
     if did.startswith('did:webs') or did.startswith('did:web'):
-        for s in designated_aliases(hby, rgy, aid):
+        for s in gen_designated_aliases(hby, rgy, aid):
             if s.startswith('did:webs'):
                 equiv_ids.append(s)
             aka_ids.append(s)
@@ -518,7 +518,7 @@ def extract_desg_alias_from_cred(cred: dict) -> str | None:
     return None
 
 
-def designated_aliases(hby: habbing.Habery, rgy: credentialing.Regery, aid: str, schema: str = DES_ALIASES_SCHEMA):
+def gen_designated_aliases(hby: habbing.Habery, rgy: credentialing.Regery, aid: str, schema: str = DES_ALIASES_SCHEMA):
     """
     Searches the entire Regery database for non-revoked, self-attested designated alias ACDCs by schema and
     returns a list of designated alias IDs using their `a.ids` field.

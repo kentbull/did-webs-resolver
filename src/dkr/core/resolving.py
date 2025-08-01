@@ -17,9 +17,13 @@ from keri import kering
 from keri.app import habbing, oobiing
 from keri.app.habbing import Habery
 from keri.app.oobiing import Oobiery
+from keri.core import eventing, routing
 from keri.db import basing
 from keri.help import helping
-from keri.vdr import credentialing
+from keri.peer import exchanging
+from keri.vdr import credentialing, verifying
+from keri.vdr import eventing as teventing
+from keri.vdr.credentialing import Regery
 
 from dkr import ArtifactResolveError, log_name, ogler
 from dkr.core import didding, ends, requesting
@@ -74,9 +78,21 @@ def get_did_artifacts(did: str, load_url: Callable = load_url_with_requests, tim
     return aid, dd_res, kc_res
 
 
-def save_cesr(hby: Habery, kc_res: bytes, aid: str = None):
-    logger.info('Saving KERI CESR to hby: %s', kc_res.decode('utf-8'))
-    hby.psr.parse(ims=bytearray(kc_res))
+def save_cesr(hby: Habery, rgy: Regery, kc_res: bytes, aid: str = None):
+    """
+    Save the resolved keri.cesr stream to the local keystore by parsing the CESR objects in it
+    with the appropriate message processor. This makes the designated aliases ACDC and the location
+    scheme records available to use for generating the correct did.json document during did doc verification.
+    """
+    logger.debug('Saving KERI CESR to hby: %s', kc_res.decode('utf-8'))
+    exc = exchanging.Exchanger(hby=hby, handlers=[])
+    kvy = eventing.Kevery(db=hby.db)
+    tvy = teventing.Tevery(db=hby.db, reger=rgy.reger)
+    vry = verifying.Verifier(hby=hby, reger=rgy.reger)
+    rtr = routing.Router()
+    rvy = routing.Revery(db=hby.db, rtr=rtr)
+    local = True if aid in hby.habs else False
+    hby.psr.parse(ims=bytearray(kc_res), kvy=kvy, tvy=tvy, vry=vry, rvy=rvy, exc=exc, local=local)
     if (
         aid not in hby.kevers
     ):  # After parsing then the AID should be in kevers, meaning the KEL for the AID is locally available
@@ -245,7 +261,7 @@ def resolve(
     except Exception as e:
         logger.error(f'Unexpected error while resolving DID {did}: {e}')
         return False, {'error': f'Unexpected error while resolving DID {did}: {e}'}
-    save_cesr(hby=hby, kc_res=kc_res, aid=aid)
+    save_cesr(hby=hby, rgy=rgy, kc_res=kc_res, aid=aid)
     loaded_dd = json.loads(dd_res.decode('utf-8'))
     if meta and didding.DD_FIELD not in loaded_dd:
         loaded_dd = wrap_metadata(loaded_dd, did, aid, hby, rgy)
@@ -312,11 +328,11 @@ def tls_falcon_server(
 ) -> http.Server:
     """Add TLS support to a Falcon server."""
     if keypath is not None:
-        servant = tcp.ServerTls(certify=False, keypath=keypath, certpath=certpath, cafilepath=cafilepath, port=http_port)
+        servant = tcp.ServerTls(certify=False, keypath=keypath, certpath=certpath, cafilepath=cafilepath, port=int(http_port))
     else:
         servant = None
 
-    server = http.Server(port=http_port, app=app, servant=servant)
+    server = http.Server(port=int(http_port), app=app, servant=servant)
     return server
 
 
@@ -476,8 +492,9 @@ class UniversalResolverResource:
 
         if not result:
             logger.error(f'Failed to resolve DID {did}')
+            logger.debug(f'Resolution data: {data}')
             rep.status = falcon.HTTP_417
-            rep.media = data
+            rep.media = {'error': f'failed to resolve DID: {did}'}
             return
 
         logger.info(f'Successfully resolved {did}')

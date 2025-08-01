@@ -20,6 +20,7 @@ from keri.help import helping
 from keri.vdr import credentialing
 
 from dkr import DidWebsError, UnknownAID, log_name, ogler
+from dkr.core import habs
 
 logger = ogler.getLogger(log_name)
 
@@ -406,7 +407,7 @@ def generate_did_doc(hby: habbing.Habery, rgy: credentialing.Regery, did, aid, m
         did = f'did:keri:{aid}'  # strip of query for did doc generation as is not needed. OOBI should be resolved by now.
     logger.debug(f'Generating DID document for\n\t{did}\nwith aid\n\t{aid}\nand metadata\n\t{meta}')
 
-    hab = None
+    hab: habbing.Hab | None = None
     if aid in hby.habs:
         hab = hby.habs[aid]
 
@@ -423,6 +424,9 @@ def generate_did_doc(hby: habbing.Habery, rgy: credentialing.Regery, did, aid, m
         ends = hab.fetchRoleUrls(cid=aid)
         serv_ends.extend(add_ends(ends))
         ends = hab.fetchWitnessUrls(cid=aid)
+        serv_ends.extend(add_ends(ends))
+    else:
+        ends = habs.get_role_urls(baser=hby.db, kever=kever)
         serv_ends.extend(add_ends(ends))
 
     equiv_ids, aka_ids = get_equiv_aka_ids(did, aid, hby, rgy)
@@ -529,15 +533,19 @@ def designated_aliases(hby: habbing.Habery, rgy: credentialing.Regery, aid: str,
         list: A list of designated alias IDs (a.ids) from self-attested ACDCs.
     """
     da_ids = []
+    saids = rgy.reger.issus.get(keys=aid)
+    scads = rgy.reger.schms.get(keys=schema)  # get credentials by schema
+    # self-attested schema, and scehma is designated aliases
+    saids = [saider for saider in saids if saider.qb64 in [saider.qb64 for saider in scads]]
+    if not saids:
+        return da_ids
     if aid in hby.habs:
-        saids = rgy.reger.issus.get(keys=aid)
-        scads = rgy.reger.schms.get(keys=schema)  # get credentials by schema
-        # self-attested schema, and scehma is designated aliases
-        saids = [saider for saider in saids if saider.qb64 in [saider.qb64 for saider in scads]]
-
+        # if aid is in a hab in the local habery then get self issued ACDCS
         creds = rgy.reger.cloneCreds(saids, hby.habs[aid].db)
-        da_ids = [extract_desg_alias_from_cred(cred) for _, cred in enumerate(creds)]
-
+    else:
+        # otherwise if AID is just in kevers and is non-local, get creds issued by the AID in the DID
+        creds = rgy.reger.cloneCreds(saids, hby.db)
+    da_ids = [extract_desg_alias_from_cred(cred) for _, cred in enumerate(creds)]
     return list(itertools.chain.from_iterable(da_ids))
 
 

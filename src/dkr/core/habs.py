@@ -1,5 +1,9 @@
+from hio.help import hicting
+from keri import kering
 from keri.app import configing, habbing, keeping
 from keri.app.cli.common import existing
+from keri.core import eventing
+from keri.db import basing
 
 
 def get_habery_configer(name: str | None, base: str | None, head_dir_path: str | None, temp: bool = False):
@@ -27,3 +31,37 @@ def get_habery_and_doer(
     else:
         hby = existing.setupHby(name=name, base=base, bran=bran, cf=cf, temp=temp)
     return hby, habbing.HaberyDoer(habery=hby)
+
+
+def fetch_urls(baser: basing.Baser, eid: str, scheme: str = '') -> hicting.Mict:
+    """
+    Returns:
+        hicting.Mict: urls keyed by scheme for given endpoint identifier (eid). Assumes that user
+            independently verifies that the eid is allowed for a given cid and role.
+            If url is empty then does not return.
+
+    Parameters:
+        baser (basing.Baser): The Baser instance to fetch URLs from.
+        eid (str): The endpoint identifier (eid) to fetch URLs for.
+        scheme (str): The scheme to filter URLs by. Defaults to an empty string, which means no filtering.
+    """
+    return hicting.Mict([(keys[1], loc.url) for keys, loc in baser.locs.getItemIter(keys=(eid, scheme)) if loc.url])
+
+
+def get_role_urls(baser: basing.Baser, kever: eventing.Kever, scheme: str = ''):
+    """
+    Gets all witness role URLs in a given database for the witnesses in a Kever, filterable by scheme.
+
+    A subset of the habbing.BaseHab.fetchRoleUrls method from KERIpy.
+
+    Parameters:
+        baser (basing.Baser): The Baser instance to fetch URLs from.
+        kever (eventing.Kever): The Kever instance containing the witnesses.
+        scheme (str): The scheme to filter URLs by. Defaults to an empty string, which means no filtering.
+    """
+    rurls = hicting.Mict()
+    for eid in kever.wits:
+        surls = fetch_urls(baser, eid, scheme=scheme)
+        if surls:
+            rurls.add(kering.Roles.witness, hicting.Mict([(eid, surls)]))
+    return rurls

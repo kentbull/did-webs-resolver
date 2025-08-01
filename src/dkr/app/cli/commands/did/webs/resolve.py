@@ -89,7 +89,7 @@ class WebsResolver(doing.DoDoer):
         if resolved:
             if self.verbose:
                 print(f'Resolution result for {self.did}: {json.dumps(resolution, indent=2)}')
-            print(f'Verification success for {self.did}')
+            print(f'did:webs verification success for {self.did}')
             self.success = True
         else:
             print(f'Verification failure for {self.did}\nResolution: {json.dumps(resolution, indent=2)}')

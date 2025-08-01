@@ -3,10 +3,10 @@ import os
 
 import viking
 from hio.core import http
-from keri.app import habbing
+from keri import kering
+from keri.app import habbing, signing
 from keri.app.habbing import Habery
 from keri.core import serdering
-from keri.db import basing
 from keri.vdr import credentialing, viring
 from keri.vdr.credentialing import Regery
 
@@ -16,12 +16,9 @@ from dkr.core import didding, ends, resolving, webbing
 logger = ogler.getLogger(log_name)
 
 
-def gen_kel_cesr(db: basing.Baser, pre: str) -> bytearray:
+def gen_kel_cesr(hab: habbing.Hab, pre: str) -> bytearray:
     """Return a bytearray of the CESR stream of all KEL events for a given prefix."""
-    msgs = bytearray()
-    for msg in db.clonePreIter(pre=pre):
-        msgs.extend(msg)
-    return msgs
+    return hab.replay(pre=pre)
 
 
 def make_keri_cesr_path(output_dir: str, aid: str):
@@ -64,9 +61,15 @@ def gen_tel_cesr(reger: viring.Reger, regk: str) -> bytearray:
     return msgs
 
 
-def gen_acdc_cesr(hab: habbing.Hab, creder: serdering.SerderACDC) -> bytearray:
-    """Add the CESR stream of the self attestation ACDCs for the given AID including signatures."""
-    return hab.endorse(creder)
+def gen_acdc_cesr(hab: habbing.Hab, reger: credentialing.Reger, creder: serdering.SerderACDC) -> bytearray:
+    """
+    Add the CESR stream of the self attestation ACDCs for the given AID including signatures
+    and their anchors to their source KELs.
+    """
+    arr = hab.endorse(creder)
+    (prefixer, seqner, saider) = reger.cancs.get(keys=(creder.said,))
+    arr.extend(bytearray(signing.serialize(creder, prefixer, seqner, saider)))
+    return arr
 
 
 def gen_des_aliases_cesr(
@@ -94,7 +97,39 @@ def gen_des_aliases_cesr(
             # TODO check if this works if we only get the regi CESR stream once
             msgs.extend(gen_tel_cesr(reger, creder.regi))
             msgs.extend(gen_tel_cesr(reger, creder.said))
-        msgs.extend(gen_acdc_cesr(hab, creder))
+        msgs.extend(gen_acdc_cesr(hab, reger, creder))
+    return msgs
+
+
+def gen_loc_schemes_cesr(hab: habbing.Hab, aid: str, role: str = None, scheme='') -> bytearray:
+    """
+    Generates a CESR stream of all location scheme record reply 'rpy' messages for a given AID based on
+    the witness location scheme and endpoint role records in the local Hab's database.
+
+    TODO handle agent and mailbox roles to get their location schemes and add them to the msgs.
+
+    Returns:
+        bytearray: CESR stream of location scheme and endpoint role records for the given AID and role.
+
+    Parameters:
+        hab (habbing.Hab): The local Hab to use for generating the CESR stream.
+        aid (str): The AID prefix to retrieve the location schemes for.
+        role (str): The role of the endpoint, e.g., witness, agent, mailbox. Defaults to None.
+        scheme (str): The scheme to filter the location schemes by. Defaults to an empty string.
+    """
+    kever = hab.kevers[aid]
+    msgs = bytearray()
+    if role == kering.Roles.witness:
+        for eid in kever.wits:
+            msgs.extend(hab.loadLocScheme(eid=eid, scheme=scheme))
+            msgs.extend(hab.makeEndRole(eid=eid, role=role))
+    elif role == kering.Roles.agent:
+        # TODO handle agent role -> get agent (mailbox) location scheme and add it to the msgs
+        pass
+    elif role == kering.Roles.mailbox:
+        # TODO handle mailbox role -> get mailbox location scheme and add it to the msgs
+        pass
+
     return msgs
 
 
@@ -130,7 +165,8 @@ def generate_artifacts(hby: Habery, rgy: Regery, did: str, meta: bool = False, o
     hab = hby.habs[aid]
     reger = rgy.reger
     keri_cesr = bytearray()
-    keri_cesr.extend(gen_kel_cesr(hby.db, aid))  # add KEL CESR stream
+    keri_cesr.extend(gen_kel_cesr(hab, aid))  # add KEL CESR stream
+    keri_cesr.extend(gen_loc_schemes_cesr(hab, aid, role=kering.Roles.witness))  # add witness location schemes
     keri_cesr.extend(gen_des_aliases_cesr(hab, reger, aid))  # add designated aliases TELs and ACDCs
     write_keri_cesr_file(output_dir, aid, keri_cesr)
 

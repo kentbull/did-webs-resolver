@@ -3,7 +3,7 @@
 # Initializes the KERI AID for the local controller including did:webs asset generation.
 
 # Note: this script requires it be run from the root did-webs-resolver directory
-#   - `kli witness demo` should be running in another terminal.
+#   - `kli witness demo` or equivalent should be running in another terminal.
 CONFIG_DIR="/dws/config"
 SCRIPTS_DIR="/dws/scripts"
 WEB_DIR="/dws/web"
@@ -24,8 +24,8 @@ command -v kli >/dev/null 2>&1 || { print_red "kli is not installed or not avail
 command -v dkr >/dev/null 2>&1 || { print_red "dkr is not installed or not available on the PATH. Aborting."; exit 1; }
 
 # need to run witness network
-DOMAIN=dws-resolver
-DID_PORT=7677
+DOMAIN=dws-static-service
+DID_PORT=7679
 print_dark_gray "Assumes witnesses started and running..."
 WAN_PRE=BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
 WIT_HOST=http://witnesses:5642

@@ -114,6 +114,7 @@ class KeriResolver(doing.DoDoer):
                 print(self.result)
                 logger.info(f'Resolution result for did:keri DID {self.did}:\n{json.dumps(self.result, indent=2)}')
             logger.info(f'Verification success for did:keri DID: {self.did}')
+            print(f'did:keri verification success for {self.did}')
         except Exception as ex:
             logger.info(f'Verification failure for did:keri DID: {did}: {ex}')
             self.result = {'error': str(ex)}

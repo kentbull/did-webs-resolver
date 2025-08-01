@@ -1100,12 +1100,14 @@ def test_save_cesr_aid_not_in_kevers_raises():
     mydict = {}
     hby.kevers = MagicMock()
     hby.kevers.__getitem__.side_effect = mydict.get
+    rgy = mock(credentialing.Regery)
+    rgy.reger = mock(credentialing.Reger)
 
     kc_res = b''
     aid = 'EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU'
     when(hby.kevers).__getitem__(aid).thenReturn([])
     with pytest.raises(kering.KeriError) as excinfo:
-        resolving.save_cesr(hby, kc_res, aid)
+        resolving.save_cesr(hby, rgy, kc_res, aid)
 
 
 def test_tls_falcon_server_keypath_present_returns_server_tls():

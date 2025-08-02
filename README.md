@@ -1,4 +1,6 @@
-# Introduction
+# did:webs resolver 
+
+A DID resolver did:webs and did:keri DIDs also compatible with the Universal Resolver.
 
 A demonstration of a `did:webs` service and resolver. Implements the
 `did:webs` [specification](https://trustoverip.github.io/tswg-did-method-webs-specification/).
@@ -15,9 +17,25 @@ Components:
 
 ## Quick Start
 
+The quick start shows you how to use either the Docker Compose setup or the local shell script setup to:
+1. Generate did:webs artifacts (did.json, keri.cesr)
+2. Host those artifacts using a static server
+3. Resolve a did:webs DID against those artifacts using the `dkr did webs resolve` command.
+4. Resolve a did:keri DID against those artifacts using the `dkr did keri resolve` command.
+5. Run the `did:webs` resolver service in static server mode supporting the Universal Resolver.
+
 ### Docker
 
+1. `docker compose up` - this will generate the did:webs assets (did.json, keri.cesr), start the static server, start the `did:webs` resolver service, and boot up the `dws-shell` container.
+2. `docker compose exec -it dws-shell /bin/bash` - drop in to the shell container to run commands.
+3. review the `./docker/test-resolutions.sh` for a guide on how to use either the universal resolver resource or the `dkr did webs resolve` command to resolve did:webs DIDs.
+
 ### Local Shell Script
+
+1. `kli witness demo` to start the witnesses up. Run this from the root of the `keripy` respository in a separate terminal window.
+2. Create a local Python virtual environment with `uv lock` and `uv sync` to install the dependencies.
+3. Source the uv environment with `source .venv/bin/activate`.
+4. Run the local script with `./local/did_webs_workflow.sh` to view the end-to-end resolution process.
 
 ## Developers - Getting Started
 

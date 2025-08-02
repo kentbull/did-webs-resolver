@@ -135,7 +135,7 @@ def test_artifact_generation_creates_expected_artifacts():
             keri_cesr_data = cesr_file.read()
             assert keri_cesr_data == keri_cesr
 
-        assert resolving._compare_dicts(did_webs_diddoc, did_json), 'DID document does not match the expected structure'
+        assert resolving.diff_dicts(did_webs_diddoc, did_json), 'DID document does not match the expected structure'
 
         # And test a failed verification by having one be meta=True and one be meta=False
 

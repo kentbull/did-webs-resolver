@@ -53,10 +53,10 @@ def get_self_issued_acdcs(aid: str, reger: credentialing.Reger, schema: str = di
     ]
 
 
-def gen_tel_cesr(reger: viring.Reger, regk: str) -> bytearray:
+def gen_tel_cesr(reger: viring.Reger, evt_pre: str) -> bytearray:
     """Get the CESR stream of TEL events for a given registry."""
     msgs = bytearray()
-    for msg in reger.clonePreIter(pre=regk):
+    for msg in reger.clonePreIter(pre=evt_pre):
         msgs.extend(msg)
     return msgs
 
@@ -66,7 +66,7 @@ def gen_acdc_cesr(hab: habbing.Hab, reger: credentialing.Reger, creder: serderin
     Add the CESR stream of the self attestation ACDCs for the given AID including signatures
     and their anchors to their source KELs.
     """
-    arr = hab.endorse(creder)
+    arr = bytearray()
     (prefixer, seqner, saider) = reger.cancs.get(keys=(creder.said,))
     arr.extend(bytearray(signing.serialize(creder, prefixer, seqner, saider)))
     return arr
@@ -101,6 +101,49 @@ def gen_des_aliases_cesr(
     return msgs
 
 
+def get_witness_loc_scheme_bytes(hab: habbing.Hab, wit_prefixes: list[str], scheme: str = '') -> bytearray:
+    """Gets the witness location scheme records from the local hab database as a bytearray."""
+    msgs = bytearray()
+    for eid in wit_prefixes:
+        loc_scheme_msg = hab.loadLocScheme(eid=eid, scheme=scheme)
+        logger.debug(f'Found witness location scheme message for eid {eid}: {loc_scheme_msg}')
+        msgs.extend(loc_scheme_msg if loc_scheme_msg else bytearray())
+        end_role_msg = hab.loadEndRole(cid=eid, eid=eid, role=kering.Roles.controller)
+        logger.debug(f'Found witness endpoint role message for eid {eid}: {end_role_msg}')
+        msgs.extend(end_role_msg if end_role_msg else bytearray())
+    return msgs
+
+
+def get_agent_loc_scheme_bytes(hab: habbing.Hab, aid: str, scheme: str = '') -> bytearray:
+    """Gets the agent location scheme records from the local hab database as a bytearray."""
+    msgs = bytearray()
+    for (_, erole, eid), _ in hab.db.ends.getItemIter(keys=(aid, kering.Roles.agent)):
+        # Get the location scheme message for the agent
+        loc_scheme_msg = hab.loadLocScheme(eid=eid, scheme=scheme)
+        logger.debug(f'Found agent location scheme message for eid {eid}: {loc_scheme_msg}')
+        msgs.extend(loc_scheme_msg if loc_scheme_msg else bytearray())
+        # Get the endpoint role message for the agent
+        end_role_msg = hab.loadEndRole(cid=aid, eid=eid, role=erole)
+        logger.debug(f'Found agent endpoint role message for eid {eid}: {end_role_msg}')
+        msgs.extend(end_role_msg if end_role_msg else bytearray())
+    return msgs
+
+
+def get_mailbox_loc_scheme_endrole_bytes(hab: habbing.Hab, aid: str, scheme: str = '') -> bytearray:
+    """Gets the mailbox location scheme and endpoint role records from the local hab database as a bytearray."""
+    msgs = bytearray()
+    for (_, erole, eid), _ in hab.db.ends.getItemIter(keys=(aid, kering.Roles.mailbox)):
+        # Get the location scheme message for the mailbox
+        loc_scheme_msg = hab.loadLocScheme(eid=eid)
+        logger.debug(f'Found mailbox location scheme message for eid {eid}: {loc_scheme_msg}')
+        msgs.extend(loc_scheme_msg if loc_scheme_msg else bytearray())
+        # Get the endpoint role message for the mailbox
+        end_role_msg = hab.loadEndRole(cid=aid, eid=eid, role=erole)
+        logger.debug(f'Found mailbox endpoint role message for eid {eid}: {end_role_msg}')
+        msgs.extend(end_role_msg if end_role_msg else bytearray())
+    return msgs
+
+
 def gen_loc_schemes_cesr(hab: habbing.Hab, aid: str, role: str = None, scheme='') -> bytearray:
     """
     Generates a CESR stream of all location scheme record reply 'rpy' messages for a given AID based on
@@ -121,22 +164,13 @@ def gen_loc_schemes_cesr(hab: habbing.Hab, aid: str, role: str = None, scheme=''
     msgs = bytearray()
     # Get witness location schemes and endpoint roles
     if not role or role == kering.Roles.witness:
-        for eid in kever.wits:
-            msgs.extend(hab.loadLocScheme(eid=eid, scheme=scheme))
-            msgs.extend(
-                hab.loadEndRole(cid=eid, eid=eid, role=kering.Roles.controller)
-            )  # loading the witnesses controller endpoint roles ('curls' config from witness config passed as rpy messages)
+        msgs.extend(get_witness_loc_scheme_bytes(hab, kever.wits, scheme=scheme))
     # Get agent and mailbox location schemes and endpoint roles
     if not role or role == kering.Roles.agent:  # in preparation for working with KERIA agents
-        for (_, erole, eid), _ in hab.db.ends.getItemIter(keys=(aid, kering.Roles.agent)):
-            msgs.extend(hab.loadLocScheme(eid=eid) or bytearray())
-            msgs.extend(hab.loadEndRole(cid=aid, eid=eid, role=erole) or bytearray())
+        msgs.extend(get_agent_loc_scheme_bytes(hab, aid, scheme=scheme))
     # Get mailbox location schemes and endpoint roles
     if not role or role == kering.Roles.mailbox:
-        for (_, erole, eid), _ in hab.db.ends.getItemIter(keys=(aid, kering.Roles.mailbox)):
-            msgs.extend(hab.loadLocScheme(eid=eid) or bytearray())
-            msgs.extend(hab.loadEndRole(cid=aid, eid=eid, role=erole) or bytearray())
-
+        msgs.extend(get_mailbox_loc_scheme_endrole_bytes(hab, aid, scheme=scheme))
     return msgs
 
 

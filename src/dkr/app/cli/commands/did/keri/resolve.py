@@ -11,7 +11,7 @@ from dkr.core.didkeri import KeriResolver
 
 parser = argparse.ArgumentParser(description='Resolve a did:keri DID')
 parser.set_defaults(handler=lambda args: handler(args), transferable=True)
-parser.add_argument('-n', '--name', action='store', required=True, help='Name of controller.')
+parser.add_argument('-n', '--name', action='store', default='dws', help='Name of controller.')
 parser.add_argument(
     '--base', '-b', help='additional optional prefix to file location of KERI keystore', required=False, default=''
 )
@@ -53,13 +53,14 @@ logger = ogler.getLogger(log_name)
 def handler(args):
     """Creates the list of doers that handles command line did:keri DID doc  resolutions"""
     set_log_level(args.loglevel, logger)
+    name = 'dws' if args.name is None or args.name == '' else args.name
     return [
         KeriResolver(
             did=args.did,
             oobi=args.oobi,
             meta=args.meta,
             verbose=args.verbose,
-            name=args.name,
+            name=name,
             base=args.base,
             bran=args.bran,
             config_file=args.config_file,

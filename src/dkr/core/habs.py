@@ -5,6 +5,10 @@ from keri.app.cli.common import existing
 from keri.core import eventing
 from keri.db import basing
 
+from dkr import log_name, ogler
+
+logger = ogler.getLogger(log_name)
+
 
 def get_habery_configer(name: str | None, base: str | None, head_dir_path: str | None, temp: bool = False):
     """Get the Configer for the Habery if name provide otherwise return None."""
@@ -45,7 +49,12 @@ def fetch_urls(baser: basing.Baser, eid: str, scheme: str = '') -> hicting.Mict:
         eid (str): The endpoint identifier (eid) to fetch URLs for.
         scheme (str): The scheme to filter URLs by. Defaults to an empty string, which means no filtering.
     """
-    return hicting.Mict([(keys[1], loc.url) for keys, loc in baser.locs.getItemIter(keys=(eid, scheme)) if loc.url])
+    urls = []
+    for keys, loc in baser.locs.getItemIter(keys=(eid, scheme)):
+        logger.debug(f'Fetched URL: {loc.url} for eid: {eid}, scheme: {scheme} with keys: {keys}')
+        if loc.url:
+            urls.append((keys[1], loc.url))
+    return hicting.Mict(urls)
 
 
 def get_role_urls(baser: basing.Baser, kever: eventing.Kever, scheme: str = ''):

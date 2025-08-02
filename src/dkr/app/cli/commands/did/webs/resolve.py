@@ -17,7 +17,7 @@ from dkr.core import resolving
 
 parser = argparse.ArgumentParser(description='Resolve a did:webs DID')
 parser.set_defaults(handler=lambda args: handler(args), transferable=True)
-parser.add_argument('-n', '--name', action='store', required=True, help='Name of controller.')
+parser.add_argument('-n', '--name', action='store', default='dws', help='Name of controller.')
 parser.add_argument(
     '-b', '--base', required=False, default='', help='additional optional prefix to file location of KERI keystore'
 )
@@ -56,7 +56,8 @@ logger = ogler.getLogger(log_name)
 def handler(args):
     """Handles command line did:webs DID doc resolutions"""
     set_log_level(args.loglevel, logger)
-    return [WebsResolver(name=args.name, base=args.base, bran=args.bran, did=args.did, meta=args.meta, verbose=args.verbose)]
+    name = 'dws' if args.name is None or args.name == '' else args.name
+    return [WebsResolver(name=name, base=args.base, bran=args.bran, did=args.did, meta=args.meta, verbose=args.verbose)]
 
 
 class WebsResolver(doing.DoDoer):

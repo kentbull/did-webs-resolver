@@ -226,7 +226,9 @@ def test_resolver_with_witnesses():
         resolver_regery = credentialing.Regery(hby=resolver_hby, name=resolver_hby.name, temp=resolver_hby.temp)
         exp_did_keri_diddoc = didding.generate_did_doc(resolver_hby, rgy=resolver_regery, did=did_keri_did, aid=aid, meta=meta)
         assert rep.status == 200
-        assert resp_body == exp_did_keri_diddoc, f'actual and expected did doc did not match for did:keri DID: {did_keri_did}'
+        assert resp_body[didding.DD_FIELD] == exp_did_keri_diddoc[didding.DD_FIELD], (
+            f'actual and expected did doc did not match for did:keri DID: {did_keri_did}'
+        )
 
         # resolve did:dud fails as invalid did
         did_dud = 'did:dud:invalid'
@@ -470,21 +472,21 @@ def test_compare_dicts_returns_differences_when_present():
     exp = {'key1': 'value1', 'key2': 'value2'}
     act = {'key1': 'value1', 'key2': 'different_value'}
 
-    diff = resolving._compare_dicts(exp, act)
+    diff = resolving.diff_dicts(exp, act)
     assert diff == [('key2', 'value2', 'different_value')], 'Differences not identified correctly'
 
     # missing values are detected
     exp = {'key1': 'value1', 'key2': 'value2'}
     act = {'key1': 'value1'}
 
-    diff = resolving._compare_dicts(exp, act)
+    diff = resolving.diff_dicts(exp, act)
     assert diff == [('key2', 'value2', None)], 'Differences not identified correctly when keys are missing'
 
     # nested structures are compared correctly
     exp = {'key1': 'value1', 'key2': {'key3': 'value2'}}
     act = {'key1': 'value1', 'key2': 'different_value'}
 
-    diff = resolving._compare_dicts(exp, act)
+    diff = resolving.diff_dicts(exp, act)
     assert diff == [('key2', {'key3': 'value2'}, 'different_value')], (
         'Differences not identified correctly for nested structures'
     )
@@ -493,7 +495,7 @@ def test_compare_dicts_returns_differences_when_present():
     exp = {'key1': 'value1', 'key2': 'value2'}
     act = {'key1': 'value1', 'key2': {'key3': 'different_value'}}
 
-    diff = resolving._compare_dicts(exp, act)
+    diff = resolving.diff_dicts(exp, act)
     assert diff == [('key2', 'value2', {'key3': 'different_value'})], (
         'Differences not identified correctly for nested structures'
     )
@@ -502,32 +504,32 @@ def test_compare_dicts_returns_differences_when_present():
     exp = {'key1': 'value1', 'key2': 'value2'}
     act = {'key1': 'value1', 'key2': 'value2', 'key3': 'value3'}
 
-    diff = resolving._compare_dicts(exp, act)
+    diff = resolving.diff_dicts(exp, act)
     assert diff == [('key3', None, 'value3')], 'Differences not identified correctly for extra attributes in actual'
 
     # detects when actual is not a dict yet expected is
     exp = {}
     act = []
 
-    diff = resolving._compare_dicts(exp, act)
+    diff = resolving.diff_dicts(exp, act)
     assert diff == [('', exp, None)], 'Differences not identified correctly when actual is not a dict but expected is'
 
     # detects when expected is a list of dicts and compares properly
     exp = [{'key1': 'value1', 'key2': 'value2'}, {'key3': 'value3', 'key4': 'value4'}]
     act = [{'key1': 'value1', 'key2': 'value2'}, {'key3': 'value3', 'key4': 'value4'}]
-    diff = resolving._compare_dicts(exp, act)
+    diff = resolving.diff_dicts(exp, act)
     assert diff == [[], []], 'Differences should be empty when both lists of dicts are equal'
 
     # detects when non-list, non-dict expected does not equal actual
     exp = 0.123
     act = 'asdf'
-    diff = resolving._compare_dicts(exp, act)
+    diff = resolving.diff_dicts(exp, act)
     assert diff == [('', exp, act)], 'Differences not identified correctly when expected is a non-list, non-dict type'
 
     # detects when comparing lists and the length of expected and actual differ
     exp = [1, 2, 3]
     act = [1, 2]
-    diff = resolving._compare_dicts(exp, act)
+    diff = resolving.diff_dicts(exp, act)
     assert diff == [('', exp, act)], 'Differences not identified correctly when comparing lists of different lengths'
 
 

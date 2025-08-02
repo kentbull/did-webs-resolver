@@ -24,7 +24,6 @@ export DOCKER_WARNING
 BASE_IMAGE=gleif/dws-base
 build-dws-base: .warn
 	@docker build \
-		--no-cache \
 		--platform=linux/amd64,linux/arm64 \
 		-f images/dws-base.dockerfile \
 		-t $(BASE_IMAGE):$(VERSION) .
@@ -41,7 +40,6 @@ tag-latest-all: tag-dws-base-latest tag-dynamic-service-latest tag-did-webs-reso
 DYN_IMAGE=gleif/did-webs-service
 build-dynamic-service: .warn
 	@docker build \
-		--no-cache \
 		--platform=linux/amd64,linux/arm64 \
 		-f images/dws-dynamic-service.dockerfile \
 		-t $(DYN_IMAGE):$(VERSION) .
@@ -53,10 +51,9 @@ tag-dynamic-service-latest:
 	@$(MAKE) tag IMAGE_NAME=$(DYN_IMAGE) VERSION=$(VERSION)
 
 # build did:webs resolver service
-RSLV_IMAGE=gleif/did-webs-resolver
+RSLV_IMAGE=gleif/did-webs-resolver-service
 build-did-webs-resolver-service: .warn
 	@docker build \
-		--no-cache \
 		--platform=linux/amd64,linux/arm64 \
 		-f images/dws-resolver-service.dockerfile \
 		-t $(RSLV_IMAGE):$(VERSION) .

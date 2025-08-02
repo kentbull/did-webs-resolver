@@ -63,7 +63,7 @@ def test_gen_loc_schemes_cesr_for_agent_returns_loc_scheme_and_endrole():
     hab.db = mock(basing.Baser)
     hab.db.ends = mock(koming.Komer)
     when(hab.db.ends).getItemIter(keys=(aid, kering.Roles.agent)).thenReturn([((None, kering.Roles.agent, eid), None)])
-    when(hab).loadLocScheme(eid=eid).thenReturn(bytearray(b'loc_scheme_data'))
+    when(hab).loadLocScheme(eid=eid, scheme='').thenReturn(bytearray(b'loc_scheme_data'))
     when(hab).loadEndRole(cid=aid, eid=eid, role=kering.Roles.agent).thenReturn(bytearray(b'end_role_data'))
 
     msgs = artifacting.gen_loc_schemes_cesr(hab, aid, role=role)

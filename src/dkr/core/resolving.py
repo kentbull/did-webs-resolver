@@ -27,6 +27,7 @@ from keri.vdr.credentialing import Regery
 
 from dkr import ArtifactResolveError, log_name, ogler
 from dkr.core import didding, ends, requesting
+from dkr.core.requesting import load_url_with_hio
 
 logger = ogler.getLogger(log_name)
 
@@ -91,12 +92,21 @@ def save_cesr(hby: Habery, rgy: Regery, kc_res: bytes, aid: str = None):
     vry = verifying.Verifier(hby=hby, reger=rgy.reger)
     rtr = routing.Router()
     rvy = routing.Revery(db=hby.db, rtr=rtr)
+    kvy.registerReplyRoutes(router=rtr)  # make sure LocScheme records are processed
     local = True if aid in hby.habs else False
     hby.psr.parse(ims=bytearray(kc_res), kvy=kvy, tvy=tvy, vry=vry, rvy=rvy, exc=exc, local=local)
+
     if (
         aid not in hby.kevers
     ):  # After parsing then the AID should be in kevers, meaning the KEL for the AID is locally available
         raise kering.KeriError(f'KERI CESR parsing and saving failed, KERI AID {aid} not found in habery')
+
+    # Process escrows to ensure all events are processed
+    kvy.processEscrows()
+    tvy.processEscrows()
+    exc.processEscrow()
+    vry.processEscrows()
+    rvy.processEscrowReply()
 
 
 def get_generated_did_doc(
@@ -140,7 +150,7 @@ def verify(dd_expected: dict, dd_actual: dict, meta: bool = False) -> (bool, dic
     if meta:
         dd_exp = dd_expected[didding.DD_FIELD]
         dd_act = dd_actual[didding.DD_FIELD]
-    verified, differences = _verify_did_docs(dd_exp, dd_act)
+    verified, differences = compare_did_docs(dd_exp, dd_act)
 
     if verified:
         logger.info(f'DID document verified')
@@ -155,7 +165,7 @@ def verify(dd_expected: dict, dd_actual: dict, meta: bool = False) -> (bool, dic
         )
 
 
-def _verify_did_docs(expected, actual) -> (bool, list):
+def compare_did_docs(expected, actual) -> (bool, list):
     """
     Performs did:webs DID document verification by performing a simple, deep dictionary comparison
     using Python's built-in equality operator comparison.
@@ -167,14 +177,14 @@ def _verify_did_docs(expected, actual) -> (bool, list):
     if (
         expected != actual
     ):  # Python != and == perform a deep object value comparison; this is not reference equality, it is value equality
-        differences = _compare_dicts(expected, actual)
+        differences = diff_dicts(expected, actual)
         logger.error(f'Differences found in DID Doc verification: {differences}')
         return False, differences
     else:
         return True, []
 
 
-def _compare_dicts(expected, actual, path=''):
+def diff_dicts(expected, actual, path=''):
     """Recursively compare two dictionaries and return differences."""
     logger.error(f'Comparing dictionaries:\nexpected:\n{expected}\n \nand\n \nactual:\n{actual}')
     differences = []
@@ -205,7 +215,7 @@ def _compare_dicts(expected, actual, path=''):
 
             # If value is another dictionary, recurse
             if isinstance(expected[k], dict) and isinstance(actual[k], dict):
-                differences.append(_compare_dicts(expected[k], actual[k], current_path))
+                differences.append(diff_dicts(expected[k], actual[k], current_path))
             # Compare non-dict values
             elif expected[k] != actual[k]:
                 differences.append((current_path, expected[k], actual[k]))
@@ -227,7 +237,7 @@ def _compare_dicts(expected, actual, path=''):
             logger.error(f'Expected list {expected} and actual list {actual} are not the same length')
         else:
             for i in range(len(expected)):
-                differences.append(_compare_dicts(expected[i], actual[i], path))
+                differences.append(diff_dicts(expected[i], actual[i], path))
     else:
         if expected != actual:
             differences.append((path, expected, actual))
@@ -417,7 +427,7 @@ class UniversalResolverResource:
         hby: habbing.Habery,
         rgy: credentialing.Regery,
         oobiery: oobiing.Oobiery,
-        load_url: Callable = load_url_with_requests,
+        load_url: Callable = load_url_with_hio,
     ):
         """Create Endpoints for discovery and resolution of OOBIs
 

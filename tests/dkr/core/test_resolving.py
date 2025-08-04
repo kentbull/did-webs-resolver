@@ -18,6 +18,7 @@ from keri.db.basing import dbdict
 from keri.vdr import credentialing, verifying
 from mockito import mock, when
 
+import dkr.core.requesting
 from dkr import ArtifactResolveError
 from dkr.core import artifacting, didding, generating, requesting, resolving
 from dkr.core.didkeri import KeriResolver
@@ -1007,25 +1008,25 @@ def test_load_url_with_requests_fails_on_connection_error():
     with patch('requests.get') as mock_get:
         mock_get.side_effect = requests.exceptions.ConnectionError('Connection failed')
         with pytest.raises(ArtifactResolveError) as excinfo:
-            resolving.load_url_with_requests('http://example.com')
+            dkr.core.requesting.load_url_with_requests('http://example.com')
         assert 'Failed to connect to URL' in str(excinfo.value), 'Expected error message for ArtifactResolveError'
 
         mock_get.side_effect = Exception('Unexpected error')
         with pytest.raises(ArtifactResolveError) as excinfo:
-            resolving.load_url_with_requests('http://example.com')
+            dkr.core.requesting.load_url_with_requests('http://example.com')
         assert 'Failed to load URL' in str(excinfo.value), 'Expected error message for ArtifactResolveError'
 
     with patch('requests.get') as mock_get:
         # mock returning a byte array in response.content
         mock_get.return_value.content = b'{"key": "value"}'
-        result = resolving.load_url_with_requests('http://example.com')
+        result = dkr.core.requesting.load_url_with_requests('http://example.com')
         assert result == b'{"key": "value"}', 'Expected byte array response from mocked requests.get'
 
 
 def test_resolve_error_conditions():
     hby = mock()
     rgy = mock()
-    with patch('dkr.core.resolving.get_did_artifacts') as mock_get_artifacts:
+    with patch('dkr.core.resolving.get_dws_artifacts') as mock_get_artifacts:
         mock_get_artifacts.side_effect = ArtifactResolveError('Failed to resolve artifacts')
         result, err = resolving.resolve(hby, rgy, 'did:webs:example.com:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v')
         assert not result, 'Expected result to be False for resolution failure'
@@ -1072,7 +1073,7 @@ def test_resolve_meta_true_yet_no_returned_metadata_wraps_in_meta():
       }"""
     keri_cesr = b''
     with (
-        patch('dkr.core.resolving.get_did_artifacts') as mock_get_artifacts,
+        patch('dkr.core.resolving.get_dws_artifacts') as mock_get_artifacts,
         patch('dkr.core.resolving.save_cesr') as mock_save_cesr,
         # patch('dkr.core.didding.from_did_web') as mock_from_did_web,
         patch('dkr.core.resolving.get_generated_did_doc') as mock_get_gen_did_doc,

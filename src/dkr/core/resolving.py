@@ -9,7 +9,6 @@ import os
 from typing import Callable, List
 
 import falcon
-import requests
 from falcon import media
 from hio.base import doing
 from hio.core import http, tcp
@@ -27,26 +26,21 @@ from keri.vdr.credentialing import Regery
 
 from dkr import ArtifactResolveError, log_name, ogler
 from dkr.core import didding, ends, requesting
-from dkr.core.requesting import load_url_with_hio
+from dkr.core.requesting import load_url_with_hio, load_url_with_requests
 
 logger = ogler.getLogger(log_name)
 
 
-def load_url_with_requests(url: str, timeout: float = 5.0) -> bytes:
-    try:
-        response = requests.get(url=url, timeout=timeout)
-    except requests.exceptions.ConnectionError as e:
-        logger.error(f'Failed to connect to URL {url}: {e}')
-        raise ArtifactResolveError(f'Failed to connect to URL {url}') from e
-    except Exception as e:
-        logger.error(f'Failed to load URL {url}: {e}')
-        raise ArtifactResolveError(f'Failed to load URL {url}') from e
-    # Ensure the request was successful
-    response.raise_for_status()
-    return response.content
+def gen_dws_urls(did: str) -> (str, str, str):
+    """
+    Generate the did.json and keri.cesr HTTP URLs for a did:webs DID.
 
+    Parameters:
+        did (str): The did:webs DID to generate URLs for.
 
-def get_urls(did: str) -> (str, str, str):
+    Returns:
+          (str, str, str): the AID, did.json, and keri.cesr URLs parsed from the DID
+    """
     domain, port, path, aid, query = didding.parse_did_webs(did=did)
 
     opt_port = f':{port}' if port is not None else ''
@@ -63,8 +57,19 @@ def get_urls(did: str) -> (str, str, str):
     return aid, dd_url, kc_url
 
 
-def get_did_artifacts(did: str, load_url: Callable = load_url_with_requests, timeout: float = 5.0) -> (str, bytes, bytes):
-    aid, dd_url, kc_url = get_urls(did=did)
+def get_dws_artifacts(did: str, load_url: Callable = load_url_with_requests, timeout: float = 5.0) -> (str, bytes, bytes):
+    """
+    Execute HTTP calls for the did.json and keri.cesr artifacts for a did:webs DID.
+
+    Parameters:
+        did (str): The did:webs DID to resolve.
+        load_url (Callable): Function to load URLs, can be mocked for testing.
+        timeout (float): Timeout for HTTP requests in seconds.
+
+    Returns:
+        (str, bytes, bytes): The AID, did.json content, and keri.cesr content for the given did:webs DID.
+    """
+    aid, dd_url, kc_url = gen_dws_urls(did=did)
 
     # Load the did doc
     logger.info(f'Loading DID Doc from {dd_url}')
@@ -84,8 +89,15 @@ def save_cesr(hby: Habery, rgy: Regery, kc_res: bytes, aid: str = None):
     Save the resolved keri.cesr stream to the local keystore by parsing the CESR objects in it
     with the appropriate message processor. This makes the designated aliases ACDC and the location
     scheme records available to use for generating the correct did.json document during did doc verification.
+
+    Parameters:
+        hby (Habery): The Habery instance containing the KERI database.
+        rgy (Regery): The Regery instance for credential and registry management.
+        kc_res (bytes): The KERI CESR stream to save.
+        aid (str): The AID of the identifier to which the CESR belongs. If None, it will be derived from the CESR.
     """
     logger.debug('Saving KERI CESR to hby: %s', kc_res.decode('utf-8'))
+    # CESR message handlers
     exc = exchanging.Exchanger(hby=hby, handlers=[])
     kvy = eventing.Kevery(db=hby.db)
     tvy = teventing.Tevery(db=hby.db, reger=rgy.reger)
@@ -94,11 +106,12 @@ def save_cesr(hby: Habery, rgy: Regery, kc_res: bytes, aid: str = None):
     rvy = routing.Revery(db=hby.db, rtr=rtr)
     kvy.registerReplyRoutes(router=rtr)  # make sure LocScheme records are processed
     local = True if aid in hby.habs else False
+
+    # Call to parse the stream.
     hby.psr.parse(ims=bytearray(kc_res), kvy=kvy, tvy=tvy, vry=vry, rvy=rvy, exc=exc, local=local)
 
-    if (
-        aid not in hby.kevers
-    ):  # After parsing then the AID should be in kevers, meaning the KEL for the AID is locally available
+    # After parsing then the AID should be in kevers, meaning the KEL for the AID is locally available
+    if aid not in hby.kevers:
         raise kering.KeriError(f'KERI CESR parsing and saving failed, KERI AID {aid} not found in habery')
 
     # Process escrows to ensure all events are processed
@@ -115,7 +128,17 @@ def get_generated_did_doc(
     did: str,
     meta: bool,
 ):
-    aid, dd_url, kc_url = get_urls(did=did)
+    """
+    Get the did:webs DID document generated from the did.json and keri.cesr files loaded for a given did:webs DID.
+    If metadata is requested then the response will include DID resolution metadata.
+
+    Parameters:
+        hby (habbing.Habery): The Habery instance containing the KERI database.
+        rgy (credentialing.Regery): The Regery instance for credential and registry management.
+        did (str): The did:webs DID to generate the document for.
+        meta (bool): Whether to include metadata in the DID document.
+    """
+    aid, dd_url, kc_url = gen_dws_urls(did=did)
     dd = didding.generate_did_doc(hby, rgy, did=did, aid=aid, meta=meta)
     if meta:
         dd[didding.DD_META_FIELD]['didDocUrl'] = dd_url
@@ -262,9 +285,22 @@ def resolve(
     load_url: Callable = load_url_with_requests,
     timeout: float = 5.0,
 ) -> (bool, dict):
-    """Resolve a did:webs DID and returl the verification result."""
+    """
+    Resolve a did:webs DID and returl the verification result.
+
+    Parameters:
+        hby (habbing.Habery): The Habery instance containing the KERI database.
+        rgy (credentialing.Regery): The Regery instance for credential and registry management.
+        did (str): The did:webs DID to resolve.
+        meta (bool): Whether to include metadata in the DID document.
+        load_url (Callable): Function to load URLs, can be mocked for testing.
+        timeout (float): Timeout for HTTP requests in seconds.
+
+    Returns:
+        tuple(bool, dict): (verified, resolution) where verified is a boolean indicating verification status
+    """
     try:
-        aid, dd_res, kc_res = get_did_artifacts(did=did, load_url=load_url, timeout=timeout)
+        aid, dd_res, kc_res = get_dws_artifacts(did=did, load_url=load_url, timeout=timeout)
     except ArtifactResolveError as e:
         logger.error(f'Failed to resolve DID {did}: {e}')
         return False, {'error': str(e)}
@@ -281,6 +317,7 @@ def resolve(
 
 
 def keri_headers() -> List[str]:
+    """HTTP header array for both CESR content types and Signify headers."""
     return [
         'cesr-attachment',
         'cesr-date',
@@ -293,6 +330,7 @@ def keri_headers() -> List[str]:
 
 
 def cors_middleware() -> falcon.CORSMiddleware:
+    """Wide open CORS HTTP header Falcon middleware."""
     return falcon.CORSMiddleware(
         allow_origins='*',
         allow_credentials='*',
@@ -300,7 +338,10 @@ def cors_middleware() -> falcon.CORSMiddleware:
     )
 
 
+# noinspection PyMethodMayBeStatic
 class RequestLoggerMiddleware:
+    """Simple request logger Falcon middleware."""
+
     def process_request(self, req: falcon.Request, resp: falcon.Response):
         """Log incoming requests."""
         logger.info(f'Request received : {req.method} {req.url}')
@@ -391,7 +432,7 @@ def get_serve_dir(static_files_dir: str | None, did_doc_dir: str):
 
 
 def serve_artifacts(app: falcon.App, hby: habbing.Habery, static_files_dir: str | None = None, did_path: str = ''):
-    """Set up static file serving for did.json and keri.cesr files"""
+    """Configures a Falcon HTTP server with a static file server for did.json and keri.cesr files based on a local directory."""
     if static_files_dir is not None:
         did_doc_dir = get_serve_dir(static_files_dir, hby.cf.get().get('did.doc.dir', ''))
         route = '' if did_path is None else f'/{did_path}'
@@ -515,6 +556,18 @@ class UniversalResolverResource:
 
 
 def resolve_did_keri(hby: habbing.Habery, rgy: credentialing.Regery, did: str, oobi: str = None, meta: bool = False):
+    """
+    Performs a did:keri DID document resolution based on the KEL retrieved from an OOBI resolution.
+
+    Parameters:
+        hby (Habery): identifier database environment
+        rgy (Regery): Credential and registry data manager
+        did (str): The did:keri DID to resolve.
+        oobi (str): OOBI to use for resolution, if None then the AID must be known in the KERI database.
+        meta (bool): Whether to include metadata in the DID document.
+    Returns:
+        tuple(bool, dict): (verified, resolution) where verified is a boolean indicating verification status
+    """
     aid, query = didding.parse_did_keri(did)
     if oobi is None and hby.kevers.get(aid) is None:
         return False, {'error': f'Unknown AID, cannot resolve DID {did}'}

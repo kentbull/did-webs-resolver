@@ -2,11 +2,28 @@ import datetime
 import urllib.parse
 from typing import List, Optional, Tuple
 
+import requests
 from hio.base import doing
 from hio.core import http
 from keri.help import helping
 
-from dkr import ArtifactResolveError
+from dkr import ArtifactResolveError, log_name, ogler
+
+logger = ogler.getLogger(log_name)
+
+
+def load_url_with_requests(url: str, timeout: float = 5.0) -> bytes:
+    try:
+        response = requests.get(url=url, timeout=timeout)
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f'Failed to connect to URL {url}: {e}')
+        raise ArtifactResolveError(f'Failed to connect to URL {url}') from e
+    except Exception as e:
+        logger.error(f'Failed to load URL {url}: {e}')
+        raise ArtifactResolveError(f'Failed to load URL {url}') from e
+    # Ensure the request was successful
+    response.raise_for_status()
+    return response.content
 
 
 def load_url_with_hio(url: str, timeout: float = 5.0, method: str = 'GET') -> bytes:

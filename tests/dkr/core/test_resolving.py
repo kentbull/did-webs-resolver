@@ -960,7 +960,7 @@ def test_resolver_with_metadata_returns_correct_doc():
         # Verify did:webs DID doc
         did_webs_response = client.simulate_get(f'/1.0/identifiers/{encoded_did_webs}')
 
-        assert did_webs_response.content_type == 'application/did+ld+json', 'Content-Type should be application/did+ld+json'
+        assert did_webs_response.content_type == 'application/did-resolution', 'Content-Type should be application/did+ld+json'
         response_diddoc = json.loads(did_webs_response.content)[didding.DD_FIELD]
         did_webs_diddoc = did_webs_diddoc[didding.DD_FIELD]
         assert response_diddoc == did_webs_diddoc, 'did:webs response did document does not match expected diddoc'

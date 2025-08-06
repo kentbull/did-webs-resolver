@@ -551,7 +551,10 @@ class UniversalResolverResource:
 
         logger.info(f'Successfully resolved {did}')
         rep.status = falcon.HTTP_200
-        if didding.DD_META_FIELD in data:  # meaning, resolution is a DID resolution result and has metadata
+        accepts = req.get_header('Accept', default='application/did+ld+json').lower()
+        if (
+            didding.DD_META_FIELD in data or accepts == 'application/did-resolution'
+        ):  # meaning, resolution is a DID resolution result and has metadata
             # application/did-resolution is expected by the HTTP Binding in the DID Resolution spec and the Universal Resolver
             rep.set_header('Content-Type', 'application/did-resolution')
         else:

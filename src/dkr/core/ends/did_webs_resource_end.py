@@ -47,11 +47,10 @@ class DIDWebsResourceEnd:
             raise falcon.HTTPNotFound(description=f'KERI AID {aid} not found')
 
         path = os.path.normpath(req.path).replace(f'/{DID_JSON}', '').replace('/', ':')
-        port = ''
-        if req.port != 80 and req.port != 443:
-            port = f'%3A{req.port}'
+        port = req.get_header('X-Forwarded-Port') or req.port  # support for reverse proxy forwarding
+        port_str = '' if port in ('80', '443') else f'%3A{port}'
 
-        did = f'did:web:{req.host}{port}{path}'
+        did = f'did:web:{req.host}{port_str}{path}'
 
         # Generate the DID Doc and return
         diddoc = didding.generate_did_doc(self.hby, self.rgy, did, aid, meta=self.meta)

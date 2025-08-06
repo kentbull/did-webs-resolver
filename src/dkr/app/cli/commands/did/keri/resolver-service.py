@@ -6,10 +6,11 @@ dkr.app.cli.commands module
 
 import argparse
 
-from keri.app import configing, directing, habbing, keeping, oobiing
-from keri.app.cli.common import existing
+from keri.app import oobiing
+from keri.vdr import credentialing
 
-from dkr.core import resolving
+from dkr import log_name, ogler, set_log_level
+from dkr.core import habs, resolving
 
 parser = argparse.ArgumentParser(description='Expose did:keri resolver as an HTTP web service')
 parser.set_defaults(handler=lambda args: launch(args), transferable=True)
@@ -20,44 +21,44 @@ parser.add_argument(
     default=7678,
     help='Port on which to listen for did:keri resolution requests.  Defaults to 7678',
 )
-parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
+parser.add_argument('-n', '--name', action='store', required=True, help='Name of controller.')
 parser.add_argument(
     '--base', '-b', help='additional optional prefix to file location of KERI keystore', required=False, default=''
 )
 parser.add_argument(
     '--passcode', help='22 character encryption passcode for keystore (is not saved)', dest='bran', default=None
 )  # passcode => bran
-parser.add_argument('--config-dir', '-c', dest='configDir', help='directory override for configuration data', default=None)
-parser.add_argument('--config-file', dest='configFile', action='store', default=None, help='configuration filename override')
+parser.add_argument('--config-dir', '-c', dest='config_dir', help='directory override for configuration data', default=None)
+parser.add_argument('--config-file', dest='config_file', action='store', default=None, help='configuration filename override')
+parser.add_argument(
+    '--loglevel',
+    action='store',
+    required=False,
+    default='CRITICAL',
+    help='Set log level to DEBUG | INFO | WARNING | ERROR | CRITICAL. Default is CRITICAL',
+)
+
+logger = ogler.getLogger(log_name)
 
 
 def launch(args, expire=0.0):
+    """Creates the set of Doers that run the did:keri resolver web service"""
+    set_log_level(args.loglevel, logger)
     name = args.name
     base = args.base
     bran = args.bran
-    httpPort = args.http
+    http_port = args.http
 
-    configFile = args.configFile
-    configDir = args.configDir
+    config_file = args.config_file
+    config_dir = args.config_dir
 
-    ks = keeping.Keeper(name=name, base=base, temp=False, reopen=True)
+    cf = habs.get_habery_configer(name=config_file, base=base, head_dir_path=config_dir)
+    hby, hby_doer = habs.get_habery_and_doer(name, base, bran, cf)
+    rgy = credentialing.Regery(hby=hby, name=hby.name, base=hby.base, temp=hby.temp)
+    oobiery = oobiing.Oobiery(hby=hby)
 
-    aeid = ks.gbls.get('aeid')
+    doers = oobiery.doers + [hby_doer]
+    doers += resolving.setup_resolver(hby, rgy, oobiery, http_port=http_port)
 
-    cf = None
-    if aeid is None:
-        if configFile is not None:
-            cf = configing.Configer(name=configFile, base=base, headDirPath=configDir, temp=False, reopen=True, clear=False)
-
-        hby = habbing.Habery(name=name, base=base, bran=bran, cf=cf)
-    else:
-        hby = existing.setupHby(name=name, base=base, bran=bran)
-
-    hbyDoer = habbing.HaberyDoer(habery=hby)  # setup doer
-    obl = oobiing.Oobiery(hby=hby)
-
-    doers = obl.doers + [hbyDoer]
-    doers += resolving.setup(hby, hbyDoer, obl, httpPort=httpPort)
-
-    print(f'Launched did:keri resolver as an HTTP web service on {httpPort}')
+    logger.info(f'Launched did:keri resolver as an HTTP web service on {http_port}')
     return doers

@@ -5,78 +5,65 @@ dkr.app.cli.commands module
 """
 
 import argparse
-import json
-import sys
 
-from hio.base import doing
-from keri.app import habbing, oobiing
-from keri.app.cli.common import existing
-from keri.db import basing
-from keri.help import helping
-
-from dkr.core import didding
+from dkr import log_name, ogler, set_log_level
+from dkr.core.didkeri import KeriResolver
 
 parser = argparse.ArgumentParser(description='Resolve a did:keri DID')
 parser.set_defaults(handler=lambda args: handler(args), transferable=True)
-parser.add_argument('-n', '--name', action='store', default='dkr', help='Name of controller. Default is dkr.')
+parser.add_argument('-n', '--name', action='store', default='dws', help='Name of controller.')
 parser.add_argument(
     '--base', '-b', help='additional optional prefix to file location of KERI keystore', required=False, default=''
 )
+# passcode => bran
 parser.add_argument(
     '--passcode', help='22 character encryption passcode for keystore (is not saved)', dest='bran', default=None
-)  # passcode => bran
+)
+parser.add_argument('-c', '--config-dir', dest='config_dir', default=None, help='directory override for configuration data')
+parser.add_argument('--config-file', dest='config_file', action='store', default=None, help='configuration filename override')
 parser.add_argument('--did', '-d', help='DID to resolve (did:keri method)', required=True)
 parser.add_argument('--oobi', '-o', help='OOBI to use for resolving the DID', required=False)
 parser.add_argument(
     '--meta',
     '-m',
-    help='Whether to include metadata (True), or only return the DID document (False)',
-    type=bool,
+    help='Whether to include metadata or only return the DID document',
+    action='store_true',
     required=False,
-    default=None,
+    default=False,
 )
+parser.add_argument(
+    '-v',
+    '--verbose',
+    action='store_true',
+    required=False,
+    default=False,
+    help='Show the verbose output of DID resolution',
+)
+parser.add_argument(
+    '--loglevel',
+    action='store',
+    required=False,
+    default='CRITICAL',
+    help='Set log level to DEBUG | INFO | WARNING | ERROR | CRITICAL. Default is CRITICAL',
+)
+
+logger = ogler.getLogger(log_name)
 
 
 def handler(args):
-    hby = existing.setupHby(name=args.name, base=args.base, bran=args.bran)
-    hbyDoer = habbing.HaberyDoer(habery=hby)  # setup doer
-    obl = oobiing.Oobiery(hby=hby)
-    res = KeriResolver(hby=hby, hbyDoer=hbyDoer, obl=obl, did=args.did, oobi=args.oobi, meta=args.meta)
-    return [res]
-
-
-class KeriResolver(doing.DoDoer):
-    def __init__(self, hby, hbyDoer, obl, did, oobi, meta):
-        self.hby = hby
-        self.did = did
-        self.oobi = oobi
-        self.meta = meta
-
-        self.toRemove = [hbyDoer] + obl.doers
-        doers = list(self.toRemove) + [doing.doify(self.resolve)]
-        super(KeriResolver, self).__init__(doers=doers)
-
-    def resolve(self, tymth, tock=0.0, **opts):
-        self.wind(tymth)
-        self.tock = tock
-        _ = yield self.tock
-
-        aid = didding.parseDIDKeri(self.did)
-        print(f'From arguments got aid: {aid}', file=sys.stderr)
-        print(f'From arguments got oobi: {self.oobi}', file=sys.stderr)
-
-        obr = basing.OobiRecord(date=helping.nowIso8601())
-        obr.cid = aid
-        self.hby.db.oobis.pin(keys=(self.oobi,), val=obr)
-
-        while self.hby.db.roobi.get(keys=(self.oobi,)) is None:
-            _ = yield tock
-
-        didresult = didding.generateDIDDoc(self.hby, did=self.did, aid=aid, oobi=self.oobi, meta=True)
-        dd = didresult[didding.DD_FIELD]
-        result = didresult if self.meta else dd
-        data = json.dumps(result, indent=2)
-
-        print(data)
-        self.remove(self.toRemove)
-        return result
+    """Creates the list of doers that handles command line did:keri DID doc  resolutions"""
+    set_log_level(args.loglevel, logger)
+    name = 'dws' if args.name is None or args.name == '' else args.name
+    return [
+        KeriResolver(
+            did=args.did,
+            oobi=args.oobi,
+            meta=args.meta,
+            verbose=args.verbose,
+            name=name,
+            base=args.base,
+            bran=args.bran,
+            config_file=args.config_file,
+            config_dir=args.config_dir,
+        )
+    ]

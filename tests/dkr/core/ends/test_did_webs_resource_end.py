@@ -1,6 +1,7 @@
 import falcon
 import pytest
 from keri.app import habbing
+from keri.vdr import credentialing
 from mockito import mock, unstub, when
 
 from dkr.core import didding
@@ -12,14 +13,17 @@ def test_did_web_resource_end_on_get():
     rep = mock(falcon.Response)
     hby = mock(habbing.Habery)
     hby.kevers = {'test_aid': mock()}
+    rgy = mock(credentialing.Regery)
 
     req.path = '/test_aid/did.json'
     req.host = 'example.com'
     req.port = 80
 
-    when(didding).generateDIDDoc(hby, 'did:web:example.com:test_aid', 'test_aid').thenReturn({'mocked': 'data'})
+    when(didding).generate_did_doc(hby, rgy, 'did:web:example.com:test_aid', 'test_aid', meta=False).thenReturn(
+        {'mocked': 'data'}
+    )
 
-    resource = DIDWebsResourceEnd(hby)
+    resource = DIDWebsResourceEnd(hby, rgy, False)
     resource.on_get(req, rep, 'test_aid')
 
     assert rep.status == falcon.HTTP_200
@@ -34,14 +38,17 @@ def test_did_web_resource_end_on_get_odd_port():
     rep = mock(falcon.Response)
     hby = mock(habbing.Habery)
     hby.kevers = {'test_aid': mock()}
+    rgy = mock(credentialing.Regery)
 
     req.path = '/test_aid/did.json'
     req.host = 'example.com'
     req.port = 42
 
-    when(didding).generateDIDDoc(hby, 'did:web:example.com%3A42:test_aid', 'test_aid').thenReturn({'mocked': 'data'})
+    when(didding).generate_did_doc(hby, rgy, 'did:web:example.com%3A42:test_aid', 'test_aid', meta=False).thenReturn(
+        {'mocked': 'data'}
+    )
 
-    resource = DIDWebsResourceEnd(hby)
+    resource = DIDWebsResourceEnd(hby, rgy, False)
     resource.on_get(req, rep, 'test_aid')
 
     assert rep.status == falcon.HTTP_200
@@ -56,10 +63,11 @@ def test_did_web_resource_end_on_get_bad_path():
     rep = mock(falcon.Response)
     hby = mock(habbing.Habery)
     hby.kevers = {'test_aid': mock()}
+    rgy = mock(credentialing.Regery)
 
     req.path = '/test_aid/bad.path'
 
-    resource = DIDWebsResourceEnd(hby)
+    resource = DIDWebsResourceEnd(hby, rgy)
 
     with pytest.raises(falcon.HTTPBadRequest) as e:
         resource.on_get(req, rep, 'test_aid')
@@ -74,10 +82,11 @@ def test_did_web_resource_end_on_get_bad_aid():
     rep = mock(falcon.Response)
     hby = mock(habbing.Habery)
     hby.kevers = {'test_aid': mock()}
+    rgy = mock(credentialing.Regery)
 
     req.path = '/bad_aid/did.json'
 
-    resource = DIDWebsResourceEnd(hby)
+    resource = DIDWebsResourceEnd(hby, rgy)
 
     with pytest.raises(falcon.HTTPNotFound) as e:
         resource.on_get(req, rep, 'bad_aid')

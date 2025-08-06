@@ -1,106 +1,196 @@
-# Developers - Getting Started
+# did:webs Getting Started guide - for Developers
 
-Welcome to the `did:webs` reference implementation Getting Started guide.
+There are two ways to run the `did:webs` reference implementation:
+
+1. Using the command line with local Python environments. See `./local/did_webs_workflow.sh`.
+2. Using Docker to run the `did:webs` reference implementation in a containerized environment. See `./docker/controller-init.sh` and the `docker-compose.yml` file.
+    - Run `docker compose up` from one terminal, 
+    - then `docker exec -it dws-shell /bin/bash` in a second terminal, and finally,
+      - run `dkr did webs resolve --name my-keystore --did did:webs:dws-resolver%3A7677:dws:EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh` to see 
+      - `Verification success for did:webs:dws-resolver%3A7677:dws:EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh`
+    - See the detailed flow below for more information.
+
+## Credits
 
 Thank you to Markus Sabadello @peacekeeper from DanubeTech who created the original guide for IIW37 [here](https://github.com/peacekeeper/did-webs-iiw-tutorial)
 
 If you're running into trouble in the process below, be sure to check the section [Trouble Shooting](#trouble-shooting) below. 
 
-Let's get started! We'll use docker to setup and run in a simple environment. If you haven't installed docker on your system yet, first [get it](https://docs.docker.com/get-docker/)
 
-## Run locally
+# Local Command Line Flow (best for development and debugging)
+
+WARNING: This is a work in progress. For now refer to the [Docker Flow](#docker-flow) below.
+
+## Run locally using the command line
 
 Start your witness pool.
+
+Then run the resolver service
+```bash
+dkr did webs resolver-service \
+  --name dws-resolver \
+  --config-dir=./local/config/controller \
+  --config-file=dws-resolver \
+  --static-files-dir ./local/web
 ```
-dkr did webs resolver-service --config-dir=./scripts
-```
+
+# Fast Docker Flow (for getting the idea quickly)
+
+This flow is similar to the local command line flow except that the `controller-init.sh` file does not run either the did:webs resolver and does not perform DID resolution with the `dkr did webs resolve` command.
+Instead, it only performs did:webs asset generation after which you will perform DID resolution using the `dkr did webs resolve` command in the `dws-shell` container.
+
+You may read the `./docker/controller-init.sh` file to see the commands that it runs and familiarize yourself with the process.
+
+### Prerequisites
+
+If you haven't installed docker on your system yet, first [get it](https://docs.docker.com/get-docker/)
 
 ## Run Docker build
-Go the root of did-webs-resolver reference implementation repo on your local machine. Then:
 
-```
+Go the root directory of did-webs-resolver repo (this repo) on your local machine. 
+
+Then build all the images with 
+
+```bash
 docker compose build --no-cache
 ```
 
-## Run Docker containers for the keri witness network and the `did:webs` generator and resolver environment
+## Run Docker containers
 
-```
-docker compose down
+Next, use the below commands to run the KERI witness network, the `did:webs` artifact generator, the did:webs DID resolver, and the `dws-shell` components.
+
+Make sure to include the `-v` option to remove the volumes so that you can start with a clean slate.
+
+```bash
+docker compose down -v
 docker compose up -d
 ```
 
-## Enter the dkr docker environment command line to begin running keri, etc. commands
+You may use the `docker logs -f` command to watch the asset generation and resolver logs as they run.
 
+```bash
+docker compose logs -f
 ```
-docker compose exec webs /bin/bash
+
+Then perform did:webs DID resolution with:
+```bash
+dkr did webs resolve \
+  --name my-keystore \
+  --did did:webs:dws-resolver%3A7677:dws:EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh
+```
+
+You will see the following successful output:
+```text
+Verification success for did:webs:dws-resolver%3A7677:dws:EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh
+```
+
+You can see the resolved DID document JSON by including the `--verbose` option to the `dkr did webs resolve` command.
+```bash
+dkr did webs resolve \
+  --name my-keystore \
+  --did did:webs:dws-resolver%3A7677:dws:EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh \
+  --verbose
+```
+Viewing the verbose output is left as an exercise for the reader.
+
+# Longer Docker flow (best for learning)
+
+If you want to run each individual command yourself involved in creating an identifier and did:webs DID asset generation then you may use the `dws-shell` command with the steps described below.
+
+## Enter the dws-shell container to peform did:webs DID resolution
+
+```bash
+docker compose exec -it dws-shell /bin/bash
+cd /dws/scripts
 ```
 
 ## Create your KERI identifier
-* You can manually execute the following commands to create your KERI identifier that secures your did:webs DID.
-* OR you can run the script `./get_started_docker.sh` will run the commands for you.
 
-### Create a cryptographic salt to secure your KERI identifier
-```
+Alternate paths:
+
+1. You can manually execute the following commands to create your KERI identifier that secures your did:webs DID.
+2. OR you can run the script `./get_started.sh` will run the commands for you.
+
+The below steps show the first path, manually executing the commands.
+
+### Step 1: Create a cryptographic salt to secure your KERI identifier
+
+```bash
 kli salt
 ```
 The example salt we use in the scripts:
-```
+```text
 0AAQmsjh-C7kAJZQEzdrzwB7
 ```
 
 
-### Create the KERI AID ```ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe```
-#### initialize your environment with a name, salt, and config file
+### Step 2: Create the KERI AID `EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh`
 
-`command:`
-```
-kli init --name controller --salt 0AAQmsjh-C7kAJZQEzdrzwB7 --nopasscode --config-dir /usr/local/var/webs/volume/dkr/examples/my-scripts --config-file config-docker
+#### Initialize KERI environment with name, salt, and config file
+
+**command**:
+```bash
+kli init --name dws-resolver \
+  --salt 0AAQmsjh-C7kAJZQEzdrzwB7 \
+  --nopasscode \
+  --config-dir /dws/config/controller \
+  --config-file get-started
 ```
 
-```output:```
-```
-KERI Keystore created at: /usr/local/var/keri/ks/controller
-KERI Database created at: /usr/local/var/keri/db/controller
-KERI Credential Store created at: /usr/local/var/keri/reg/controller
-
-Loading 3 OOBIs...
-http://witnesshost:5642/oobi/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha/controller succeeded
-http://witnesshost:5643/oobi/BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM/controller succeeded
-http://witnesshost:5644/oobi/BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX/controller succeeded 
+**output**:
+```bash
+KERI Keystore created at: /usr/local/var/keri/ks/get-started
+...
+Loading 6 OOBIs...
+...
+Waiting for witness receipts...
 ```
 
 #### create your AID by creating it's first event, the inception event
 
-`command:`
-```
-kli incept --name controller --alias controller --file /usr/local/var/webs/volume/dkr/examples/my-scripts/incept.json
+**command**:
+
+```bash
+kli incept \
+  --name my-keystore \
+  --alias my-controller \
+  --file /dws/config/controller/incept-with-wan-wit.json
 ```
 
-`output:`
+**output**:
+```text
+Prefix  EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG
+	Public key 1:  DMJqIvb-YCWj7Ad2Hjq8wm0CgZcXTBcQ1Z-PaJtbv6ji
 ```
-Prefix  ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe
-        Public key 1:  DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr
-```
-Your AID is ```ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe``` and your current public key is ```DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr```
+
+Your AID is `EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh` and your current public key is `DMJqIvb-YCWj7Ad2Hjq8wm0CgZcXTBcQ1Z-PaJtbv6ji`
 
 #### Additional info
-The AID config-file in the container is at ./my-scripts/keri/cf/config-docker.json and contains the KERI OOBIs of the witnesses that we'll use:
-In this case they are available from the witness network that we started with the docker-compose [command](#run-docker-containers-for-the-keri-witness-network-and-the-didwebs-generator-and-resolver-environment) above. If you `cat` the config at `/usr/local/var/webs/volume/dkr/examples/my-scripts/keri/cf/config-docker.json` you should see:
 
-`command`
-```
-cat /usr/local/var/webs/volume/dkr/examples/my-scripts/keri/cf/config-docker.json
+The AID config-file in the container is at ./docker/config/controller/incept-with-wan-wit.json and contains the KERI OOBIs of the witnesses that we'll use:
+In this case they are available from the witness network that we started with the docker-compose command above. 
+
+If you `cat` the config at `/dws/config/controller/keri/cf/get-started.json` you should see:
+
+**command**:
+```bash
+cat /dws/config/controller/keri/cf/get-started.json
 ```
 
-`config:`
+**config**:
 ```json
 {
-  "dt": "2022-01-20T12:57:59.823350+00:00",
-  "iurls": [
-    "http://witnesshost:5642/oobi/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha/controller",
-    "http://witnesshost:5644/oobi/BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX/controller",
-    "http://witnesshost:5643/oobi/BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM/controller"
-  ]
+    "dt": "2022-01-20T12:57:59.823350+00:00",
+    "iurls": [
+        "http://witnesses:5642/oobi/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha/controller?name=wan&tag=witness&tag=sample",
+        "http://witnesses:5643/oobi/BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM/controller?name=wil&tag=witness&tag=sample",
+        "http://witnesses:5644/oobi/BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX/controller?name=wes&tag=witness&tag=sample",
+        "http://witnesses:5645/oobi/BM35JN8XeJSEfpxopjn5jr7tAHCE5749f0OobhMLCorE/controller?name=wit&tag=witness&tag=sample",
+        "http://witnesses:5646/oobi/BIj15u5V11bkbtAxMA7gcNJZcax-7TgaBMLsQnMHpYHP/controller?name=wub&tag=witness&tag=sample",
+        "http://witnesses:5647/oobi/BF2rZTW79z4IXocYRQnjjsOuvFUQv-ptCf8Yltd7PfsM/controller?name=wyz&tag=witness&tag=sample"
+    ],
+    "keri.cesr.dir": "/dws/web/dws",
+    "did.doc.dir": "/dws/web/dws"
 }
 ```
 
@@ -115,515 +205,494 @@ See [a key rotation example](#example-key-rotation) below.
 
 Find a web address (host, optional port, optional path) that you control.
 
-Example web address with host `labs.hyperledger.org`, no optional port, and optional path `pages`:
+Example web address with host `labs.gleif.org`, no optional port, and optional path `dws:
 
-`web example url`
-```
-https://labs.hyperledger.org/did-webs-resolver/pages/
+**web example url**:
+```text
+https://labs.gleif.org/dws/
 ```
 
-`docker example url`
-```
-http://did-webs-service%3a7676
+An example URL for the local Docker setup is as follows:
+
+**docker example url**:
+```text
+http://dws-resolver%3a7677
 ```
 
 ## Generate your did:webs identifier files using your KERI AID
 
 Note: Replace with your actual web address and AID
 
-You should pick the web address (host, optional port, optional path) where you will host the did:webs identifier. For this example we'll use the docker service we've created at host `did-webs-service` and with optional port `7676`. NOTE the spec requires the colon `:` before an optional port to be encoded as `%3a` in the did:webs identifier.
+You should pick the web address (host, optional port, optional path) where you will host the did:webs identifier. 
 
-`command:`
-```
-dkr did webs generate --name controller --did "did:webs:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe"
-```
+For this example we'll use the docker service we've created at host `dws-resolver` and with optional port `7677`. 
 
-`output:`
-```
-Generating CESR event stream data from hab
-Generating ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe KEL CESR events
-Writing CESR events to ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe/keri.cesr: 
-{"v":"KERI10JSON00012b_","t":"icp","d":"ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe","i":"ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe","s":"0","kt":"1","k":["DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"],"nt":"1","n":["ELa775aLyane1vdiJEuexP8zrueiIoG995pZPGJiBzGX"],"bt":"0","b":[],"c":[],"a":[]}-VAn-AABAADjfOjbPu9OWce59OQIc-y3Su4kvfC2BAd_e_NLHbXcOK8-3s6do5vBfrxQ1kDyvFGCPMcSl620dLMZ4QDYlvME-EAB0AAAAAAAAAAAAAAAAAAAAAAA1AAG2023-12-26T20c12c58d336072p00c00
+**NOTE** the spec requires the colon `:` before an optional port to be encoded as `%3a` in the did:webs identifier.
 
-  "didDocument": {
-    "id": "did:web:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-    "verificationMethod": [
-      {
-        "id": "#DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr",
-        "type": "JsonWebKey",
-        "controller": "did:web:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-        "publicKeyJwk": {
-          "kid": "DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr",
-          "kty": "OKP",
-          "crv": "Ed25519",
-          "x": "evT4j6Yw3uHpwsw5NEmSR8-4x3S-BA-s6Thjd51oeOs"
-        }
-      }
-    ],
-    "service": [],
-    "alsoKnownAs": []
-  }
-  ... with additional output continuing...
+You can specify the output directory with the `--output-dir` option, which is `/dws/web/dws` in this example.
+
+**command**:
+```bash
+dkr did webs generate \
+  --name my-keystore \
+  --output-dir /dws/web/dws \
+  --verbose \
+  --did "did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"
 ```
 
-This creates files `did.json` and `keri.cesr` under local path `./volume/dkr/examples/<your AID>/did.json`
+**output**:
+```text
+keri.cesr:
+{"v":"KERI10JSON000159_","t":"icp"...
 
-You can access these files either from within your Docker container or on your local computer filesystem.
-- `<local path on computer to did-webs-resolver>/volume/dkr/examples/<your AID>` (local path on your computer)
-- `/usr/local/var/webs/volume/dkr/examples/<your AID>` (local path in the Docker container)
-
-`command:`
-```
-cat ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe/did.json
-```
-
-`output:`
-```
-{"id": "did:web:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe", "verificationMethod": [{"id": "#DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr", "type": "JsonWebKey", "controller": "did:web:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe", "publicKeyJwk": {"kid": "DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr", "kty": "OKP", "crv": "Ed25519", "x": "evT4j6Yw3uHpwsw5NEmSR8-4x3S-BA-s6Thjd51oeOs"}}], "service": [], "alsoKnownAs": []}
-```
-
-## Upload did.json and keri.cesr to the web address (host, optional port, optional path) that you chose
-
-E.g. using git, Github pages, FTP, SCP, etc.
-
-## Example: serve from docker
-You can run the docker example service to serve the did.json and keri.cesr files for the other docker containers:
-
-First, lets copy our generated files to the directory we'll serve from. On your
-`LOCAL` machine (or within the container) you can copy
-`volume/dkr/examples/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe` to
-`volume/dkr/pages/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe`:
-
-For this demo these files have been copied ahead of time for you.
-
-```
-cp -R volume/dkr/examples/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe volume/dkr/pages/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe
-```
-
-Now lets go into our did-webs-service docker container:
-```
-docker compose exec did-webs-service /bin/bash
-```
-
-```
-dkr did webs service --name webserve --config-dir /usr/local/var/webs/volume/dkr/examples/my-scripts --config-file config-docker
-```
-
-It will search for AID named directories and for the two files (`did.json` and `keri.cesr`) under those directories. The search occurs from the directory specified in the config-file properties:
-```
-    "keri.cesr.dir": "/usr/local/var/webs/volume/dkr/pages/",
-    "did.doc.dir": "/usr/local/var/webs/volume/dkr/pages/"
-```
-
-It will serve it at a URL that you can CURL from any of our docker containers (for instance from the webs container) like:
-
-`command:`
-```
-curl -GET http://did-webs-service:7676/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe/did.json
-```
-OR from your browser navigate to:
-```
-http://127.0.0.1:7676/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe/did.json
-```
-
-`output:`
-```
+did.json:
 {
-  "id": "did:web:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
+  "id": "did:web:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
   "verificationMethod": [
-    {
-      "id": "#DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr",
-      "type": "JsonWebKey",
-      "controller": "did:web:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-      "publicKeyJwk": {
-        "kid": "DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr",
-        "kty": "OKP",
-        "crv": "Ed25519",
-        "x": "evT4j6Yw3uHpwsw5NEmSR8-4x3S-BA-s6Thjd51oeOs"
-      }
-    }
+    {...}
   ],
-  "service": [],
+  "service": [
+    {...}
+  ],
   "alsoKnownAs": []
 }
 ```
 
-`command:`
-```
-curl -GET http://did-webs-service:7676/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe/keri.cesr
-```
-OR from your browser navigate to:
-```
-http://127.0.0.1:7676/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe/keri.cesr
+This creates files `did.json` and `keri.cesr` under local path:
+  - `./docker/artifacts/<your AID>/`, which is mounted to
+  - `/dws/web/dws/<your AID>/` in the Docker container.
+
+**command**:
+```bash
+# from within the dws-shell container
+cat /dws/web/dws/EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG/did.json
 ```
 
-`KERI CESR output:`
+**output**:
+This shows the whole JSON document, abbreviated below.
 ```json
-"{\"v\":\"KERI10JSON00012b_\",\"t\":\"icp\",\"d\":\"ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe\",\"i\":\"ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe\",\"s\":\"0\",\"kt\":\"1\",\"k\":[\"DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr\"],\"nt\":\"1\",\"n\":[\"ELa775aLyane1vdiJEuexP8zrueiIoG995pZPGJiBzGX\"],\"bt\":\"0\",\"b\":[],\"c\":[],\"a\":[]}-VAn-AABAADjfOjbPu9OWce59OQIc-y3Su4kvfC2BAd_e_NLHbXcOK8-3s6do5vBfrxQ1kDyvFGCPMcSl620dLMZ4QDYlvME-EAB0AAAAAAAAAAAAAAAAAAAAAAA1AAG2024-01-02T14c12c15d456835p00c00"
+{
+  "id": "did:web:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+  "verificationMethod": [...],
+  "service": [...],
+  "alsoKnownAs": []
+}
+```
+
+## Host did:webs DID artifacts did.json and keri.cesr
+
+You may use the resolver service to host the DID artifacts with the `--static-files-dir` option or alternatively host them on another web server at an address (host, optional port, optional path) corresponding to the DID created.
+
+You could use git, Github pages, FTP, SCP, etc., or any webserver to host the files as long as you ensure the path component remains the same.
+
+## Example: serve from docker
+
+- Host: `dws-resolver:7677`
+- Path: `dws/EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG`
+
+Serving these files is easy and can be done with any web server as long as you ensure the path component remains the same. By path component this means everything **after** the host and port.
+
+For example, for the following did:webs identifier the `dws-resolver%3a7677` comprises the host (`dws-resolver`), URL-encoded port separator (`%3a`), and port (`7677`), and the path component is `dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG`.
+- `did:web:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG`
+
+Path components, separated by a colon ':' are:
+-  `dws` - just a path component, useful for namespacing.
+-  `EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG` - the KERI AID of the identifier that generated the did:webs artifacts. 
+
+What this means is that whatever file serving service you use must host the `did.json` and `keri.cesr` at the path:
+- `{host}{encoded_port_separator}{port}/{path}/{aid}/`
+  - `did.json`
+  - `keri.cesr`
+
+The `dws-resolver` service will do this for you if you specify the `--static-files-dir` option to the `dkr did webs resolver-service` command.
+
+You can run the Docker example service to serve the `did.json` and `keri.cesr` files for the other Docker containers:
+
+The commands above, and the `get_started.sh` script, uses the `--output-dir` argument to the `dkr did webs generate` command to specify the directory where the did:webs artifacts are generated.
+If you used a different directory then you will need to copy the two files `did.json` and `keri.cesr` to the directory specified in the `--static-files-dir` option of the `dkr did webs resolver-service` command or to whatever webserver you use to host those files.
+
+Let's go into our dws-shell Docker container and see the files:
+```bash
+docker compose exec -it dws-shell /bin/bash
+```
+
+It will serve it at a URL that you can CURL from any of our docker containers (for instance from the webs container) like:
+
+**command**:
+```bash
+curl -GET http://dws-resolver:7677/dws/EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG/did.json
+```
+OR from your browser navigate to:
+```text
+http://127.0.0.1:7677/dws/EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG/did.json
+```
+
+**output**:
+```json
+{
+  "id": "did:web:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+  "verificationMethod": [
+    {...}
+  ],
+  "service": [
+    {...}
+  ],
+  "alsoKnownAs": []
+}
+```
+
+**command**:
+```bash
+curl -GET http://dws-resolver:7677/EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG/keri.cesr
+```
+OR from your browser navigate to:
+```text
+http://127.0.0.1:7677/EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG/keri.cesr
+```
+
+**KERI CESR output**:
+For readability whitespace is added to the CESR straem below, though it comes with no whitespaces.
+```json
+// inception event
+{
+  "v":"KERI10JSON000159_",
+  "t":"icp",
+  "d":"EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+  "i":"EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+  "s":"0",
+  "kt":"1","k":["DMJqIvb-YCWj7Ad2Hjq8wm0CgZcXTBcQ1Z-PaJtbv6ji"],
+  "nt":"1","n":["EHUtdHSj8FhR9amkKwz1PQBzgdsQe52NKqynxdXVZuyQ"],
+  "bt":"1","b":["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"],
+  "c":[],"a":[]
+}
+// CESR attachments
+-VA--AABAAAk_mN__NcXm2pynD2wxpPPUXVi8brekF_-F1XzTriX-PCMJNYUmzPeQ_2B24sUQjHuMB9oy_EuIrKDeCCucr0N-BABAADE2nej_6ttKC2zEDCasjkDDV5Tc7S-GUGd8NjDbPMNMvyA0w8DgdkfhpTJCQQddtSio8yqFkOjAjGTuJ9PIjkJ-EAB0AAAAAAAAAAAAAAAAAAAAAAA1AAG2025-07-18T20c50c42d897255p00c00
 ```
 
 ### Example: Resolve AID as did:webs using local or remote resolver
 
-In the webs docker container, you can resolve the DID from the did-webs-service:
+In the dws-shell docker container, you can resolve the DID from the dws-resolver:
 
 Resolve the did:webs for the DID:
-```
-dkr did webs resolve --name controller --did "did:webs:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe"
-```
-
-If you want to resolve the did:webs for the `controller` did from a 'remote' machine, you can use the resolver container:
-
-In a separate terminal open the did-webs-resolver container:
-```
-docker compose exec did-webs-resolver /bin/bash
-```
-
-From the `volume/dkr/examples/` directory, execute the resolver script:
-```
-./get_started_docker_resolve.sh
+```bash
+dkr did webs resolve --name my-keystore --did "did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"
 ```
 
 
-```
-dkr did webs resolve --name resolver --did "did:webs:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe"
-```
-
-### Example: Add designated aliases attestation
+### Add designated aliases attestation ACDC
 
 Because your AID can be served as a did:webs, did:web, did:keri, etc. identifier you can specify these are designated aliases for verification and discovery purposes.
 To create this designated aliases attestation, you can execute the following (on the controller docker image or locally with access to the controller's keystore):
 
-`create credential registry command:`
-```
-kli vc registry incept --name controller --alias controller --registry-name dAliases
+**create credential registry command**:
+```bash
+kli vc registry incept \
+  --name my-keystore \
+  --alias my-controller \
+  --registry-name dAliases
 ```
 
-`output:`
-```
+**output**:
+```text
+Creating designated aliases registry (dAliases) in the get-started keystore...
 Waiting for TEL event witness receipts
 Sending TEL events to witnesses
-Registry:  dAliases(EIHt7YgiLNzFCZ4k4LxdZ7ASJcFo1-vkoZERMHzq87HL) 
-        created for Identifier Prefix:  ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe
+Registry:  dAliases(ELLD_gEB_ry65fiAT6J3ShKKhtNnyBUOg-enHfSNezat)
+	created for Identifier Prefix:  EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG
 ```
 
-All ACDC credentials/attestations require a schema. Lets resolve the schema for the designated aliases attestation:
+#### Resolve designated aliases attestation schema
 
-`command:`
-```
-kli oobi resolve --name controller --oobi-alias myDesigAliases --oobi "https://weboftrust.github.io/oobi/EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5"
+All ACDC credentials/attestations require a schema. Let's resolve the schema for the designated aliases attestation:
+
+**command**:
+```bash
+kli oobi resolve \
+  --name my-keystore \
+  --oobi-alias myDesigAliases \
+  --oobi "https://weboftrust.github.io/oobi/EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5"
 ``` 
 
-`output:`
-```
+**output**:
+```text
 https://weboftrust.github.io/oobi/EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5 resolved
 ```
 
-We provide the attestation rules and attributes under  `volume/dkr/examples`
-```
-cd volume/dkr/examples/
+See the attestation attributes and rules under the `./docker/scripts/example-acdc-and-data` and `./docker/scripts/schema/rules` directories.
+#### Issuing the designated aliases attestation ACDC 
+
+You can issue the attestation ACDC using the following command, supplying the registry name, schema, attestation attributes and rules:
+
+**command**:
+```bash
+kli vc create \
+  --name my-keystore \
+  --alias my-controller \
+  --registry-name dAliases \
+  --schema EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5 \
+  --data @/dws/scripts/example-acdc-and-data/desig-aliases-attr-public.json \
+  --rules @/dws/scripts/schema/rules/desig-aliases-public-schema-rules.json
 ```
 
-You can issue the attestation using the following command, supplying the registry name, schema, attestation attributes and rules:
-
-`command:`
-```
-kli vc create --name controller --alias controller --registry-name dAliases --schema EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5 --data @desig-aliases-attr-public.json --rules @desig-aliases-rules-public.json
-```
-
-`output:`
-```
-Writing credential EOl140-N7hN8qp-LViRfXYNV5RhUO-0n_RPsbMkqm3SJ to credential.json
+**output**:
+```text
+Creating designated aliases credential in the dAliases registry...
 Waiting for TEL event witness receipts
 Sending TEL events to witnesses
-Credential issuance complete, sending to recipient
-EOl140-N7hN8qp-LViRfXYNV5RhUO-0n_RPsbMkqm3SJ has been issued.
+EPxvM9FEbFq-wyKtWzNZfUig7v6lH4M6n3ebKRoyldlt has been created.
 ```
+#### List ACDCs to see the designated aliases attestation
 
 To see the attestation you can list the credentials for the registry:
 
-`command:`
-```
-kli vc list --name controller --alias controller --issued --schema EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5
+**command**:
+```bash
+kli vc list \
+  --name my-keystore \
+  --alias my-controller \
+  --issued \
+  --schema EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5
 ```
 
-`output:`
-```
-Current issued credentials for controller (ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe):
+**output**:
+```text
+Current issued credentials for my-aid (EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG):
 
-Credential #1: EOl140-N7hN8qp-LViRfXYNV5RhUO-0n_RPsbMkqm3SJ
+Credential #1: EPxvM9FEbFq-wyKtWzNZfUig7v6lH4M6n3ebKRoyldlt
     Type: Designated Aliases Public Attestation
     Status: Issued ✔
-    Issued by ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe
+    Issued by EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG
     Issued on 2023-11-13T17:41:37.710691+00:00
 ```
+#### See the designated aliases attestation ACDC
 
-To see the the raw ACDC attestation, you can use the following command:
+To see the raw ACDC attestation, you can use the following command:
 
 `command (Note replace <YOUR_REGISTRY>, for example with EOl140-N7hN8qp-LViRfXYNV5RhUO-0n_RPsbMkqm3SJ):`
-```
-kli vc export --name controller --alias controller --said <YOUR_REGISTRY> --chain
+```bash
+kli vc export \
+  --name my-keystore \
+  --alias my-controller \
+  --said EPxvM9FEbFq-wyKtWzNZfUig7v6lH4M6n3ebKRoyldlt \
+  --chain
 ```
 
-`output:`
-```json
+**output**:
+Shows the CESR stream (formatted with whitespace for readability), including both the ACDC JSON object at the front of the stream and the CESR attachments at the end of the stream:
+```cesr
 {
-    "v": "ACDC10JSON0005f2_",
-    "d": "EFDyKtexrWI2-omP6oSKxcssDAtC-fsCFsxp0B7TgHhB",
-    "i": "ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-    "ri": "EO0BjjT__dWwnO86tCJ2_MG3_7PUqG1RD_ZaY5hM2k6U",
-    "s": "EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5",
-    "a": {
-        "d": "EJJjtYa6D4LWe_fqtm1p78wz-8jNAzNX6aPDkrQcz27Q",
-        "dt": "2023-11-13T17:41:37.710691+00:00",
-        "ids": [
-            "did:web:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-            "did:webs:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-            "did:web:example.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-            "did:web:foo.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-            "did:webs:foo.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe"
-        ]
-    },
-    "r": {
-        "d": "EEVTx0jLLZDQq8a5bXrXgVP0JDP7j8iDym9Avfo8luLw",
-        "aliasDesignation": {
-            "l": "The issuer of this ACDC designates the identifiers in the ids field as the only allowed namespaced aliases of the issuer's AID."
-        },
-        "usageDisclaimer": {
-            "l": "This attestation only asserts designated aliases of the controller of the AID, that the AID controlled namespaced alias has been designated by the controller. It does not assert that the controller of this AID has control over the infrastructure or anything else related to the namespace other than the included AID."
-        },
-        "issuanceDisclaimer": {
-            "l": "All information in a valid and non-revoked alias designation assertion is accurate as of the date specified."
-        },
-        "termsOfUse": {
-            "l": "Designated aliases of the AID must only be used in a manner consistent with the expressed intent of the AID controller."
-        }
-    }
+   "v":"ACDC10JSON0005f2_",
+   "d":"EPxvM9FEbFq-wyKtWzNZfUig7v6lH4M6n3ebKRoyldlt",
+   "i":"EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+   "ri":"ELLD_gEB_ry65fiAT6J3ShKKhtNnyBUOg-enHfSNezat",
+   "s":"EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5",
+   "a":{
+      "d":"EI-8h4KW4Dauwe7liAvBExrA3vUZRWjIvHyD8Xn1UHE_",
+      "dt":"2023-11-13T17:41:37.710691+00:00",
+      "ids":[
+         "did:web:did-webs-service%3a7676:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+         "did:webs:did-webs-service%3a7676:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+         "did:web:example.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+         "did:web:foo.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+         "did:webs:foo.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"
+      ]
+   },
+   "r":{
+      "d":"EEVTx0jLLZDQq8a5bXrXgVP0JDP7j8iDym9Avfo8luLw",
+      "aliasDesignation":{
+         "l":"The issuer of this ACDC designates the identifiers in the ids field as the only allowed namespaced aliases of the issuer's AID."
+      },
+      "usageDisclaimer":{
+         "l":"This attestation only asserts designated aliases of the controller of the AID, that the AID controlled namespaced alias has been designated by the controller. It does not assert that the controller of this AID has control over the infrastructure or anything else related to the namespace other than the included AID."
+      },
+      "issuanceDisclaimer":{
+         "l":"All information in a valid and non-revoked alias designation assertion is accurate as of the date specified."
+      },
+      "termsOfUse":{
+         "l":"Designated aliases of the AID must only be used in a manner consistent with the expressed intent of the AID controller."
+      }
+   }
 }
+-IABEPxvM9FEbFq-wyKtWzNZfUig7v6lH4M6n3ebKRoyldlt0AAAAAAAAAAAAAAAAAAAAAAAEHMHbxs6-9ln3zntcM4JOulKCHDdqAtdEOtw0qloErOZ
 ```
+
+#### Show designated aliases in generated did:webs artifacts
 
 Now if we re-generate our did:webs identifier the did.json and keri.cesr files will include the attestation information:
 
-`command:`
-```
-dkr did webs generate --name controller --did "did:webs:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe"
+**command**:
+```bash
+# from within the dws-shell container
+dkr did webs generate \
+  --name my-keystore \
+  --output-dir /dws/web/dws \
+  --did "did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"
 ```
 
-```introductory output:```
+And then cURL the keri.cesr to see the new events in the CESR stream:
+
+```bash
+curl -GET http://dws-resolver:7677/dws/EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG/keri.cesr
 ```
-Generating CESR event stream data from hab
-Generating ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe KEL CESR events
-Generating EO0BjjT__dWwnO86tCJ2_MG3_7PUqG1RD_ZaY5hM2k6U TEL CESR events
-Generating EFDyKtexrWI2-omP6oSKxcssDAtC-fsCFsxp0B7TgHhB TEL CESR events
-Generating EFDyKtexrWI2-omP6oSKxcssDAtC-fsCFsxp0B7TgHhB ACDC CESR events, issued by ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe
-Writing CESR events to ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe/keri.cesr....
-```
+
+**output**:
 
 The KERI CESR output has our original `icp` inception event with our AID and current/next key:
 
-```json
+```jsonc
 {
-  "v": "KERI10JSON00012b_",
+  "v": "KERI10JSON000159_",
   "t": "icp",
-  "d": "ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-  "i": "ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
+  "d": "EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+  "i": "EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
   "s": "0",
   "kt": "1",
   "k": [
-    "DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"
+    "DMJqIvb-YCWj7Ad2Hjq8wm0CgZcXTBcQ1Z-PaJtbv6ji"
   ],
   "nt": "1",
   "n": [
-    "ELa775aLyane1vdiJEuexP8zrueiIoG995pZPGJiBzGX"
+    "EHUtdHSj8FhR9amkKwz1PQBzgdsQe52NKqynxdXVZuyQ"
   ],
-  "bt": "0",
-  "b": [],
+  "bt": "1",
+  "b": [
+    "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
+  ],
   "c": [],
   "a": []
 }
+// CESR attachments
+-VA--AABAAAk_mN__NcXm2pynD2wxpPPUXVi8brekF_-F1XzTriX-PCMJNYUmzPeQ_2B24sUQjHuMB9oy_EuIrKDeCCucr0N-BABAADE2nej_6ttKC2zEDCasjkDDV5Tc7S-GUGd8NjDbPMNMvyA0w8DgdkfhpTJCQQddtSio8yqFkOjAjGTuJ9PIjkJ-EAB0AAAAAAAAAAAAAAAAAAAAAAA1AAG2025-07-18T20c50c42d897255p00c00
 ```
 
 And the new interaction `ixn` event for the registry:
-```json
-{ 
+```jsonc
+{
   "v": "KERI10JSON00013a_",
   "t": "ixn",
-  "d": "EL-g0526QJTIIUXmFkgE_Qsi-xD71jUFb15H5arW6FCJ",
-  "i": "ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
+  "d": "EPrcZNm-qeuxdjogRGLJJcGEBTUuy-jfJPTAzZhxdKHf",
+  "i": "EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
   "s": "1",
-  "p": "ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
+  "p": "EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
   "a": [
     {
-      "i": "EIHt7YgiLNzFCZ4k4LxdZ7ASJcFo1-vkoZERMHzq87HL",
+      "i": "ELLD_gEB_ry65fiAT6J3ShKKhtNnyBUOg-enHfSNezat",
       "s": "0",
-      "d": "EIHt7YgiLNzFCZ4k4LxdZ7ASJcFo1-vkoZERMHzq87HL"
+      "d": "ELLD_gEB_ry65fiAT6J3ShKKhtNnyBUOg-enHfSNezat"
     }
   ]
 }
+// CESR attachments
+-VA--AABAACbVNXfoXWo5u0AJWye5njlmQ1qiNYAJVDTMe1io6f8JoWTCaHwiCUDf76K4VdAOEMJ1cYpa1k1gqDMU3k3JaoO-BABAAD-RZrR4a5tcwfdpNTDf-IDfkRZvc0v02pt9OTwgW6AKqQK6biJc-0iEYoUxpBbTPLwIgeoDisNEynZupZR74AC-EAB0AAAAAAAAAAAAAAAAAAAAAAB1AAG2025-07-19T18c37c32d166838p00c00
 ```
 
 And the new interaction `ixn` event for the attestation:
-```json
+```jsonc
 {
   "v": "KERI10JSON00013a_",
   "t": "ixn",
-  "d": "EMRPgyPi_v_Spq211aSBGbVUgisiX-GL-mhWWMGxx8hv",
-  "i": "ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
+  "d": "EIK6DjeFUfvFc9jSlzayTS9S6RKb6EIArZQWD3PKc_pK",
+  "i": "EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
   "s": "2",
-  "p": "EL-g0526QJTIIUXmFkgE_Qsi-xD71jUFb15H5arW6FCJ",
+  "p": "EPrcZNm-qeuxdjogRGLJJcGEBTUuy-jfJPTAzZhxdKHf",
   "a": [
     {
-      "i": "EOl140-N7hN8qp-LViRfXYNV5RhUO-0n_RPsbMkqm3SJ",
+      "i": "EPxvM9FEbFq-wyKtWzNZfUig7v6lH4M6n3ebKRoyldlt",
       "s": "0",
-      "d": "EIxW8nKRpp9iAZ1IRT8hWOBGBNXoufWfMWVPUPWscPnA"
+      "d": "EHMHbxs6-9ln3zntcM4JOulKCHDdqAtdEOtw0qloErOZ"
     }
   ]
 }
+// CESR attachments
+-VA--AABAAAgZzY8qQjiHFlQGQpfbLJQSKrgsQT6IYqEWJIdjnscWs7IOrzndkCxSIO47hBLfdXS_byx_5lk5zRZ6HPyZEkC-BABAABN9KmfxtCjU1j3LvTDw1LiA9yFfkoa-w18ZYrJUWoPZdoYsgvd18hPms9kv3uPtSb3_nnztC30NkcgOL_JvaMN-EAB0AAAAAAAAAAAAAAAAAAAAAAC1AAG2025-07-19T18c37c34d528630p00c00
 ```
 
 Inception statement for the Registry
-```json
+```jsonc
 {
-    "v": "KERI10JSON000113_",
-    "t": "vcp",
-    "d": "EIHt7YgiLNzFCZ4k4LxdZ7ASJcFo1-vkoZERMHzq87HL",
-    "i": "EIHt7YgiLNzFCZ4k4LxdZ7ASJcFo1-vkoZERMHzq87HL",
-    "ii": "ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-    "s": "0",
-    "c": [
-        "NB"
-    ],
-    "bt": "0",
-    "b": [],
-    "n": "AFn2tXQuaCtqo0Q7QcpciVzDrt_5xqBeZKiN6IQmJTZg"
+  "v": "KERI10JSON0000ff_",
+  "t": "vcp",
+  "d": "ELLD_gEB_ry65fiAT6J3ShKKhtNnyBUOg-enHfSNezat",
+  "i": "ELLD_gEB_ry65fiAT6J3ShKKhtNnyBUOg-enHfSNezat",
+  "ii": "EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+  "s": "0",
+  "c": [
+    "NB"
+  ],
+  "bt": "0",
+  "b": [],
+  "n": "0AButF7GiDCmo83JKQKsYBFN"
 }
+-VAS-GAB0AAAAAAAAAAAAAAAAAAAAAABEPrcZNm-qeuxdjogRGLJJcGEBTUuy-jfJPTAzZhxdKHf
 ```
 
 Simple Credential (Attestation) Issuance Event `iss`:
-```json
+```jsonc
 {
-    "v": "KERI10JSON0000ed_",
-    "t": "iss",
-    "d": "EIxW8nKRpp9iAZ1IRT8hWOBGBNXoufWfMWVPUPWscPnA",
-    "i": "EOl140-N7hN8qp-LViRfXYNV5RhUO-0n_RPsbMkqm3SJ",
-    "s": "0",
-    "ri": "EIHt7YgiLNzFCZ4k4LxdZ7ASJcFo1-vkoZERMHzq87HL",
-    "dt": "2023-11-13T17:41:37.710691+00:00"
+  "v": "KERI10JSON0000ed_",
+  "t": "iss",
+  "d": "EHMHbxs6-9ln3zntcM4JOulKCHDdqAtdEOtw0qloErOZ",
+  "i": "EPxvM9FEbFq-wyKtWzNZfUig7v6lH4M6n3ebKRoyldlt",
+  "s": "0",
+  "ri": "ELLD_gEB_ry65fiAT6J3ShKKhtNnyBUOg-enHfSNezat",
+  "dt": "2023-11-13T17:41:37.710691+00:00"
 }
+// CESR attachments
+-VAS-GAB0AAAAAAAAAAAAAAAAAAAAAACEIK6DjeFUfvFc9jSlzayTS9S6RKb6EIArZQWD3PKc_pK
 ```
 
 The ACDC attestation anchored to the TEL:
-```json
+```jsonc
 {
-    "v": "ACDC10JSON000514_",
-    "d": "EOl140-N7hN8qp-LViRfXYNV5RhUO-0n_RPsbMkqm3SJ",
-    "i": "ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-    "ri": "EIHt7YgiLNzFCZ4k4LxdZ7ASJcFo1-vkoZERMHzq87HL",
-    "s": "EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5",
-    "a": {
-        "d": "EHQgqNNSueVmVjlErrGtzjl-HJya9rMUiNadDSkZQ1kV",
-        "dt": "2023-11-13T17:41:37.710691+00:00",
-        "ids": [
-            "did:webs:foo.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-            "did:web:example.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe"
-        ]
-    },
-    "r": {
-        "d": "EEVTx0jLLZDQq8a5bXrXgVP0JDP7j8iDym9Avfo8luLw",
-        "aliasDesignation": {
-            "l": "The issuer of this ACDC designates the identifiers in the ids field as the only allowed namespaced aliases of the issuer's AID."
-        },
-        "usageDisclaimer": {
-            "l": "This attestation only asserts designated aliases of the controller of the AID, that the AID controlled namespaced alias has been designated by the controller. It does not assert that the controller of this AID has control over the infrastructure or anything else related to the namespace other than the included AID."
-        },
-        "issuanceDisclaimer": {
-            "l": "All information in a valid and non-revoked alias designation assertion is accurate as of the date specified."
-        },
-        "termsOfUse": {
-            "l": "Designated aliases of the AID must only be used in a manner consistent with the expressed intent of the AID controller."
-        }
-    }
-}
-```
-
-`The DID document output calls out the equivalentIds and alsoKnownAs identifiers:`
-```
-Generating DID document for did:webs:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe with aid ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe using oobi None and metadata None registry name for creds None
-Credential #1: EFDyKtexrWI2-omP6oSKxcssDAtC-fsCFsxp0B7TgHhB
-    Type: Designated Aliases Public Attestation
-    Status: Issued ✔
-    Issued by ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe
-    Issued on 2023-11-13T17:41:37.710691+00:00
-Equivalent DIDs: ['did:webs:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe', 'did:webs:foo.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe']
-Also Known As DIDs: ['did:web:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe', 'did:webs:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe', 'did:web:example.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe', 'did:web:foo.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe', 'did:webs:foo.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe']
-```
-
-And the DID document is now:
-```json
-{
-  "didDocument": {
-    "id": "did:web:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-    "verificationMethod": [
-      {
-        "id": "#DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr",
-        "type": "JsonWebKey",
-        "controller": "did:web:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-        "publicKeyJwk": {
-          "kid": "DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr",
-          "kty": "OKP",
-          "crv": "Ed25519",
-          "x": "evT4j6Yw3uHpwsw5NEmSR8-4x3S-BA-s6Thjd51oeOs"
-        }
-      }
-    ],
-    "service": [],
-    "alsoKnownAs": [
-      "did:web:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-      "did:webs:did-webs-service%3a7676:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-      "did:web:example.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-      "did:web:foo.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe",
-      "did:webs:foo.com:ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe"
+  "v": "ACDC10JSON0005f2_",
+  "d": "EPxvM9FEbFq-wyKtWzNZfUig7v6lH4M6n3ebKRoyldlt",
+  "i": "EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+  "ri": "ELLD_gEB_ry65fiAT6J3ShKKhtNnyBUOg-enHfSNezat",
+  "s": "EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5",
+  "a": {
+    "d": "EI-8h4KW4Dauwe7liAvBExrA3vUZRWjIvHyD8Xn1UHE_",
+    "dt": "2023-11-13T17:41:37.710691+00:00",
+    "ids": [
+      "did:web:did-webs-service%3a7676:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+      "did:webs:did-webs-service%3a7676:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+      "did:web:example.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+      "did:web:foo.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+      "did:webs:foo.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"
     ]
+  },
+  "r": {
+    "d": "EEVTx0jLLZDQq8a5bXrXgVP0JDP7j8iDym9Avfo8luLw",
+    "aliasDesignation": {
+      "l": "The issuer of this ACDC designates the identifiers in the ids field as the only allowed namespaced aliases of the issuer's AID."
+    },
+    "usageDisclaimer": {
+      "l": "This attestation only asserts designated aliases of the controller of the AID, that the AID controlled namespaced alias has been designated by the controller. It does not assert that the controller of this AID has control over the infrastructure or anything else related to the namespace other than the included AID."
+    },
+    "issuanceDisclaimer": {
+      "l": "All information in a valid and non-revoked alias designation assertion is accurate as of the date specified."
+    },
+    "termsOfUse": {
+      "l": "Designated aliases of the AID must only be used in a manner consistent with the expressed intent of the AID controller."
+    }
   }
 }
+-VA0-FABEDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG0AAAAAAAAAAAAAAAAAAAAAAAEDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG-AABAAA9a9__0dZd_rSi5fYDo4FzIpiDYxrUgeiAA5JNc6a2ZkhE6jtuA0uD7F_uSaMIsvBp0nGv_p4SZMu4GK-SvRAM
 ```
 
-Now you can copy the `did.json` and `keri.cesr` files to the pages directory again.
-```
-cp -R volume/dkr/examples/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe volume/dkr/pages/ENro7uf0ePmiK3jdTo2YCdXLqW7z7xoP6qhhBou6gBLe
-```
-
-### (OPTIONAL) Example in docker: Using Witnesses
-
-In order to use witnesses we run through the same steps as above but we use a different configuration file `incept-wits.json` that assigns witnesses to the AID. Witnesses are a special service endpoint because they are in the inception event (and can be updated in the rotation events).
-
-NOTE this section will recreate data from previous runs. You must restart your docker containers so that they are fresh if you already ran previous sections.
-To execute all of the above quickly we can use the script from the `webs` container you can:
-
-```
-cd volume/dkr/examples/ 
-```
-and execute the following script:
-
-```
-./get_started_docker_wits.sh
-```
-
-The notable differences now that we are using witnesses:
-* The AID is different now `EKYGGh-FtAphGmSZbsuBs_t4qpsjYJ2ZqvMKluq9OxmP`, because the inception event contains the witness information which modifies the data used to generate the AID.
-* The DID Document now lists the witnesses in the service endpoints. Note, if you set the metadata flag to true, KERI related service endpoints will now be in the did document metadata instead of the did document, as so:
+And the DID document now includes the alsoKnownAs field with the designated aliases:
 ```json
-Got DID doc: {
-  "id": "did:web:did-webs-service%3a7676:EKYGGh-FtAphGmSZbsuBs_t4qpsjYJ2ZqvMKluq9OxmP",
+{
+  "id": "did:web:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
   "verificationMethod": [
     {
-      "id": "#DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr",
+      "id": "#DMJqIvb-YCWj7Ad2Hjq8wm0CgZcXTBcQ1Z-PaJtbv6ji",
       "type": "JsonWebKey",
-      "controller": "did:web:did-webs-service%3a7676:EKYGGh-FtAphGmSZbsuBs_t4qpsjYJ2ZqvMKluq9OxmP",
+      "controller": "did:web:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
       "publicKeyJwk": {
-        "kid": "DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr",
+        "kid": "DMJqIvb-YCWj7Ad2Hjq8wm0CgZcXTBcQ1Z-PaJtbv6ji",
         "kty": "OKP",
         "crv": "Ed25519",
-        "x": "evT4j6Yw3uHpwsw5NEmSR8-4x3S-BA-s6Thjd51oeOs"
+        "x": "wmoi9v5gJaPsB3YeOrzCbQKBlxdMFxDVn49om1u_qOI"
       }
     }
   ],
@@ -632,247 +701,24 @@ Got DID doc: {
       "id": "#BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha/witness",
       "type": "witness",
       "serviceEndpoint": {
-        "http": "http://witnesshost:5642/",
-        "tcp": "tcp://witnesshost:5632/"
-      }
-    },
-    {
-      "id": "#BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM/witness",
-      "type": "witness",
-      "serviceEndpoint": {
-        "http": "http://witnesshost:5643/",
-        "tcp": "tcp://witnesshost:5633/"
-      }
-    },
-    {
-      "id": "#BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX/witness",
-      "type": "witness",
-      "serviceEndpoint": {
-        "http": "http://witnesshost:5644/",
-        "tcp": "tcp://witnesshost:5634/"
-      }
-    },
-    {
-      "id": "#BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha/witness",
-      "type": "witness",
-      "serviceEndpoint": {
-        "http": "http://witnesshost:5642/",
-        "tcp": "tcp://witnesshost:5632/"
-      }
-    },
-    {
-      "id": "#BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM/witness",
-      "type": "witness",
-      "serviceEndpoint": {
-        "http": "http://witnesshost:5643/",
-        "tcp": "tcp://witnesshost:5633/"
-      }
-    },
-    {
-      "id": "#BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX/witness",
-      "type": "witness",
-      "serviceEndpoint": {
-        "http": "http://witnesshost:5644/",
-        "tcp": "tcp://witnesshost:5634/"
-      }
-    },
-    {
-      "id": "#BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha/witness",
-      "type": "witness",
-      "serviceEndpoint": {
-        "http": "http://witnesshost:5642/",
-        "tcp": "tcp://witnesshost:5632/"
-      }
-    },
-    {
-      "id": "#BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM/witness",
-      "type": "witness",
-      "serviceEndpoint": {
-        "http": "http://witnesshost:5643/",
-        "tcp": "tcp://witnesshost:5633/"
-      }
-    },
-    {
-      "id": "#BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX/witness",
-      "type": "witness",
-      "serviceEndpoint": {
-        "http": "http://witnesshost:5644/",
-        "tcp": "tcp://witnesshost:5634/"
+        "http": "http://witnesses:5642/",
+        "tcp": "tcp://witnesses:5632/"
       }
     }
   ],
-  "alsoKnownAs": []
+  "alsoKnownAs": [
+    "did:web:did-webs-service%3a7676:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+    "did:webs:did-webs-service%3a7676:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+    "did:web:example.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+    "did:web:foo.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG",
+    "did:webs:foo.com:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"
+  ]
 }
 ```
-* The KERI Event Stream shows the witnesses in the `b` field of the inception event:
-```json
-Loading KERI CESR from http://did-webs-service:7676/EKYGGh-FtAphGmSZbsuBs_t4qpsjYJ2ZqvMKluq9OxmP/keri.cesr
-Got KERI CESR:
-{
-    "v": "KERI10JSON0001b7_",
-    "t": "icp",
-    "d": "EKYGGh-FtAphGmSZbsuBs_t4qpsjYJ2ZqvMKluq9OxmP",
-    "i": "EKYGGh-FtAphGmSZbsuBs_t4qpsjYJ2ZqvMKluq9OxmP",
-    "s": "0",
-    "kt": "1",
-    "k": [
-        "DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"
-    ],
-    "nt": "1",
-    "n": [
-        "ELa775aLyane1vdiJEuexP8zrueiIoG995pZPGJiBzGX"
-    ],
-    "bt": "3",
-    "b": [
-        "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
-        "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
-        "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
-    ],
-    "c": [],
-    "a": []
-}-VBq-AABAABv33lz0MENsIaM2J1hsbl_8awkJlVT7M1Cnzix0JQSEEwhfSsOt5Wqvuw27wUUKZLCScKoT01FV4WfowFrh_MN-BADAAC_SiZWJFOCuIB_py4gqaMFQtTVWtFCpPfP2LgyqqUS2naTh0nZNlH6MPHSbQNRoImkHnMFrUiBr5ZtwvQ-tNwIABBazaCrt7WQD5Dj1U3KqlZhgOPh7-ca2S0BnRRSEHxW5yoECaC04nyTxYh_wU9TH2WLr14hP-mLHHJDM-wM2esOACA2lyZPmqv2mefIL3orZNm8vb7pyLO5R4zOhHqqXkS1utJrKndiNd4Yu4c6xJnVkc-l6DABB9qe-otLGCkoWDEI-EAB0AAAAAAAAAAAAAAAAAAAAAAA1AAG2024-02-02T14c44c12d081323p00c00
-```
-
-* The KEL is witnessed (witness signatures/receipts) and available as an OOBI from the witness endpoints:
-```
-curl -GET http://witnesshost:5643/oobi/EKYGGh-FtAphGmSZbsuBs_t4qpsj
-YJ2ZqvMKluq9OxmP
-```
-* The response for the OOBI includes:
-  1. ALL of the Witness endpoints for your AID.
-  1. The KEL (Key Event Log) matching the KERI event stream, including the CESR signature from your AID current public key state. You can compare that entry/signature to what is in you KERI event stream
-      1. Note: you can access the WITNESS AID key state (this is different than YOUR AID KEL) at it's own OOBI:
-      ```
-      curl -GET http://witnesshost:5643/oobi/BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM/controller
-      ```
-
-* YOUR AID OOBI response:
-  ```json
-  {
-      "v": "KERI10JSON0000fc_",
-      "t": "rpy",
-      "d": "EMXzf2wWhjfCuxk-XumSLA9xW9IMq0RzvN5esKXGjUvX",
-      "dt": "2024-02-02T14:44:06.626201+00:00",
-      "r": "/loc/scheme",
-      "a": {
-          "eid": "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
-          "scheme": "http",
-          "url": "http://witnesshost:5642/"
-      }
-  }-VAi-CABBBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha0BDl24St2gdWqsh9Ap76rhyWLDC6ThFZTwfFxo2fJmmVdXij9nMEV9kVC8ZidQdyrFXuag9ZLsAi9vZ_nXS8W8AP
-  {
-      "v": "KERI10JSON0000fa_",
-      "t": "rpy",
-      "d": "EBMJT4_3ry9ez_Xsd4JzkBph7zpFa_lcA3vwD2JRAF39",
-      "dt": "2024-02-02T14:44:06.635611+00:00",
-      "r": "/loc/scheme",
-      "a": {
-          "eid": "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
-          "scheme": "tcp",
-          "url": "tcp://witnesshost:5632/"
-      }
-  }-VAi-CABBBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha0BCUAXbBIVs__oNF4I5KYG9H_V10qmcdcYRmHrlDUr7m0Pit4P-_D9yl7hgxRjz0PIx8t-lP-cBEqZVw0WimF64N
-  {
-      "v": "KERI10JSON0000fc_",
-      "t": "rpy",
-      "d": "ELWDsH3QHEVyMlL3Ti4hKSDZd1_3AQHDrnqiuff3GG0q",
-      "dt": "2024-02-02T17:28:28.016820+00:00",
-      "r": "/loc/scheme",
-      "a": {
-          "eid": "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
-          "scheme": "http",
-          "url": "http://witnesshost:5643/"
-      }
-  }-VAi-CABBLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM0BDdgBypeLFbF3Sd9PPerGriYLw9kErOcAsKwn562ywm2u6WhNm7JneRCcNm974uO07DPmqhXf2WlTkUZFclAxQC
-  {
-      "v": "KERI10JSON0000fa_",
-      "t": "rpy",
-      "d": "EE4jqs_PSGqQi-mZ08mzwIUslfHnlbDti3riFM0c8syT",
-      "dt": "2024-02-02T17:28:28.019220+00:00",
-      "r": "/loc/scheme",
-      "a": {
-          "eid": "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
-          "scheme": "tcp",
-          "url": "tcp://witnesshost:5633/"
-      }
-  }-VAi-CABBLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM0BBPGhpZHub-y831q7CrvJrrmjOvLFs14pu1Swx6r4y3QXPnBdm-15CKuU4aYz9w9DCtpEvBE91ynBlpWlfzOJYF
-  {
-      "v": "KERI10JSON0000fc_",
-      "t": "rpy",
-      "d": "EO0YYQ2uvQ-PjaBYCqsMkurLZ7fQgPeDvZD0660qA8bs",
-      "dt": "2024-02-02T14:44:06.655410+00:00",
-      "r": "/loc/scheme",
-      "a": {
-          "eid": "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX",
-          "scheme": "http",
-          "url": "http://witnesshost:5644/"
-      }
-  }-VAi-CABBIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX0BC99ez6JA1eTK_GmDhgh5PWbguhcmpb-JsrfR2m1-a-XAv0ggaea9FXyWvZEglsZc-THl1kDeYGLK5j4EjnwKIM
-  {
-      "v": "KERI10JSON0000fa_",
-      "t": "rpy",
-      "d": "EI1tYYidtszrJzBLQt3pvrt07bYgBFzyXtD0b3wOcZbO",
-      "dt": "2024-02-02T14:44:06.658282+00:00",
-      "r": "/loc/scheme",
-      "a": {
-          "eid": "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX",
-          "scheme": "tcp",
-          "url": "tcp://witnesshost:5634/"
-      }
-  }-VAi-CABBIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX0BBKQGUPQokOvqxOa9yewZDbJhu4k-tbrXIbn3WgtrLTPNILtdkTnlKYbfv9HFLNVuXzKOlcWpVriWi8GMQk5ycJ
-  {
-      "v": "KERI10JSON0001b7_",
-      "t": "icp",
-      "d": "EKYGGh-FtAphGmSZbsuBs_t4qpsjYJ2ZqvMKluq9OxmP",
-      "i": "EKYGGh-FtAphGmSZbsuBs_t4qpsjYJ2ZqvMKluq9OxmP",
-      "s": "0",
-      "kt": "1",
-      "k": [
-          "DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"
-      ],
-      "nt": "1",
-      "n": [
-          "ELa775aLyane1vdiJEuexP8zrueiIoG995pZPGJiBzGX"
-      ],
-      "bt": "3",
-      "b": [
-          "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
-          "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
-          "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
-      ],
-      "c": [],
-      "a": []
-  }-VBq-AABAABv33lz0MENsIaM2J1hsbl_8awkJlVT7M1Cnzix0JQSEEwhfSsOt5Wqvuw27wUUKZLCScKoT01FV4WfowFrh_MN-BADAAC_SiZWJFOCuIB_py4gqaMFQtTVWtFCpPfP2LgyqqUS2naTh0nZNlH6MPHSbQNRoImkHnMFrUiBr5ZtwvQ-tNwIABBazaCrt7WQD5Dj1U3KqlZhgOPh7-ca2S0BnRRSEHxW5yoECaC04nyTxYh_wU9TH2WLr14hP-mLHHJDM-wM2esOACA2lyZPmqv2mefIL3orZNm8vb7pyLO5R4zOhHqqXkS1utJrKndiNd4Yu4c6xJnVkc-l6DABB9qe-otLGCkoWDEI-EAB0AAAAAAAAAAAAAAAAAAAAAAA1AAG2024-02-02T14c44c12d174141p00c00
-  {
-      "v": "KERI10JSON0001b7_",
-      "t": "icp",
-      "d": "EKYGGh-FtAphGmSZbsuBs_t4qpsjYJ2ZqvMKluq9OxmP",
-      "i": "EKYGGh-FtAphGmSZbsuBs_t4qpsjYJ2ZqvMKluq9OxmP",
-      "s": "0",
-      "kt": "1",
-      "k": [
-          "DHr0-I-mMN7h6cLMOTRJkkfPuMd0vgQPrOk4Y3edaHjr"
-      ],
-      "nt": "1",
-      "n": [
-          "ELa775aLyane1vdiJEuexP8zrueiIoG995pZPGJiBzGX"
-      ],
-      "bt": "3",
-      "b": [
-          "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
-          "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
-          "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
-      ],
-      "c": [],
-      "a": []
-  }-VBq-AABAABv33lz0MENsIaM2J1hsbl_8awkJlVT7M1Cnzix0JQSEEwhfSsOt5Wqvuw27wUUKZLCScKoT01FV4WfowFrh_MN-BADAAC_SiZWJFOCuIB_py4gqaMFQtTVWtFCpPfP2LgyqqUS2naTh0nZNlH6MPHSbQNRoImkHnMFrUiBr5ZtwvQ-tNwIABBazaCrt7WQD5Dj1U3KqlZhgOPh7-ca2S0BnRRSEHxW5yoECaC04nyTxYh_wU9TH2WLr14hP-mLHHJDM-wM2esOACA2lyZPmqv2mefIL3orZNm8vb7pyLO5R4zOhHqqXkS1utJrKndiNd4Yu4c6xJnVkc-l6DABB9qe-otLGCkoWDEI-EAB0AAAAAAAAAAAAAAAAAAAAAAA1AAG2024-02-02T14c44c12d174141p00c00
-  ```
-
-Congratulations you have demonstrated how to setup witnesses to add the security of duplicity detection via distributed receipts of your KEL events. They are an effective and secure discovery mechanism for your AID current key state and service endpoints.
 
 ### (Optional) Add arbitrary data, like service endpoints, to your KEL
-Although your KEL is meant for key state, credentials, etc. a did:webs resolvers can locate did document data like service endpoints in your KEL if you choose to anchor data there.
 
+Although your KEL is meant for key state, credentials, etc. a did:webs resolvers can locate other useful information for DID document data such as service endpoints to be packaged along with your KEL.
 
 ### (Optional) Resolve AID as did:keri using local resolver
 
@@ -880,18 +726,11 @@ Optionally resolve the AID locally as did:keri, given an OOBI as resolution opti
 
 Note: Replace with your actual AID
 
-```
-dkr did keri resolve --name controller --did did:keri:EKYGGh-FtAphGmSZbsuBs_t4qpsjYJ2ZqvMKluq9OxmP --oobi http://witnesshost:5642/oobi/EKYGGh-FtAphGmSZbsuBs_t4qpsjYJ2ZqvMKluq9OxmP/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
-```
-
-### (Optional) Resolve AID as did:webs using local resolver
-
-Optionally resolve the AID locally as did:webs.
-
-Note: Replace with your actual web address and AID
-
-```
-dkr did webs resolve --name controller --did did:webs:peacekeeper.github.io:did-webs-iiw37-tutorial:EKYGGh-FtAphGmSZbsuBs_t4qpsjYJ2ZqvMKluq9OxmP
+```bash
+dkr did keri resolve \
+    --name my-keystore \
+    --did did:keri:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG \
+    --oobi http://witnesses:5642/oobi/EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
 ```
 
 ### Resolve as did:web using Universal Resolver
@@ -906,294 +745,12 @@ https://dev.uniresolver.io/#did:webs:peacekeeper.github.io:did-webs-iiw37-tutori
 
 Use the following two commands in your running Docker container.
 
-```
-kli rotate --name controller --alias controller
+```bash
+kli rotate --name my-keystore --alias my-controller
 ```
 Be sure to repeat the `dkr webs generate` command:
+
+```bash
+dkr did webs generate --name my-keystore --did did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG
 ```
-dkr did webs generate --name controller --did did:webs:blockchainbird.org:did-webs:EG8GsKYdICKs-zI6odM6tvCmxRT2J-7UkZFqA77agtb8 --oobi http://witnesshost:5642/oobi/EG8GsKYdICKs-zI6odM6tvCmxRT2J-7UkZFqA77agtb8/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
-```
-Now upload the overwritten `did.json` and `keri.cesr` again to the public spot.
-
-### Result
-
-A diff comparison of the old (in green) and the new (in red) **did.json**:
-![did.json new in red versus old in green](./images/diff-did-json.png)
-A diff comparison of the old (right) and the new (left) **keri.cesr**; in blue the added part:
-![keri.cesr new in red versus old in green](./images/diff-keri-cesr.png)
-
-## Trouble shooting
-
-### If you are using an Apple Silicon (M1) mac then you might need to:
-* In Docker, select `Use Rosetta for x86/amd64 emulation on Apple Silicon`
-* Before running docker compose `export DOCKER_DEFAULT_PLATFORM=linux/amd64`
-
-### Your docker container is already up- and running?
-
-#### Do you have a witness up for another identifier?
-Then the `kli incept --name controller --alias controller --file "/keripy/my-scripts/my-incept.json"` command will give this response:
-
-`ERR: Already incepted pre=[Your prefix of another AID].`
- 
-#### Solution
-Various solutions if you're a Docker expert. If not, we'll go down the more rigorous path:
-
-1. Step out of the running container with `exit` 
-2. and then `docker compose down`. This should respond with:
-
-[+] Running 3/3
- ⠿ Container dkr                            Removed                                                                                                                                                                              0.0s
- ⠿ Container witnesshost                    Removed                                                                                                                                                                             13.7s
- ⠿ Network did-webs-iiw37-tutorial_default  Removed                                                                                                                                                                              3.1s
-Now you could continue with:
-```
-docker compose up -d
-docker compose exec dkr /bin/bash
-```
-### Special attention Github Pages: web address
-There's no problem that we know of when you use Github pages in a bare-bones manner. However, if you use static page generators to populate your github pages (e.g. Jekyll or Docusaurus) be sure to choose the right spot of your files and extract the right paths of the links needed to resolve:
-
-#### Example
-This is the web address of the `docusaurus` directory:
-https://weboftrust.github.io/WOT-terms/test/did-webs-iiw37-tutorial/
-
-But the exact spot to extract the files as text would be something like:
-```
-http://raw.githubusercontent.com/WOT-terms/test/did-webs-iiw37-tutorial/[your AID] 
-```
-The reason for this confusion is that a static page generator like Docusaurus or Jekyll might interfere with the location, visibility and accessibility of your files on Github Pages.
-
-We advise to choose a simple public directory that you control and we won't go into more detail on how to deal with static site generators.
-
-Example:
-```
-dkr did keri resolve --name dkr --did did:keri:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6 --oobi http://witnesshost:5642/oobi/EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
-```
- 
-```
-        did:keri:123, oobi    ---------------------------------            ---------------------
-   O    ----------------->   |                                 |          |                     |
-  -|-   <-----------------   |  dkr did keri resolve           |  <---->  |  KERI WATCHER POOL  |
-  / \    diddoc, metadata    |                                 |          |                     |
-                              ---------------------------------            ---------------------
-```
-
-### `dkr did keri resolver-service`
-
-**Expose did:keri resolver as an HTTP web service.** (Can be deployed as Universal Resolver driver)
-
-Example:
-```
-dkr did keri resolver-service --name dkr --port 7678
-```
-
-```
-                              ---------------------------------            ---------------------
-                             |                                 |          |                     |
-                             |  dkr did keri resolver-service  |  <---->  |  KERI WATCHER POOL  |
-                             |                                 |          |                     |
-                              ---------------------------------            ---------------------
-                                            HTTPS
-                              HTTP GET      ^   |  200 OK
-                              did:keri:123  |   |  diddoc
-                              oobi          |   v  metadata
-
-                                              o
-                                             -|-
-                                             / \
-```
-
-## did:webs
-
-### `dkr did webs generate`
-
-**Generate a did:webs DID document and KEL/TEL file.**
-
-Example:
-```
-dkr did webs generate --name dkr --did did:webs:danubetech.com:example:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6
-```
-
-```
-                              ---------------------------------
-      did.json, keri.cesr    |                                 |
-    --------------------->   |  ANY WEB SERVER  /123/did.json  |
-   |                         |                  /123/keri.cesr |
-   |    UPLOAD                ---------------------------------
-   |
-   |      
-         did:webs:dom:123     ---------------------------------            ---------------------
-   O    ----------------->   |                                 |          |                     |
-  -|-   <-----------------   |  dkr did webs generate          |  <---->  |  KERI WATCHER POOL  |
-  / \   did.json, keri.cesr  |                                 |          |                     |
-                              ---------------------------------            ---------------------
-```
-
-### `dkr did webs service`
-
-**Launch web server capable of serving KERI AIDs as did:webs and did:web DIDs.**
-
-Example:
-```
-dkr did webs service --name dkr --port 7676
-```
-
-```
-                              ---------------------------------            ---------------------
-                             |                                 |          |                     |
-                             |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
-                             |                                 |          |                     |
-                              ---------------------------------            ---------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                             /123/keri.cesr |   v  keri.cesr
-
-         did:webs:dom:123     ---------------------------------
-   O    ----------------->   |                                 |
-  -|-   <-----------------   |  ANY DID:WEBS RESOLVER          |  <-----  (verify did.json/keri.cesr)
-  / \    diddoc, metadata    |                                 |
-                              ---------------------------------
-```
-
-```
-                              ---------------------------------            ---------------------
-                             |                                 |          |                     |
-                             |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
-                             |                                 |          |                     |
-                              ---------------------------------            ---------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                                            |   v          
-
-         did:web:dom:123      ---------------------------------
-   O    ----------------->   |                                 |
-  -|-   <-----------------   |  ANY DID:WEB RESOLVER           |
-  / \         diddoc         |                                 |
-                              ---------------------------------
-```
-
-### `dkr did webs resolve`
-
-**Resolve a did:webs DID.**
-
-Example:
-```
-dkr did webs resolve --name dkr --did did:webs:danubetech.com:example:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6
-```
-
-```
-                              ---------------------------------            ---------------------
-                             |                                 |          |                     |
-                             |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
-                             |                                 |          |                     |
-                              ---------------------------------            ---------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                             /123/keri.cesr |   v  keri.cesr
-
-         did:webs:dom:123     ---------------------------------
-   O    ----------------->   |                                 |
-  -|-   <-----------------   |  dkr did webs resolve           |  <-----  (verify did.json/keri.cesr)
-  / \    diddoc, metadata    |                                 |
-                              ---------------------------------
-```
-
-```
-                              ---------------------------------
-                             |                                 |
-                             |  ANY WEB SERVER  /123/did.json  |
-                             |                  /123/keri.cesr |
-                              ---------------------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                             /123/keri.cesr |   v  keri.cesr
-
-         did:webs:dom:123     ---------------------------------
-   O    ----------------->   |                                 |
-  -|-   <-----------------   |  dkr did webs resolve           |  <-----  (verify did.json/keri.cesr)
-  / \    diddoc, metadata    |                                 |
-                              ---------------------------------
-```
-
-```
-                              ---------------------------------
-                             |                                 |
-                             |  ANY WEB SERVER  /123/did.json  |
-                             |                  /123/keri.cesr |
-                              ---------------------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                                            |   v
-
-         did:web:dom:123     ---------------------------------
-   O    ----------------->   |                                 |
-  -|-   <-----------------   |  ANY DID:WEB RESOLVER           |
-  / \         diddoc         |                                 |
-                              ---------------------------------
-```
-
-### `dkr did webs resolver-service`
-
-**Expose did:webs resolver as an HTTP web service.** (Can be deployed as Universal Resolver driver)
-
-Example:
-```
-dkr did keri resolve --name dkr --port 7677
-```
-
-```
-                              ---------------------------------            ---------------------
-                             |                                 |          |                     |
-                             |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
-                             |                                 |          |                     |
-                              ---------------------------------            ---------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                             /123/keri.cesr |   v  keri.cesr
-
-                              ---------------------------------
-                             |                                 |
-                             |  dkr did webs resolver-service  |  <-----  (verify did.json/keri.cesr)
-                             |                                 |
-                              ---------------------------------
-                                            HTTPS
-                              HTTP GET      ^   |  200 OK
-                              did:webs:123  |   |  diddoc
-                              oobi          |   v  metadata
-
-                                              o
-                                             -|-
-                                             / \
-```
-
-```
-                              ---------------------------------
-                             |                                 |
-                             |  ANY WEB SERVER  /123/did.json  |
-                             |                  /123/keri.cesr |
-                              ---------------------------------
-                                            HTTPS
-                             HTTP GET       ^   |  200 OK
-                             /123/did.json  |   |  did.json
-                             /123/keri.cesr |   v  keri.cesr
-
-                              ---------------------------------
-                             |                                 |
-                             |  dkr did webs resolver-service  |  <-----  (verify did.json/keri.cesr)
-                             |                                 |
-                              ---------------------------------
-                                            HTTPS
-                              HTTP GET      ^   |  200 OK
-                              did:webs:123  |   |  diddoc
-                                            |   v  metadata
-
-                                              o
-                                             -|-
-                                             / \
-```
+Now upload the overwritten `did.json` and `keri.cesr` again to the hosted public location.

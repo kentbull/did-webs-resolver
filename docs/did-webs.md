@@ -3,15 +3,17 @@
 
 [![hackmd-github-sync-badge](https://hackmd.io/dbB7E1bPSPGZ_Ow5S_9pmg/badge)](https://hackmd.io/dbB7E1bPSPGZ_Ow5S_9pmg)
 
-did:webS is a new DID Method that intends to combine the security of the Key Event Receipt Infrastruture (KERI) with
+did:webS is a new DID Method that intends to combine the security of the Key Event Receipt Infrastructure (KERI) with
 the ease of use and discoverability of did:web.  The intention is to rely on KERI key management to create and manage
 identifiers (called Autonomic IDentifiers (AIDs) in KERI) and expose them as DIDs that look and behave like did:web
 DIDs via this DID Method.  
 
 ## CRUD Methods
+
 KERI protocol should be used for the CUD in CRUD and web access for the R.
 
 ## DID Document
+
 This document specifies the algorithm for generating a DID Document from a KERI AID.  The first (and most obvious) source
 of data used to generate a DID Document is the key event log (KEL) of the AID.  The key event log represents a cryptographic chain
 of custody from the AID itself down to the current set of signing keys and next rotation key commitments.  When generating a
@@ -21,7 +23,7 @@ events (those that change key state), the last event may not be an establishment
 provide key information.  In addition, the current set of witnesses is calculated from the initial set declared in the 
 inception event and "adds" and "cuts" declared in rotation events.
 
-In KERI the calcuated values that result from walking the KEL is refered to as the "current key state" and is expressed
+In KERI the calculated values that result from walking the KEL is refered to as the "current key state" and is expressed
 in the Key State Notice (KSN) record.  An example of a KSN can be seen here:
 
 ```json
@@ -99,15 +101,10 @@ KERI identifiers represent public signing keys as Composable Event Streaming Rep
 determine the cryptographic algorithm used to generate the key pair.  For each key listed in the array value of the `k` field
 a cooresponding Verification Method will be generated in the DID Document.  The 'type' field  in the verification method for each
 public key will be determined by the algorithm used to generate the public key.  At the time of this writing, KERI currently
-supports 
-
-
-
+supports.
 
 Signing Keys -> Verification Methods
 
 Service Endpoints -> Services
 
 Blah blah blah
-
-

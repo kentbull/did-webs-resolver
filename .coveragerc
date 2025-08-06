@@ -1,0 +1,8 @@
+[run]
+omit =
+    # omit anything in src/dkr/didcomm
+    src/dkr/didcomm/**/*
+    # omit cli code
+    src/dkr/app/cli/**/*
+    # omit tests
+    tests/**/*

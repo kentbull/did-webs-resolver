@@ -45,7 +45,7 @@ def gen_dws_urls(did: str) -> (str, str, str):
 
     opt_port = f':{port}' if port is not None else ''
     opt_path = f'/{path.replace(":", "/")}' if path is not None else ''
-    base_url = f'http://{domain}{opt_port}{opt_path}/{aid}'
+    base_url = f'https://{domain}{opt_port}{opt_path}/{aid}'
 
     # did.json for DID Document
     dd_url = f'{base_url}/{ends.DID_JSON}'

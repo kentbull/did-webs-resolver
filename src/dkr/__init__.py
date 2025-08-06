@@ -41,4 +41,4 @@ class UnknownAID(DidWebsError):
 
 
 # Versioning
-__version__ = '0.2.1'  # also change in pyproject.toml
+__version__ = '0.2.3'  # also change in pyproject.toml

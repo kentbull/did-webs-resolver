@@ -13,17 +13,33 @@ logger = ogler.getLogger(log_name)
 
 
 def load_url_with_requests(url: str, timeout: float = 5.0) -> bytes:
+    https_url = url[:]
+    if not https_url.startswith('https://'):
+        https_url = 'https://' + https_url.lstrip('http://')
+    response = None
     try:
-        response = requests.get(url=url, timeout=timeout)
+        response = requests.get(url=https_url, timeout=timeout)
     except requests.exceptions.ConnectionError as e:
-        logger.error(f'Failed to connect to URL {url}: {e}')
-        raise ArtifactResolveError(f'Failed to connect to URL {url}') from e
+        logger.error(f'Failed to connect to HTTPS URL {https_url}: {e}')
     except Exception as e:
-        logger.error(f'Failed to load URL {url}: {e}')
-        raise ArtifactResolveError(f'Failed to load URL {url}') from e
+        logger.error(f'Failed to load HTTPS URL {https_url}: {e}')
     # Ensure the request was successful
-    response.raise_for_status()
-    return response.content
+    if response is not None:
+        if response.status_code == 200:
+            return response.content if response.content else b''
+    logger.error(f'Failed to load URL {url}, trying with HTTP')
+
+    http_url = url[:]
+    http_url = http_url.replace('https://', 'http://', 1)  # Try with HTTP if HTTPS fails
+    try:
+        response = requests.get(http_url, timeout=timeout)
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f'Failed to connect to HTTP URL {http_url}: {e}')
+        raise ArtifactResolveError(f'Failed to connect to HTTP URL {http_url}') from e
+    except Exception as e:
+        logger.error(f'Failed to load HTTP URL {http_url}: {e}')
+        raise ArtifactResolveError(f'Failed to load HTTP URL {http_url}') from e
+    return response.content if response.status_code == 200 else b''
 
 
 def load_url_with_hio(url: str, timeout: float = 5.0, method: str = 'GET') -> bytes:

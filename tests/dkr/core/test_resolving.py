@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, Mock, patch
 
 import falcon
 import pytest
-import requests
 from falcon import testing
 from hio.base import doing
 from keri import core, kering
@@ -18,7 +17,6 @@ from keri.db.basing import dbdict
 from keri.vdr import credentialing, verifying
 from mockito import mock, when
 
-import dkr.core.requesting
 from dkr import ArtifactResolveError
 from dkr.core import artifacting, didding, generating, requesting, resolving
 from dkr.core.didkeri import KeriResolver
@@ -565,8 +563,8 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
         # fmt: off
         did_webs_did = f'did:webs:{host}%3A{port}:{did_path}:{aid}'         # did:webs:127.0.0.1%3A7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU
         did_keri_did = f'did:keri:{aid}'                                    # did:keri:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU
-        did_json_url = f'http://{host}:{port}/{did_path}/{aid}/did.json'    # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/did.json
-        keri_cesr_url = f'http://{host}:{port}/{did_path}/{aid}/keri.cesr'  # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/keri.cesr
+        did_json_url = f'https://{host}:{port}/{did_path}/{aid}/did.json'    # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/did.json
+        keri_cesr_url = f'https://{host}:{port}/{did_path}/{aid}/keri.cesr'  # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/keri.cesr
         # fmt: on
 
         # Components needed for issuance
@@ -778,8 +776,8 @@ def test_universal_resolver_resource_on_get_error_cases():
         # fmt: off
         did_webs_did = f'did:webs:{host}%3A{port}:{did_path}:{aid}'         # did:webs:127.0.0.1%3A7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU
         did_keri_did = f'did:keri:{aid}'                                    # did:keri:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU
-        did_json_url = f'http://{host}:{port}/{did_path}/{aid}/did.json'    # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/did.json
-        keri_cesr_url = f'http://{host}:{port}/{did_path}/{aid}/keri.cesr'  # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/keri.cesr
+        did_json_url = f'https://{host}:{port}/{did_path}/{aid}/did.json'    # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/did.json
+        keri_cesr_url = f'https://{host}:{port}/{did_path}/{aid}/keri.cesr'  # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/keri.cesr
         # fmt: on
 
         regery = credentialing.Regery(hby=hby, name=hab.name, temp=hby.temp)
@@ -831,8 +829,8 @@ def test_resolver_with_metadata_returns_correct_doc():
         # fmt: off
         did_webs_did = f'did:webs:{host}%3A{port}:{did_path}:{aid}?meta=true'         # did:webs:127.0.0.1%3A7677:dws:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU?meta=true
         did_keri_did = f'did:keri:{aid}'                                    # did:keri:EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU
-        did_json_url = f'http://{host}:{port}/{did_path}/{aid}/did.json?meta=true'    # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/did.json?meta=true
-        keri_cesr_url = f'http://{host}:{port}/{did_path}/{aid}/keri.cesr'            # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/keri.cesr
+        did_json_url = f'https://{host}:{port}/{did_path}/{aid}/did.json?meta=true'    # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/did.json?meta=true
+        keri_cesr_url = f'https://{host}:{port}/{did_path}/{aid}/keri.cesr'            # http://127.0.0.1:7677/dws/EMkO5tGOSTSGY13mdljkFaSuUWBpvGMbdYTGV_7LAXhU/keri.cesr
         # fmt: on
 
         regery = credentialing.Regery(hby=hby, name=hab.name, temp=hby.temp)
@@ -1001,26 +999,6 @@ def test_resolver_with_did_keri_resolve_returns_correct_doc():
         with pytest.raises(ValueError) as excinfo:
             doist.do([keri_resolver])
         assert str(excinfo.value) == 'invalid is an invalid AID'
-
-
-def test_load_url_with_requests_fails_on_connection_error():
-    # Mock out the requests library
-    with patch('requests.get') as mock_get:
-        mock_get.side_effect = requests.exceptions.ConnectionError('Connection failed')
-        with pytest.raises(ArtifactResolveError) as excinfo:
-            dkr.core.requesting.load_url_with_requests('http://example.com')
-        assert 'Failed to connect to URL' in str(excinfo.value), 'Expected error message for ArtifactResolveError'
-
-        mock_get.side_effect = Exception('Unexpected error')
-        with pytest.raises(ArtifactResolveError) as excinfo:
-            dkr.core.requesting.load_url_with_requests('http://example.com')
-        assert 'Failed to load URL' in str(excinfo.value), 'Expected error message for ArtifactResolveError'
-
-    with patch('requests.get') as mock_get:
-        # mock returning a byte array in response.content
-        mock_get.return_value.content = b'{"key": "value"}'
-        result = dkr.core.requesting.load_url_with_requests('http://example.com')
-        assert result == b'{"key": "value"}', 'Expected byte array response from mocked requests.get'
 
 
 def test_resolve_error_conditions():

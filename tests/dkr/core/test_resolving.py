@@ -1125,7 +1125,8 @@ def test_resolution_failure_with_mocks():
         req = mock()
         req.params = {}
         rep = mock(falcon.Response)
-        resolver.on_get(req, rep, 'did:webs:example.com:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v')
+        req.get_header = lambda x: 'application/did-resolution' if x == 'Accept' else None
+        resolver.on_get(req, rep, 'did:webs:example.com:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v?meta=true')
         assert rep.status == falcon.HTTP_417, 'Expected HTTP 417 Expectation Failed for resolution failure'
 
 

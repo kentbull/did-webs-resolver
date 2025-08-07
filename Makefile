@@ -2,7 +2,7 @@
 	build-dynamic-service publish-dynamic-service tag-dynamic-service-latest \
 	build-did-webs-resolver-service publish-did-webs-resolver-service tag-did-webs-resolver-latest \
 	run-agent build-all publish-latest warn tag fmt check tag-latest-all
-VERSION=0.2.3
+VERSION=0.2.6
 
 RED="\033[0;31m"
 NO_COLOUR="\033[0m"

@@ -369,6 +369,7 @@ def falcon_app() -> falcon.App:
         {
             'application/json': media.JSONHandler(),
             'application/did+ld+json': media.JSONHandler(),  # Ensure responses can use it
+            'application/did-resolution': media.JSONHandler(),  # Map DID Resolution to JSON parser
         }
     )
     return app
@@ -519,9 +520,15 @@ class UniversalResolverResource:
         else:
             oobi = None
 
+        accepts = req.get_header('Accept')
+        accepts = accepts.lower() if accepts else ''
+
         if 'meta' in req.params:
             meta = req.params['meta'].lower() in ('true', '1', 'yes')
             logger.info(f'From parameters {req.params} got meta: {meta}')
+        elif accepts == 'application/did-resolution':
+            meta = True
+            logger.info(f'From accept header Accept got {accepts}')
         else:
             meta = False
 
@@ -550,7 +557,12 @@ class UniversalResolverResource:
 
         logger.info(f'Successfully resolved {did}')
         rep.status = falcon.HTTP_200
-        rep.set_header('Content-Type', 'application/did+ld+json')
+
+        if didding.DD_META_FIELD in data:  # meaning, resolution is a DID resolution result and has metadata
+            # application/did-resolution is expected by the HTTP Binding in the DID Resolution spec and the Universal Resolver
+            rep.set_header('Content-Type', 'application/did-resolution')
+        else:
+            rep.set_header('Content-Type', 'application/did+ld+json')
         rep.media = data
         return
 

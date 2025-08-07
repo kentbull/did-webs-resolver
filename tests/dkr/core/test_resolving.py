@@ -960,7 +960,7 @@ def test_resolver_with_metadata_returns_correct_doc():
         # Verify did:webs DID doc
         did_webs_response = client.simulate_get(f'/1.0/identifiers/{encoded_did_webs}')
 
-        assert did_webs_response.content_type == 'application/did+ld+json', 'Content-Type should be application/did+ld+json'
+        assert did_webs_response.content_type == 'application/did-resolution', 'Content-Type should be application/did+ld+json'
         response_diddoc = json.loads(did_webs_response.content)[didding.DD_FIELD]
         did_webs_diddoc = did_webs_diddoc[didding.DD_FIELD]
         assert response_diddoc == did_webs_diddoc, 'did:webs response did document does not match expected diddoc'
@@ -1125,7 +1125,8 @@ def test_resolution_failure_with_mocks():
         req = mock()
         req.params = {}
         rep = mock(falcon.Response)
-        resolver.on_get(req, rep, 'did:webs:example.com:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v')
+        req.get_header = lambda x: 'application/did-resolution' if x == 'Accept' else None
+        resolver.on_get(req, rep, 'did:webs:example.com:EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v?meta=true')
         assert rep.status == falcon.HTTP_417, 'Expected HTTP 417 Expectation Failed for resolution failure'
 
 

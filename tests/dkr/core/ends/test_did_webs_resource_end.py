@@ -18,6 +18,7 @@ def test_did_web_resource_end_on_get():
     req.path = '/test_aid/did.json'
     req.host = 'example.com'
     req.port = 80
+    req.get_header = lambda x: '80' if x == 'X-Forwarded-Port' else None
 
     when(didding).generate_did_doc(hby, rgy, 'did:web:example.com:test_aid', 'test_aid', meta=False).thenReturn(
         {'mocked': 'data'}
@@ -43,6 +44,7 @@ def test_did_web_resource_end_on_get_odd_port():
     req.path = '/test_aid/did.json'
     req.host = 'example.com'
     req.port = 42
+    req.get_header = lambda x: '42' if x == 'X-Forwarded-Port' else None
 
     when(didding).generate_did_doc(hby, rgy, 'did:web:example.com%3A42:test_aid', 'test_aid', meta=False).thenReturn(
         {'mocked': 'data'}

@@ -98,13 +98,14 @@ def save_cesr(hby: Habery, rgy: Regery, kc_res: bytes, aid: str = None):
     """
     logger.debug('Saving KERI CESR to hby: %s', kc_res.decode('utf-8'))
     # CESR message handlers
+    rtr = routing.Router()
+    rvy = routing.Revery(db=hby.db, rtr=rtr) # Have to create the Revery before Kevery so the Kevery.kvr is set.
     exc = exchanging.Exchanger(hby=hby, handlers=[])
-    kvy = eventing.Kevery(db=hby.db)
+    kvy = eventing.Kevery(db=hby.db, rvy=rvy)
     tvy = teventing.Tevery(db=hby.db, reger=rgy.reger)
     vry = verifying.Verifier(hby=hby, reger=rgy.reger)
-    rtr = routing.Router()
-    rvy = routing.Revery(db=hby.db, rtr=rtr)
-    kvy.registerReplyRoutes(router=rtr)  # make sure LocScheme records are processed
+    kvy.registerReplyRoutes(router=rtr)  # make sure LocScheme and EndRole records are processed
+    tvy.registerReplyRoutes(router=rtr)  # make sure ACDC rpy messages are processed
     local = True if aid in hby.habs else False
 
     # Call to parse the stream.

@@ -1,6 +1,6 @@
 [project]
 name = "dkr"
-version = "0.2.6" # also change in src/dkr/__init__.py
+version = "0.2.7" # also change in src/dkr/__init__.py
 description = "did:webs DID Method Resolver"
 readme = "README.md"
 requires-python = "==3.12.6"

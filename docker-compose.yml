@@ -184,6 +184,7 @@ services:
             - ./docker/config/controller:/dws/config/controller
             - ./docker/scripts:/dws/scripts
             - ./docker/artifacts:/dws/web/dws
+            - ./docker/scripts/color-printing.sh:/dws/color-printing.sh
             - ./docker/test-resolutions.sh:/dws/test-resolutions.sh
             - dws_shell_keystore:/usr/local/var/keri
         entrypoint: /dws/test-resolutions.sh

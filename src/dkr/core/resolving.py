@@ -26,7 +26,7 @@ from keri.vdr.credentialing import Regery
 
 from dkr import ArtifactResolveError, log_name, ogler
 from dkr.core import didding, ends, requesting
-from dkr.core.requesting import load_url_with_hio, load_url_with_requests
+from dkr.core.requesting import load_url_with_requests
 
 logger = ogler.getLogger(log_name)
 
@@ -99,7 +99,7 @@ def save_cesr(hby: Habery, rgy: Regery, kc_res: bytes, aid: str = None):
     logger.debug('Saving KERI CESR to hby: %s', kc_res.decode('utf-8'))
     # CESR message handlers
     rtr = routing.Router()
-    rvy = routing.Revery(db=hby.db, rtr=rtr) # Have to create the Revery before Kevery so the Kevery.kvr is set.
+    rvy = routing.Revery(db=hby.db, rtr=rtr)  # Have to create the Revery before Kevery so the Kevery.kvr is set.
     exc = exchanging.Exchanger(hby=hby, handlers=[])
     kvy = eventing.Kevery(db=hby.db, rvy=rvy)
     tvy = teventing.Tevery(db=hby.db, reger=rgy.reger)
@@ -453,7 +453,7 @@ def load_ends(
 ):
     """Set up Falcon HTTP server endpoints for resolving DIDs and hosting static files"""
     serve_artifacts(app, hby, static_files_dir, did_path)
-    resolve_end = UniversalResolverResource(hby=hby, rgy=rgy, oobiery=oobiery, load_url=requesting.load_url_with_hio)
+    resolve_end = UniversalResolverResource(hby=hby, rgy=rgy, oobiery=oobiery, load_url=requesting.load_url_with_requests)
     app.add_route('/1.0/identifiers/{did}', resolve_end)
     app.add_route('/health', ends.HealthEnd())
 
@@ -470,7 +470,7 @@ class UniversalResolverResource:
         hby: habbing.Habery,
         rgy: credentialing.Regery,
         oobiery: oobiing.Oobiery,
-        load_url: Callable = load_url_with_hio,
+        load_url: Callable = load_url_with_requests,
     ):
         """Create Endpoints for discovery and resolution of OOBIs
 

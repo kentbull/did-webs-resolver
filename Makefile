@@ -36,7 +36,7 @@ tag-dws-base-latest:
 
 tag-latest-all: tag-dws-base-latest tag-dynamic-service-latest tag-did-webs-resolver-latest
 
-# Build did:webs service that dynamically generates did:webs assets
+# Build did:webs service that dynamically generates did:webs  assets
 DYN_IMAGE=gleif/did-webs-service
 build-dynamic-service: .warn
 	@docker build \

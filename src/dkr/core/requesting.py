@@ -13,6 +13,7 @@ logger = ogler.getLogger(log_name)
 
 
 def load_url_with_requests(url: str, timeout: float = 5.0) -> bytes:
+    logger.debug(f'Loading URL {url} with requests')
     https_url = url[:]
     if not https_url.startswith('https://'):
         https_url = 'https://' + https_url.lstrip('http://')
@@ -43,6 +44,7 @@ def load_url_with_requests(url: str, timeout: float = 5.0) -> bytes:
 
 
 def load_url_with_hio(url: str, timeout: float = 5.0, method: str = 'GET') -> bytes:
+    logger.debug(f'Loading URL {url} with HIO HTTP client')
     """Load a URL using the HIO HTTP client, respecting timeout and method."""
     return http_request(method=method, url=url, timeout=timeout)
 
@@ -102,7 +104,7 @@ def load_url_with_hio_clienter(url: str, timeout: float = 5.0, method: str = 'GE
     clienter.always = False
     clienter.tymth = doist.tymen()  # share the Doist tymth with the Clienter
     client = clienter.request(method, url)
-    doist.do(doers=[clienter])
+    doist.do(doers=[clienter])  # run the Clienter to process the request
 
     if len(client.responses) != 0:
         rep = client.respond()

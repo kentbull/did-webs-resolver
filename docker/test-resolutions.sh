@@ -46,7 +46,7 @@ echo
 
 # example did:webs DID:
 #     did:webs:dws-static-service%3A7679:dws:EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh
-dkr did webs resolve --did "${DID_WEBS_DID_STATIC_HOST}"
+dws did webs resolve --did "${DID_WEBS_DID_STATIC_HOST}"
 status=$?
 if [ $status -ne 0 ]; then
     print_red "Failed to resolve did:webs DID"
@@ -63,7 +63,7 @@ echo
 
 # example did:keri DID:
 #     did:keri:EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh?oobi=http://witnesses:5642/oobi/EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
-dkr did keri resolve --did "${DID_KERI_DID_WITH_OOBI}"
+dws did keri resolve --did "${DID_KERI_DID_WITH_OOBI}"
 
 status=$?
 if [ $status -ne 0 ]; then

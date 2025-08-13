@@ -22,7 +22,7 @@ kli oobi resolve \
   --oobi-alias "designated-alias-public" \
   --oobi "https://weboftrust.github.io/oobi/${DESG_ALIASES_SCHEMA}"
 
-dkr did webs resolver-service \
+dws did webs resolver-service \
     --http 7677 \
     --name dws-resolver \
     --config-dir /dws/config/controller \

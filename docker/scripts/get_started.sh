@@ -27,12 +27,12 @@ kli incept \
 echo ""
 read -p "Press enter to generate did:webs..."
 
-dkr did webs generate \
+dws did webs generate \
   --name get-started \
   --output-dir /dws/web/dws \
   --did "${MY_DID}"
 
-dkr did webs generate \
+dws did webs generate \
   --name get-started \
   --output-dir /dws/web/dws \
   --verbose \
@@ -42,7 +42,7 @@ echo ""
 echo "ATTENTION: In your did-webs-service, start the webs server first, see the GETTING_STARTED.md for those instructions"
 read -p "Press enter to resolve did:webs..."
 
-dkr did webs resolve \
+dws did webs resolve \
   --name get-started \
   --did "${MY_DID}"
 
@@ -103,7 +103,7 @@ echo
 echo ""
 read -p "Press enter generate did:webs with designated aliases..."
 
-dkr did webs generate \
+dws did webs generate \
   --name get-started \
   --output-dir /dws/web/dws \
   --did "${MY_DID}"
@@ -111,7 +111,7 @@ dkr did webs generate \
 echo ""
 read -p "Press enter to resolve did:webs with designated aliases..."
 
-dkr did webs resolve \
+dws did webs resolve \
   --name get-started \
   --did "${MY_DID}" \
   --verbose

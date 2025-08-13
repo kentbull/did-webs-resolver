@@ -25,7 +25,7 @@ WORKDIR /dws
 
 COPY . /dws
 
-# Install dkr - did KERI resolver
+# Install dws - did KERI resolver
 RUN uv lock && \
     uv sync --locked
 

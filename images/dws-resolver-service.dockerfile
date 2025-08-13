@@ -27,7 +27,7 @@ RUN kli oobi resolve \
   --oobi "https://weboftrust.github.io/oobi/EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5"
 
 # Default resolver run command
-CMD ["dkr", "did", "webs", "resolver-service", \
+CMD ["dws", "did", "webs", "resolver-service", \
     "--name", "dws", \
     "--config-dir", "/dws/config", \
     "--config-file", "dws.json", \

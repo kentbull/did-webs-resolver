@@ -20,9 +20,9 @@ Various solutions if you're a Docker expert. If not, we'll go down the more rigo
 2. and then `docker compose down -v`. This should respond with:
 
 [+] Running 3/3
- ⠿ Container dkr                            Removed  
- ⠿ Container witnesshost                    Removed   
- ⠿ Network did-webs-iiw37-tutorial_default  Removed 
+ ⠿ Container dws                            Removed  
+ ⠿ Container witnesses                      Removed   
+ ⠿ Network vlei                             Removed 
 Now you could continue with:
 ```
 docker compose up -d
@@ -46,30 +46,30 @@ We advise to choose a simple public directory that you control and we won't go i
 
 Example:
 ```
-dkr did keri resolve --name dkr --did did:keri:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6 --oobi http://witnesshost:5642/oobi/EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
+dws did keri resolve --name dws --did did:keri:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6 --oobi http://witnesshost:5642/oobi/EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
 ```
  
 ```
         did:keri:123, oobi    ---------------------------------            ---------------------
    O    ----------------->   |                                 |          |                     |
-  -|-   <-----------------   |  dkr did keri resolve           |  <---->  |  KERI WATCHER POOL  |
+  -|-   <-----------------   |  dws did keri resolve           |  <---->  |  KERI WATCHER POOL  |
   / \    diddoc, metadata    |                                 |          |                     |
                               ---------------------------------            ---------------------
 ```
 
-### `dkr did keri resolver-service`
+### `dws did keri resolver-service`
 
 **Expose did:keri resolver as an HTTP web service.** (Can be deployed as Universal Resolver driver)
 
 Example:
 ```
-dkr did keri resolver-service --name dkr --port 7678
+dws did keri resolver-service --name dws --port 7678
 ```
 
 ```
                               ---------------------------------            ---------------------
                              |                                 |          |                     |
-                             |  dkr did keri resolver-service  |  <---->  |  KERI WATCHER POOL  |
+                             |  dws did keri resolver-service  |  <---->  |  KERI WATCHER POOL  |
                              |                                 |          |                     |
                               ---------------------------------            ---------------------
                                             HTTPS
@@ -84,13 +84,13 @@ dkr did keri resolver-service --name dkr --port 7678
 
 ## did:webs
 
-### `dkr did webs generate`
+### `dws did webs generate`
 
 **Generate a did:webs DID document and KEL/TEL file.**
 
 Example:
 ```
-dkr did webs generate --name dkr --did did:webs:danubetech.com:example:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6
+dws did webs generate --name dws --did did:webs:danubetech.com:example:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6
 ```
 
 ```
@@ -103,24 +103,24 @@ dkr did webs generate --name dkr --did did:webs:danubetech.com:example:EPaP4GgZs
    |      
          did:webs:dom:123     ---------------------------------            ---------------------
    O    ----------------->   |                                 |          |                     |
-  -|-   <-----------------   |  dkr did webs generate          |  <---->  |  KERI WATCHER POOL  |
+  -|-   <-----------------   |  dws did webs generate          |  <---->  |  KERI WATCHER POOL  |
   / \   did.json, keri.cesr  |                                 |          |                     |
                               ---------------------------------            ---------------------
 ```
 
-### `dkr did webs service`
+### `dws did webs service`
 
 **Launch web server capable of serving KERI AIDs as did:webs and did:web DIDs.**
 
 Example:
 ```
-dkr did webs service --name dkr --port 7677
+dws did webs service --name dws --port 7677
 ```
 
 ```
                               ---------------------------------            ---------------------
                              |                                 |          |                     |
-                             |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
+                             |  dws did webs service           |  <---->  |  KERI WATCHER POOL  |
                              |                                 |          |                     |
                               ---------------------------------            ---------------------
                                             HTTPS
@@ -138,7 +138,7 @@ dkr did webs service --name dkr --port 7677
 ```
                               ---------------------------------            ---------------------
                              |                                 |          |                     |
-                             |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
+                             |  dws did webs service           |  <---->  |  KERI WATCHER POOL  |
                              |                                 |          |                     |
                               ---------------------------------            ---------------------
                                             HTTPS
@@ -153,19 +153,19 @@ dkr did webs service --name dkr --port 7677
                               ---------------------------------
 ```
 
-### `dkr did webs resolve`
+### `dws did webs resolve`
 
 **Resolve a did:webs DID.**
 
 Example:
 ```
-dkr did webs resolve --name dkr --did did:webs:danubetech.com:example:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6
+dws did webs resolve --name dws --did did:webs:danubetech.com:example:EPaP4GgZsB6Ww-SeSO2gwNDMNpC7-DN51X5AqiJFWkw6
 ```
 
 ```
                               ---------------------------------            ---------------------
                              |                                 |          |                     |
-                             |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
+                             |  dws did webs service           |  <---->  |  KERI WATCHER POOL  |
                              |                                 |          |                     |
                               ---------------------------------            ---------------------
                                             HTTPS
@@ -175,7 +175,7 @@ dkr did webs resolve --name dkr --did did:webs:danubetech.com:example:EPaP4GgZsB
 
          did:webs:dom:123     ---------------------------------
    O    ----------------->   |                                 |
-  -|-   <-----------------   |  dkr did webs resolve           |  <-----  (verify did.json/keri.cesr)
+  -|-   <-----------------   |  dws did webs resolve           |  <-----  (verify did.json/keri.cesr)
   / \    diddoc, metadata    |                                 |
                               ---------------------------------
 ```
@@ -193,7 +193,7 @@ dkr did webs resolve --name dkr --did did:webs:danubetech.com:example:EPaP4GgZsB
 
          did:webs:dom:123     ---------------------------------
    O    ----------------->   |                                 |
-  -|-   <-----------------   |  dkr did webs resolve           |  <-----  (verify did.json/keri.cesr)
+  -|-   <-----------------   |  dws did webs resolve           |  <-----  (verify did.json/keri.cesr)
   / \    diddoc, metadata    |                                 |
                               ---------------------------------
 ```
@@ -216,19 +216,19 @@ dkr did webs resolve --name dkr --did did:webs:danubetech.com:example:EPaP4GgZsB
                               ---------------------------------
 ```
 
-### `dkr did webs resolver-service`
+### `dws did webs resolver-service`
 
 **Expose did:webs resolver as an HTTP web service.** (Can be deployed as Universal Resolver driver)
 
 Example:
 ```
-dkr did keri resolve --name dkr --port 7677
+dws did keri resolve --name dws --port 7677
 ```
 
 ```
                               ---------------------------------            ---------------------
                              |                                 |          |                     |
-                             |  dkr did webs service           |  <---->  |  KERI WATCHER POOL  |
+                             |  dws did webs service           |  <---->  |  KERI WATCHER POOL  |
                              |                                 |          |                     |
                               ---------------------------------            ---------------------
                                             HTTPS
@@ -238,7 +238,7 @@ dkr did keri resolve --name dkr --port 7677
 
                               ---------------------------------
                              |                                 |
-                             |  dkr did webs resolver-service  |  <-----  (verify did.json/keri.cesr)
+                             |  dws did webs resolver-service  |  <-----  (verify did.json/keri.cesr)
                              |                                 |
                               ---------------------------------
                                             HTTPS
@@ -264,7 +264,7 @@ dkr did keri resolve --name dkr --port 7677
 
                               ---------------------------------
                              |                                 |
-                             |  dkr did webs resolver-service  |  <-----  (verify did.json/keri.cesr)
+                             |  dws did webs resolver-service  |  <-----  (verify did.json/keri.cesr)
                              |                                 |
                               ---------------------------------
                                             HTTPS

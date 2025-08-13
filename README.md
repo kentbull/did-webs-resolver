@@ -20,15 +20,15 @@ Components:
 The quick start shows you how to use either the Docker Compose setup or the local shell script setup to:
 1. Generate did:webs artifacts (did.json, keri.cesr)
 2. Host those artifacts using a static server
-3. Resolve a did:webs DID against those artifacts using the `dkr did webs resolve` command.
-4. Resolve a did:keri DID against those artifacts using the `dkr did keri resolve` command.
+3. Resolve a did:webs DID against those artifacts using the `dws did webs resolve` command.
+4. Resolve a did:keri DID against those artifacts using the `dws did keri resolve` command.
 5. Run the `did:webs` resolver service in static server mode supporting the Universal Resolver.
 
 ### Docker
 
 1. `docker compose up` - this will generate the did:webs assets (did.json, keri.cesr), start the static server, start the `did:webs` resolver service, and boot up the `dws-shell` container.
 2. `docker compose exec -it dws-shell /bin/bash` - drop in to the shell container to run commands.
-3. review the `./docker/test-resolutions.sh` for a guide on how to use either the universal resolver resource or the `dkr did webs resolve` command to resolve did:webs DIDs.
+3. review the `./docker/test-resolutions.sh` for a guide on how to use either the universal resolver resource or the `dws did webs resolve` command to resolve did:webs DIDs.
 
 ### Local Shell Script
 
@@ -57,13 +57,13 @@ This is useful for development and can be done by provide an existing named keys
 For example, to start the service using the `multisig1` keystore (https://github.com/WebOfTrust/keripy/blob/v1.2.4/scripts/demo/basic/multisig.sh)
 
 ```bash
-dkr did webs service --name multisig1
+dws did webs service --name multisig1
 ```
 
 2. Import supported - start the service using an empty local keystore, and import AID KELs. The following workflow can be applied to start the service, export an existing keystore and import it to the service.
 
 ```bash
-dkr did webs service --name dkr
+dws did webs service --name dws
 ```
 
 ```bash

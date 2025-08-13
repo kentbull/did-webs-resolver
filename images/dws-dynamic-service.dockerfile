@@ -12,4 +12,4 @@ WORKDIR /dws
 # It would dynamically generate and respond with did assets for the following sample did:webs DID:
 #   did:webs:127.0.0.1%3A7678:dws:EBFn5ge82EQwxp9eeje-UMEXF-v-3dlfbdVMX_PNjSft
 # Notice the `--did-path` argument is set to `dws` which matches the path component in the sample DID.
-CMD ["dkr", "did", "webs", "service", "-p", "7678", "--name", "my-controller", "--config-dir", "/dws/config", "--config-file", "my-controller.json", "--alias", "my-aid-alias", "--did-path", "dws", "--loglevel", "INFO" ]
+CMD ["dws", "did", "webs", "service", "-p", "7678", "--name", "my-controller", "--config-dir", "/dws/config", "--config-file", "my-controller.json", "--alias", "my-aid-alias", "--did-path", "dws", "--loglevel", "INFO" ]

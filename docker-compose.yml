@@ -67,7 +67,7 @@ services:
         hostname: dws-static-server
         environment:
             <<: *python-envs
-            DEBUG_DKR: true
+            DEBUG_DWS: true
         healthcheck:
             test: [ "CMD", "curl", "-f", "http://127.0.0.1:7679/health" ]
             <<: *healthcheck
@@ -88,7 +88,7 @@ services:
             - ./docker/artifacts:/dws/web/dws
             - static_host_keystore:/usr/local/var/keri
         entrypoint: [
-            "dkr", "did", "webs", "resolver-service",
+            "dws", "did", "webs", "resolver-service",
             "--http", "7679",
             "--name", "static-host-keystore",
             "--config-dir", "/dws/config/controller",
@@ -119,11 +119,11 @@ services:
         ports:
             - "7680:7680"
         volumes:
-            - ./docker/scripts:/dkr/scripts
-            - ./docker/dws:/dkr/web/dws
+            - ./docker/scripts:/dws/scripts
+            - ./docker/dws:/dws/web/dws
             - controller_keystore:/usr/local/var/keri
         entrypoint: [
-            "dkr", "did", "webs", "service",
+            "dws", "did", "webs", "service",
             "--http", "7680",
             "--name", "my-keystore",
             "--alias", "my-controller",

@@ -105,6 +105,7 @@ def test_resolver_with_witnesses():
         ck_doers = [ck_hby_doer, ck_anchorer, ck_postman, ck_mbx, ck_wit_rcptr_doer, ck_receiptor]
         ck1_deeds = doist.enter(doers=ck_doers)
 
+        # perform inception
         cracker_1_hab = ck_hby.makeHab(name='cracker_1', isith='1', icount=1, toad=1, wits=[wan_pre])
 
         # Waiting for witness receipts...

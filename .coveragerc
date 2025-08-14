@@ -1,8 +1,8 @@
 [run]
 omit =
-    # omit anything in src/dkr/didcomm
-    src/dkr/didcomm/**/*
+    # omit anything in src/dws/didcomm
+    src/dws/didcomm/**/*
     # omit cli code
-    src/dkr/app/cli/**/*
+    src/dws/app/cli/**/*
     # omit tests
     tests/**/*

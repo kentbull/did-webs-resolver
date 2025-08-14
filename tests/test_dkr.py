@@ -1,6 +1,6 @@
 import logging
 
-from dkr import log_name, ogler, set_log_level
+from dws import log_name, ogler, set_log_level
 
 
 def test_set_log_level():

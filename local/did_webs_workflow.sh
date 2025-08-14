@@ -47,7 +47,7 @@ fi
 
 # Binary Dependencies
 command -v kli >/dev/null 2>&1 || { print_red "kli is not installed or not available on the PATH. Aborting."; exit 1; }
-command -v dkr >/dev/null 2>&1 || { print_red "dkr is not installed or not available on the PATH. Aborting."; exit 1; }
+command -v dws >/dev/null 2>&1 || { print_red "dws is not installed or not available on the PATH. Aborting."; exit 1; }
 
 # need to run witness network
 DOMAIN=127.0.0.1
@@ -195,7 +195,7 @@ print_yellow "       of: ${DID_WEBS_DID}"
 pause "Press Enter to generate the did:webs DID document and KERI CESR stream..."
 if [[ "${METADATA_TRUE}" = true ]] ; then
   print_yellow "Using metadata for artifact generation"
-  dkr did webs generate \
+  dws did webs generate \
     --name "${CTLR_KEYSTORE}" \
     --config-dir ./local/config/controller \
     --config-file "${CTLR_KEYSTORE}" \
@@ -204,7 +204,7 @@ if [[ "${METADATA_TRUE}" = true ]] ; then
     --meta # include DID generation metadata as envelope of DID document in did.json
 else
   print_yellow "Not using metadata for artifact generation"
-  dkr did webs generate \
+  dws did webs generate \
     --name "${CTLR_KEYSTORE}" \
     --config-dir ./local/config/controller \
     --config-file "${CTLR_KEYSTORE}" \
@@ -217,7 +217,7 @@ fi
 # -------------------------------------------------
 
 # STATIC FILE MODE: Run the resolver service in static file server mode to serve the generated did:webs assets
-dkr did webs resolver-service \
+dws did webs resolver-service \
   --http 7678 \
   --name "static-service" \
   --config-dir="${CONFIG_DIR}/controller" \
@@ -242,13 +242,13 @@ status=0
 function resolve_didwebs(){
   if [[ "${METADATA_TRUE}" = true ]] ; then
     print_yellow "Using metadata for did:webs resolution"
-    dkr did webs resolve --name "dws-other" \
+    dws did webs resolve --name "dws-other" \
       --did "${DID_WEBS_DID}" \
       --meta # include DID resolution metadata as envelope of DID document in did.json
     status=$?
   else
     print_yellow "Not using metadata for did:webs resolution"
-    dkr did webs resolve --name "dws-other" \
+    dws did webs resolve --name "dws-other" \
       --did "${DID_WEBS_DID}"
     status=$?
   fi
@@ -267,7 +267,7 @@ function resolve_didkeri(){
   if [[ "${METADATA_TRUE}" = true ]] ; then
     print_yellow "Using metadata for ${DID_KERI_DID} resolution"
     print_dark_gray "Resolving OOBI: ${MY_OOBI} for ${DID_KERI_DID}"
-    dkr did keri resolve \
+    dws did keri resolve \
       --name "dws-resolver" \
       --did "${DID_KERI_DID}" \
       --oobi "${MY_OOBI}" \
@@ -276,7 +276,7 @@ function resolve_didkeri(){
   else
     print_yellow "Not using metadata for did:keri resolution"
     print_dark_gray "Resolving OOBI: ${MY_OOBI} for ${DID_KERI_DID}"
-    dkr did keri resolve \
+    dws did keri resolve \
       --name "dws-resolver" \
       --did "${DID_KERI_DID}" \
       --oobi "${MY_OOBI}"
@@ -302,7 +302,7 @@ kli oobi resolve --name "dws-resolver" \
     --oobi "https://weboftrust.github.io/oobi/${DESG_ALIASES_SCHEMA}"
 
 # UNIVERSAL RESOLVER MODE: Run the resolver service as only a did:webs and did:keri resolver
-dkr did webs resolver-service \
+dws did webs resolver-service \
   --http 7676 \
   --name "dws-resolver" \
   --config-dir="${CONFIG_DIR}/controller" \

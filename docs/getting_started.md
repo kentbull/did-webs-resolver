@@ -6,7 +6,7 @@ There are two ways to run the `did:webs` reference implementation:
 2. Using Docker to run the `did:webs` reference implementation in a containerized environment. See `./docker/controller-init.sh` and the `docker-compose.yml` file.
     - Run `docker compose up` from one terminal, 
     - then `docker exec -it dws-shell /bin/bash` in a second terminal, and finally,
-      - run `dkr did webs resolve --name my-keystore --did did:webs:dws-resolver%3A7677:dws:EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh` to see 
+      - run `dws did webs resolve --name my-keystore --did did:webs:dws-resolver%3A7677:dws:EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh` to see 
       - `Verification success for did:webs:dws-resolver%3A7677:dws:EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh`
     - See the detailed flow below for more information.
 
@@ -27,7 +27,7 @@ Start your witness pool.
 
 Then run the resolver service
 ```bash
-dkr did webs resolver-service \
+dws did webs resolver-service \
   --name dws-resolver \
   --config-dir=./local/config/controller \
   --config-file=dws-resolver \
@@ -36,8 +36,8 @@ dkr did webs resolver-service \
 
 # Fast Docker Flow (for getting the idea quickly)
 
-This flow is similar to the local command line flow except that the `controller-init.sh` file does not run either the did:webs resolver and does not perform DID resolution with the `dkr did webs resolve` command.
-Instead, it only performs did:webs asset generation after which you will perform DID resolution using the `dkr did webs resolve` command in the `dws-shell` container.
+This flow is similar to the local command line flow except that the `controller-init.sh` file does not run either the did:webs resolver and does not perform DID resolution with the `dws did webs resolve` command.
+Instead, it only performs did:webs asset generation after which you will perform DID resolution using the `dws did webs resolve` command in the `dws-shell` container.
 
 You may read the `./docker/controller-init.sh` file to see the commands that it runs and familiarize yourself with the process.
 
@@ -74,7 +74,7 @@ docker compose logs -f
 
 Then perform did:webs DID resolution with:
 ```bash
-dkr did webs resolve \
+dws did webs resolve \
   --name my-keystore \
   --did did:webs:dws-resolver%3A7677:dws:EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh
 ```
@@ -84,9 +84,9 @@ You will see the following successful output:
 Verification success for did:webs:dws-resolver%3A7677:dws:EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh
 ```
 
-You can see the resolved DID document JSON by including the `--verbose` option to the `dkr did webs resolve` command.
+You can see the resolved DID document JSON by including the `--verbose` option to the `dws did webs resolve` command.
 ```bash
-dkr did webs resolve \
+dws did webs resolve \
   --name my-keystore \
   --did did:webs:dws-resolver%3A7677:dws:EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh \
   --verbose
@@ -233,7 +233,7 @@ You can specify the output directory with the `--output-dir` option, which is `/
 
 **command**:
 ```bash
-dkr did webs generate \
+dws did webs generate \
   --name my-keystore \
   --output-dir /dws/web/dws \
   --verbose \
@@ -304,12 +304,12 @@ What this means is that whatever file serving service you use must host the `did
   - `did.json`
   - `keri.cesr`
 
-The `dws-resolver` service will do this for you if you specify the `--static-files-dir` option to the `dkr did webs resolver-service` command.
+The `dws-resolver` service will do this for you if you specify the `--static-files-dir` option to the `dws did webs resolver-service` command.
 
 You can run the Docker example service to serve the `did.json` and `keri.cesr` files for the other Docker containers:
 
-The commands above, and the `get_started.sh` script, uses the `--output-dir` argument to the `dkr did webs generate` command to specify the directory where the did:webs artifacts are generated.
-If you used a different directory then you will need to copy the two files `did.json` and `keri.cesr` to the directory specified in the `--static-files-dir` option of the `dkr did webs resolver-service` command or to whatever webserver you use to host those files.
+The commands above, and the `get_started.sh` script, uses the `--output-dir` argument to the `dws did webs generate` command to specify the directory where the did:webs artifacts are generated.
+If you used a different directory then you will need to copy the two files `did.json` and `keri.cesr` to the directory specified in the `--static-files-dir` option of the `dws did webs resolver-service` command or to whatever webserver you use to host those files.
 
 Let's go into our dws-shell Docker container and see the files:
 ```bash
@@ -375,7 +375,7 @@ In the dws-shell docker container, you can resolve the DID from the dws-resolver
 
 Resolve the did:webs for the DID:
 ```bash
-dkr did webs resolve --name my-keystore --did "did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"
+dws did webs resolve --name my-keystore --did "did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"
 ```
 
 
@@ -523,7 +523,7 @@ Now if we re-generate our did:webs identifier the did.json and keri.cesr files w
 **command**:
 ```bash
 # from within the dws-shell container
-dkr did webs generate \
+dws did webs generate \
   --name my-keystore \
   --output-dir /dws/web/dws \
   --did "did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG"
@@ -727,7 +727,7 @@ Optionally resolve the AID locally as did:keri, given an OOBI as resolution opti
 Note: Replace with your actual AID
 
 ```bash
-dkr did keri resolve \
+dws did keri resolve \
     --name my-keystore \
     --did did:keri:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG \
     --oobi http://witnesses:5642/oobi/EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha
@@ -748,9 +748,9 @@ Use the following two commands in your running Docker container.
 ```bash
 kli rotate --name my-keystore --alias my-controller
 ```
-Be sure to repeat the `dkr webs generate` command:
+Be sure to repeat the `dws webs generate` command:
 
 ```bash
-dkr did webs generate --name my-keystore --did did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG
+dws did webs generate --name my-keystore --did did:webs:dws-resolver%3a7677:dws:EDOIYUazXNmI0A9Xahe3nw1-8iwpZcMLz-6sdrSyPucG
 ```
 Now upload the overwritten `did.json` and `keri.cesr` again to the hosted public location.

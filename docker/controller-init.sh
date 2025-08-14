@@ -28,7 +28,7 @@ fi
 
 # Binary Dependencies
 command -v kli >/dev/null 2>&1 || { print_red "kli is not installed or not available on the PATH. Aborting."; exit 1; }
-command -v dkr >/dev/null 2>&1 || { print_red "dkr is not installed or not available on the PATH. Aborting."; exit 1; }
+command -v dws >/dev/null 2>&1 || { print_red "dws is not installed or not available on the PATH. Aborting."; exit 1; }
 
 # need to run witness network
 DOMAIN=dws-static-service
@@ -175,14 +175,14 @@ print_yellow "       of: ${MY_DID}"
 
 if [[ "${METADATA_TRUE}" = true ]] ; then
   print_yellow "Using metadata for generation"
-  dkr did webs generate \
+  dws did webs generate \
   --name "${CTLR_KEYSTORE}" \
   --output-dir "${WEB_DIR}/${ARTIFACT_PATH}" \
   --did "${MY_DID}" \
   --meta # include DID generation metadata as envelope of DID document in did.json
 else
   print_yellow "Not using metadata for generation"
-  dkr did webs generate \
+  dws did webs generate \
   --name "${CTLR_KEYSTORE}" \
   --output-dir "${WEB_DIR}/${ARTIFACT_PATH}" \
   --did "${MY_DID}"

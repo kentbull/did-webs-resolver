@@ -177,8 +177,8 @@ wheels = [
 ]
 
 [[package]]
-name = "dkr"
-version = "0.2.6"
+name = "dws"
+version = "0.2.7"
 source = { editable = "." }
 dependencies = [
     { name = "falcon" },

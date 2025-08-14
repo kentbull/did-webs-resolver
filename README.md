@@ -1,6 +1,6 @@
 # did:webs resolver 
 
-A DID resolver did:webs and did:keri DIDs also compatible with the Universal Resolver.
+A DID resolver for did:webs and did:keri DIDs also compatible with the Universal Resolver.
 
 A demonstration of a `did:webs` service and resolver. Implements the
 `did:webs` [specification](https://trustoverip.github.io/tswg-did-method-webs-specification/).

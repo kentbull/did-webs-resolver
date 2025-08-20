@@ -197,7 +197,8 @@ class HabbingHelpers:
             salt(bytes): passed to habitat to use for inception raw salt not qb64
             temp(bool): indicates if this uses temporary databases
             cf(Configer): optional configer for loading configuration data
-
+        TODO: replace this openHab fixture with one from KERIpy once https://github.com/WebOfTrust/keripy/pull/1078 is merged.
+              this copy was needed in order to pass cf to Habery.makeHab() since the **kwa is not unpacking the cf arg.
         """
 
         salt = core.Salter(raw=salt).qb64

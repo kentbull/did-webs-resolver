@@ -17,7 +17,7 @@ from keri.db.basing import dbdict
 from keri.vdr import credentialing, verifying
 from mockito import mock, when
 
-from dws import ArtifactResolveError
+from dws import ArtifactResolveError, log_name, ogler, set_log_level
 from dws.core import artifacting, didding, generating, requesting, resolving
 from dws.core.didkeri import KeriResolver
 from dws.core.ends import monitoring
@@ -43,6 +43,10 @@ def test_resolver_with_witnesses():
     This test spins up an actual witness and performs proper, receipted inception and credential
     issuance for an end-to-end integration test of the universal resolver endpoints.
     """
+    # setting log level to DEBUG so that it triggers the debug logging branch in the RequestLoggerMiddleware
+    logger = ogler.getLogger(log_name)
+    set_log_level('DEBUG', logger)
+
     aid_salt = b'0AAB_Fidf5WeZf6VFc53IxVw'
     resolver_salt = b'0AAl3nvsqKGyKHp2Hz9wLy9t'
     registry_nonce = '0ADV24br-aaezyRTB-oUsZJE'
@@ -296,6 +300,8 @@ def test_resolver_with_witnesses():
             assert 'resolution timed out' in keri_resolver.result['error'], (
                 'KeriResolver result did not contain expected timeout error'
             )
+    # reset log level for other tests
+    set_log_level('INFO', logger)
 
 
 def test_artifact_server_hosts_artifacts():

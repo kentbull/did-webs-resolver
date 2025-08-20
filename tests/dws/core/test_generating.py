@@ -1,7 +1,11 @@
+import io
 import json
+import logging
 import os
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
+import falcon
+import pytest
 from hio.base import doing
 from keri import core
 from keri.app import configing, habbing, oobiing
@@ -10,6 +14,7 @@ from mockito import mock
 
 from dws.core import artifacting, didding, generating, resolving
 from dws.core.ends import DID_JSON, KERI_CESR
+from dws.core.resolving import RequestLoggerMiddleware
 from tests import conftest
 from tests.conftest import CredentialHelpers, HabbingHelpers, WitnessContext, self_attested_aliases_cred_subj
 
@@ -157,3 +162,40 @@ def test_did_art_genr_with_empty_hby_creates_hby():
         )
         assert resolver.hby == hby_mock, 'Expected KeriResolver to create a new Habery instance'
         assert hby_doer_mock in resolver.doers, 'Expected KeriResolver to add HaberyDoer to its doers'
+
+
+@pytest.fixture
+def mock_req():
+    req = Mock(spec=falcon.Request)
+    req.method = 'POST'
+    req.url = '/test'
+    req.headers = {'Content-Type': 'application/json'}
+    req.content_length = 10
+    req.stream = io.BytesIO(b'{"key": "value"}')  # Mock stream for body read
+    req.env = {'wsgi.input': req.stream, 'CONTENT_LENGTH': '10'}
+    return req
+
+
+@pytest.fixture
+def mock_resp():
+    return Mock(spec=falcon.Response)
+
+
+def test_request_logger_middleware_on_debug(mock_req, mock_resp):
+    """
+    Test that the request logger middleware logs requests when debug is enabled.
+    """
+    middleware = RequestLoggerMiddleware()
+
+    with (
+        patch('dws.core.resolving.logger.isEnabledFor') as mock_enabled,
+        patch('dws.core.resolving.logger.debug') as mock_debug,
+    ):
+        mock_enabled.return_value = True  # Force enabled path
+
+        middleware.process_request(mock_req, mock_resp)
+
+        mock_enabled.assert_called_with(logging.DEBUG)
+        mock_debug.assert_called_with('Request body    : %s', '{"key": "value"}')  # Or '<empty>' if no body
+        assert mock_req.env['wsgi.input'].read() == b'{"key": "value"}'  # Reset worked
+        assert mock_req.env['CONTENT_LENGTH'] == '16'  # Updated to actual len

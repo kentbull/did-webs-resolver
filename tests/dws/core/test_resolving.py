@@ -130,8 +130,8 @@ def test_resolver_with_witnesses():
         keri_cesr_url = f'http://{host}:{port}/{did_path}/{aid}/keri.cesr'            # http://127.0.0.1:7677/dws/EEdpe-yqftH2_FO1-luoHvaiShK4y_E2dInrRQ2_2X5v/keri.cesr
         # fmt: on
 
-        schema_json = conftest.load_designated_aliases_schema_json()
-        rules_json = conftest.load_designated_aliases_schema_rules_json()
+        schema_json = conftest.Schema.designated_aliases_schema()
+        rules_json = conftest.Schema.designated_aliases_rules()
         subject_data = self_attested_aliases_cred_subj(host, aid, port, did_path)
         regery = credentialing.Regery(hby=ck_hby, name=ck_hby.name, temp=ck_hby.temp)
         CredentialHelpers.add_cred_to_aid(
@@ -587,7 +587,7 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
         deeds = doist.enter(doers=[hby_doer, counselor, registrar, credentialer, regery_doer])
 
         # Add schema to resolver schema cache
-        raw_schema = conftest.load_designated_aliases_schema_json()
+        raw_schema = conftest.Schema.designated_aliases_schema()
         schemer = scheming.Schemer(
             raw=bytes(json.dumps(raw_schema), 'utf-8'), typ=scheming.JSONSchema(), code=coring.MtrDex.Blake3_256
         )
@@ -609,7 +609,7 @@ def test_resolver_with_did_webs_did_returns_correct_doc():
 
         # Create and issue the self-attested credential
         credSubject = self_attested_aliases_cred_subj(host, aid, port, did_path)
-        rules_json = conftest.load_designated_aliases_schema_rules_json()
+        rules_json = conftest.Schema.designated_aliases_rules()
         creder = credentialer.create(
             regname=issuer_reg.name,
             recp=None,
@@ -841,8 +841,8 @@ def test_resolver_with_metadata_returns_correct_doc():
         # fmt: on
 
         regery = credentialing.Regery(hby=hby, name=hab.name, temp=hby.temp)
-        schema_json = conftest.load_designated_aliases_schema_json()
-        rules_json = conftest.load_designated_aliases_schema_rules_json()
+        schema_json = conftest.Schema.designated_aliases_schema()
+        rules_json = conftest.Schema.designated_aliases_rules()
         subject_data = self_attested_aliases_cred_subj(host, aid, port, did_path)
         CredentialHelpers.add_cred_to_aid(
             hby=hby,

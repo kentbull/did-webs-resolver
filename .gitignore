@@ -140,5 +140,7 @@ docker/artifacts/EEMVke69ZjQAXoK3FTLtCwpyWOXx5qkhzIDqXAgYfPgh/keri.cesr
 .DS_Store
 keri.cesr
 
-tests/artifact_output_dir/**/**.json
+tests/artifact_output_dir/**/*.json
 tests/artifact_output_dir/**/*.cesr
+tests/artifact_output_dir/dws/*
+tests/artifact_output_dir/dws/**/*

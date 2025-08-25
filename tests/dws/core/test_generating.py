@@ -82,8 +82,8 @@ def test_artifact_generation_creates_expected_artifacts():
 
         # Expects the test to be run from the root of the repository
         regery = credentialing.Regery(hby=rb_hby, name=rb_hby.name, temp=rb_hby.temp)
-        schema_json = conftest.load_designated_aliases_schema_json()
-        rules_json = conftest.load_designated_aliases_schema_rules_json()
+        schema_json = conftest.Schema.designated_aliases_schema()
+        rules_json = conftest.Schema.designated_aliases_rules()
         subject_data = self_attested_aliases_cred_subj(host, aid, port, did_path)
         CredentialHelpers.add_cred_to_aid(
             hby=rb_hby,

@@ -672,8 +672,8 @@ def test_generate_did_doc_single_sig_meta(mock_helping_now_utc):
         'didResolutionMetadata': {'contentType': 'application/did+json', 'retrieved': '2021-01-01T00:00:00Z'},
         'didDocumentMetadata': {
             'witnesses': [
-                {'idx': 0, 'scheme': 'some_key_witness1', 'url': 'tcp://127.0.0.1:5632/'},
-                {'idx': 1, 'scheme': 'some_key_witness2', 'url': 'tcp://127.0.0.1:5633/'},
+                {'idx': '0', 'scheme': 'some_key_witness1', 'url': 'tcp://127.0.0.1:5632/'},
+                {'idx': '1', 'scheme': 'some_key_witness2', 'url': 'tcp://127.0.0.1:5633/'},
             ],
             'versionId': '0',
             'equivalentId': [],

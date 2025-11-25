@@ -8,6 +8,7 @@ https://docs.pytest.org/en/latest/pythonpath.html
 
 import json
 from contextlib import contextmanager
+from pathlib import Path
 from typing import List, Union
 
 import pytest
@@ -197,7 +198,8 @@ class HabbingHelpers:
             salt(bytes): passed to habitat to use for inception raw salt not qb64
             temp(bool): indicates if this uses temporary databases
             cf(Configer): optional configer for loading configuration data
-
+        TODO: replace this openHab fixture with one from KERIpy once https://github.com/WebOfTrust/keripy/pull/1078 is merged.
+              this copy was needed in order to pass cf to Habery.makeHab() since the **kwa is not unpacking the cf arg.
         """
 
         salt = core.Salter(raw=salt).qb64
@@ -250,9 +252,18 @@ def self_attested_aliases_cred_subj(domain: str, aid: str, port: str = None, pat
     )
 
 
-def load_designated_aliases_schema_json():
-    return json.loads(open('./local/schema/designated-aliases-public-schema.json', 'rb').read())
+class Schema:
+    """
+    Using pathlib to load schema and rules files from "tests/schema" using the relative .parent path
+    allows tests to be run from any working directory.
+    """
 
+    @staticmethod
+    def designated_aliases_schema():
+        schema_path = Path(__file__).parent / 'schema' / 'designated-aliases-public-schema.json'
+        return json.loads(schema_path.read_bytes())
 
-def load_designated_aliases_schema_rules_json():
-    return json.loads(open('./local/schema/rules/desig-aliases-public-schema-rules.json', 'rb').read())
+    @staticmethod
+    def designated_aliases_rules():
+        schema_path = Path(__file__).parent / 'schema' / 'rules' / 'desig-aliases-public-schema-rules.json'
+        return json.loads(schema_path.read_bytes())

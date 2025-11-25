@@ -40,7 +40,7 @@ The quick start shows you how to use either the Docker Compose setup or the loca
 ## Developers - Getting Started
 
 Developers who want to jump into using the `did:webs` reference implementation should follow
-the [Getting Started](docs/getting_started) guide.
+the [Getting Started](docs/getting_started.md) guide.
 
 A breakdown of the commands can be found [here](./docs/commands.md).
 

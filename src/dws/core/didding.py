@@ -361,7 +361,7 @@ def get_witness_list(baser: Baser, kever: Kever):
     witness_list = []
     for idx, eid in enumerate(kever.wits):
         for (tid, scheme), loc in baser.locs.getItemIter(keys=(eid,)):
-            witness_list.append(dict(idx=idx, scheme=scheme, url=loc.url))
+            witness_list.append(dict(idx=str(idx), scheme=scheme, url=loc.url))
     return witness_list
 
 

@@ -420,6 +420,7 @@ def generate_did_doc(hby: habbing.Habery, rgy: credentialing.Regery, did, aid, m
     vms = generate_verification_methods(kever.verfers, kever.tholder.thold, did, aid)
 
     serv_ends = []
+    # TODO: move Location Scheme and Endpoint Role Authorization to dedicated function
     if hab and hasattr(hab, 'fetchRoleUrls'):
         ends = hab.fetchRoleUrls(cid=aid)
         serv_ends.extend(add_ends(ends))
@@ -428,6 +429,8 @@ def generate_did_doc(hby: habbing.Habery, rgy: credentialing.Regery, did, aid, m
     else:
         ends = habs.get_role_urls(baser=hby.db, kever=kever)
         serv_ends.extend(add_ends(ends))
+
+    # TODO: add delegation section if Hab is a delegated hab
 
     equiv_ids, aka_ids = get_equiv_aka_ids(did, aid, hby, rgy)
 

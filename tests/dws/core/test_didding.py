@@ -683,6 +683,7 @@ def test_generate_did_doc_single_sig_meta(mock_helping_now_utc):
     unstub()
 
 
+# TODO read through the multisig test
 def test_generate_did_doc_multi_sig():
     hby = mock()
     hby.name = 'test_hby'
@@ -1115,3 +1116,6 @@ def test_designated_aliases_generation_returns_creds_when_non_local_aid():
     when(rgy.reger).cloneCreds([test_saider], hby.db).thenReturn([])
     da = didding.gen_designated_aliases(hby, rgy, 'test_aid')
     assert da == [], 'Expected empty list for designated aliases when no credentials are found'
+
+def test_generate_did_doc_with_delegator_shows_service_delegator_section():
+    pass

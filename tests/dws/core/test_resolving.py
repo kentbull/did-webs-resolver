@@ -195,10 +195,10 @@ def test_resolver_with_witnesses():
         did_path = 'dws'
         meta = True
         # fmt: off
-        did_webs_did = f'did:webs:{host}%3A{port}:{did_path}:{aid}?meta=true'  # did:webs:127.0.0.1%3A7677:dws:'EHUi8qUknNeLBYtZ_tUwuLjlaRm-srp2PqVBO5YEJ4PA'?meta=true
-        did_keri_did = f'did:keri:{aid}'                                       # did:keri:'EHUi8qUknNeLBYtZ_tUwuLjlaRm-srp2PqVBO5YEJ4PA'
-        did_json_url = f'http://{host}:{port}/{did_path}/{aid}/did.json'       # http://127.0.0.1:7677/dws/'EHUi8qUknNeLBYtZ_tUwuLjlaRm-srp2PqVBO5YEJ4PA'/did.json?meta=true
-        keri_cesr_url = f'http://{host}:{port}/{did_path}/{aid}/keri.cesr'     # http://127.0.0.1:7677/dws/'EHUi8qUknNeLBYtZ_tUwuLjlaRm-srp2PqVBO5YEJ4PA'/keri.cesr
+        did_webs_did = f'did:webs:{host}%3A{port}:{did_path}:{aid}?meta=true'  # did:webs:127.0.0.1%3A7677:dws:EHUi8qUknNeLBYtZ_tUwuLjlaRm-srp2PqVBO5YEJ4PA?meta=true
+        did_keri_did = f'did:keri:{aid}'                                       # did:keri:EHUi8qUknNeLBYtZ_tUwuLjlaRm-srp2PqVBO5YEJ4PA
+        did_json_url = f'http://{host}:{port}/{did_path}/{aid}/did.json'       # http://127.0.0.1:7677/dws/EHUi8qUknNeLBYtZ_tUwuLjlaRm-srp2PqVBO5YEJ4PA/did.json?meta=true
+        keri_cesr_url = f'http://{host}:{port}/{did_path}/{aid}/keri.cesr'     # http://127.0.0.1:7677/dws/EHUi8qUknNeLBYtZ_tUwuLjlaRm-srp2PqVBO5YEJ4PA/keri.cesr
         # fmt: on
 
         schema_json = conftest.Schema.designated_aliases_schema()
@@ -1144,7 +1144,7 @@ def test_resolve_meta_true_yet_no_returned_metadata_wraps_in_meta():
         mock_get_artifacts.return_value = (aid, did_doc, keri_cesr)
 
         wrapped_dd = resolving.wrap_metadata(json.loads(did_doc.decode()), did, aid, hby, rgy)
-        dd_actual = didding.from_did_web(wrapped_dd, True)
+        dd_actual = didding.doc_from_did_web(wrapped_dd, True)
 
         mock_get_gen_did_doc.return_value = {}
         mock_verify.return_value = True, {}

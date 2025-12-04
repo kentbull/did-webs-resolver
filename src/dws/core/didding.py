@@ -12,13 +12,13 @@ import urllib.parse
 from base64 import urlsafe_b64encode
 from functools import reduce
 
-from keri import kering
 from keri.app import habbing
+from keri.app.habbing import Habery
 from keri.core import coring
-from keri.core.eventing import Kever, Kevery
+from keri.core.eventing import Kever
 from keri.db.basing import Baser
 from keri.help import helping
-from keri.vdr import credentialing
+from keri.vdr.credentialing import Regery
 
 from dws import DidWebsError, UnknownAID, log_name, ogler
 from dws.core import habs, oobiing
@@ -390,8 +390,8 @@ def generate_did_doc(hby: habbing.Habery, rgy: credentialing.Regery, did, aid, m
     - didDocument: The DID document itself (see genDidDocument for structure)
 
     Parameters:
-        hby (habbing.Habery): The habery instance containing the necessary data.
-        rgy (credentialing.Regery): The Regery instance for the credential and registry data.
+        hby (Habery): The habery instance containing the necessary data.
+        rgy (Regery): The Regery instance for the credential and registry data.
         did (str): The DID to generate the document for.
         aid (str): The AID associated with the DID.
         meta (bool, optional): If True, include metadata in the response. Defaults to False.
@@ -443,37 +443,53 @@ def to_did_web(diddoc: dict, meta=False):
     if not diddoc:
         raise DidWebsError('Cannot convert empty diddoc to did:web')
     if meta:
-        replaced = diddoc_to_did_web(diddoc[DD_FIELD])
+        replaced = doc_to_did_web(diddoc[DD_FIELD])
         diddoc[DD_FIELD] = replaced
         return diddoc
     else:
-        return diddoc_to_did_web(diddoc)
+        return doc_to_did_web(diddoc)
 
 
-def diddoc_to_did_web(diddoc: dict):
+def webs_to_web(did: str):
+    """Converts a did:webs DID to did:web. It's simple, just removal of the 's'."""
+    if did.startswith('did:webs:'):
+        return did.replace('did:webs', 'did:web')
+    else:
+        return did
+
+
+def web_to_webs(did: str):
+    """Converts a did:web DID to did:webs. It's simple, just addition of the 's'."""
+    if did.startswith('did:web:'):
+        return did.replace('did:web', 'did:webs')
+    else:
+        return did
+
+
+def doc_to_did_web(diddoc: dict):
     """Converts all did:webs DIDs in the 'id' property and verification method 'controller' properties to did:web"""
-    diddoc['id'] = diddoc['id'].replace('did:webs', 'did:web')
+    diddoc['id'] = webs_to_web(diddoc['id'])
     for verificationMethod in diddoc['verificationMethod']:
-        verificationMethod['controller'] = verificationMethod['controller'].replace('did:webs', 'did:web')
+        verificationMethod['controller'] = webs_to_web(verificationMethod['controller'])
     return diddoc
 
 
-def diddoc_to_did_webs(diddoc: dict):
+def doc_to_did_webs(diddoc: dict):
     """Converts all did:web DIDs in the 'id' property and verification method 'controller' properties to did:webs"""
     # Apply the replacement only if necessary
     if 'did:web' in diddoc['id'] and 'did:webs' not in diddoc['id']:
-        diddoc['id'] = diddoc['id'].replace('did:web', 'did:webs')
+        diddoc['id'] = web_to_webs(diddoc['id'])
         logger.debug(f'Updated id in fromDidWeb: {diddoc["id"]}')
 
     for verificationMethod in diddoc['verificationMethod']:
         if 'did:web' in verificationMethod['controller'] and 'did:webs' not in verificationMethod['controller']:
-            verificationMethod['controller'] = verificationMethod['controller'].replace('did:web', 'did:webs')
+            verificationMethod['controller'] = web_to_webs(verificationMethod['controller'])
             logger.debug(f'Updated controller in fromDidWeb: {verificationMethod["controller"]}')
 
     return diddoc
 
 
-def from_did_web(did_json: dict, meta: bool = False):
+def doc_from_did_web(did_json: dict, meta: bool = False):
     """
     Convert DID schemes in did.json DID document from did:web to did:webs.
 
@@ -487,11 +503,11 @@ def from_did_web(did_json: dict, meta: bool = False):
     initial_controller = diddoc['verificationMethod'][0]['controller']
     # id = diddoc["id"] if not meta else did_json[DD_FIELD]["id"]
     if not meta:
-        converted_did_doc = diddoc_to_did_webs(diddoc)
+        converted_did_doc = doc_to_did_webs(diddoc)
         diddoc = converted_did_doc
     else:
         initial_controller = diddoc['verificationMethod'][0]['controller']
-        converted_did_doc = diddoc_to_did_webs(diddoc)
+        converted_did_doc = doc_to_did_webs(diddoc)
         did_json[DD_FIELD] = converted_did_doc
         diddoc = did_json
     return diddoc
@@ -509,14 +525,14 @@ def extract_desg_alias_from_cred(cred: dict) -> str | None:
     return None
 
 
-def gen_designated_aliases(hby: habbing.Habery, rgy: credentialing.Regery, aid: str, schema: str = DES_ALIASES_SCHEMA):
+def gen_designated_aliases(hby: Habery, rgy: Regery, aid: str, schema: str = DES_ALIASES_SCHEMA):
     """
     Searches the entire Regery database for non-revoked, self-attested designated alias ACDCs by schema and
     returns a list of designated alias IDs using their `a.ids` field.
 
     Parameters:
-        hby (habbing.Habery): The Habery instance containing the Regery.
-        rgy (credentialing.Regery): The Regery instance for credential and registry data.
+        hby (Habery): The Habery instance containing the Regery.
+        rgy (Regery): The Regery instance for credential and registry data.
         aid (str): The AID prefix to retrieve the ACDCs for.
         schema (str): The schema to use to select the target ACDC from the local registry. Default is DES_ALIASES_SCHEMA.
 
@@ -540,10 +556,9 @@ def gen_designated_aliases(hby: habbing.Habery, rgy: credentialing.Regery, aid: 
     return list(itertools.chain.from_iterable(da_ids))
 
 
-def gen_service_endpoints(hby: habbing.Habery, hab: habbing.Hab, kever: Kever, aid: str):
+def gen_service_endpoints(hby: Habery, hab: habbing.Hab, kever: Kever, aid: str):
     """Generate service endpoints including both witness and delegation service endpoints."""
     serv_ends = []
-    # TODO: move Location Scheme and Endpoint Role Authorization to dedicated function
     if hab and hasattr(hab, 'fetchRoleUrls'):
         ends = hab.fetchRoleUrls(cid=aid)
         serv_ends.extend(add_ends(ends))
@@ -573,7 +588,7 @@ def add_ends(ends):
     return reduce(lambda emit, role: emit + process_role(role), ends, [])
 
 
-def gen_delegation_service(hby: habbing.Habery, pre: str, delpre: str):
+def gen_delegation_service(hby: Habery, pre: str, delpre: str):
     """Returns an array of delegation service endpoints for the delegator AID."""
     seal = dict(i=pre, s='0', d=pre)
     dserder = hby.db.fetchLastSealingEventByEventSeal(pre=delpre, seal=seal)

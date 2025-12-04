@@ -218,6 +218,11 @@ def dyn_artifact_svr_doers(
     hby, rgy, alias: str, http_port, did_path=None, meta=False, keypath=None, certpath=None, cafilepath=None
 ):
     """
+    These Doers support the dynamic, run-time generation and serving of did:webs artifacts, did.json and keri.cesr.
+    The did_path argument is important to set as it is the part between the "did:webs:<host>%3A:"
+    part of the URL and the AID at the end. This directly affects DID resolution and must exactly match the
+    intended resolution path.
+
     Parameters:
         hby (habbing.Habery): identifier database environment
         rgy (credentialing.Regery): Doer for the identifier database environment

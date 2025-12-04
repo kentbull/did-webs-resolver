@@ -314,7 +314,7 @@ def resolve(
     loaded_dd = json.loads(dd_res.decode('utf-8'))
     if meta and didding.DD_FIELD not in loaded_dd:
         loaded_dd = wrap_metadata(loaded_dd, did, aid, hby, rgy)
-    dd_actual = didding.from_did_web(loaded_dd, meta)
+    dd_actual = didding.doc_from_did_web(loaded_dd, meta)
     dd_expected = get_generated_did_doc(hby=hby, rgy=rgy, did=did, meta=meta)
     return verify(dd_expected, dd_actual, meta=meta)
 

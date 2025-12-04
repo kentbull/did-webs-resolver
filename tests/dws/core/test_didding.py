@@ -801,16 +801,16 @@ def test_to_did_web():
 def test_from_did_web():
     diddoc = {'id': 'did:web:example:123', 'verificationMethod': [{'controller': 'did:web:example:123'}]}
 
-    from dws.core.didding import from_did_web
+    from dws.core.didding import doc_from_did_web
 
-    result = from_did_web(diddoc)
+    result = doc_from_did_web(diddoc)
 
     # Verify the changes
     assert result['id'] == 'did:webs:example:123'
     assert result['verificationMethod'][0]['controller'] == 'did:webs:example:123'
 
     with pytest.raises(ValueError) as excinfo:
-        from_did_web(diddoc, meta=True)
+        doc_from_did_web(diddoc, meta=True)
     assert str(excinfo.value) == f"Expected '{didding.DD_FIELD}' in did.json when indicating resolution metadata in use."
 
     unstub()
@@ -819,9 +819,9 @@ def test_from_did_web():
 def test_from_did_web_no_change():
     diddoc = {'id': 'did:webs:example:123', 'verificationMethod': [{'controller': 'did:webs:example:123'}]}
 
-    from dws.core.didding import from_did_web
+    from dws.core.didding import doc_from_did_web
 
-    result = from_did_web(diddoc)
+    result = doc_from_did_web(diddoc)
 
     assert result['id'] == 'did:webs:example:123'
     assert result['verificationMethod'][0]['controller'] == 'did:webs:example:123'
@@ -969,10 +969,6 @@ def test_designated_aliases_generation_returns_creds_when_non_local_aid():
     when(rgy.reger).cloneCreds([test_saider], hby.db).thenReturn([])
     da = didding.gen_designated_aliases(hby, rgy, 'test_aid')
     assert da == [], 'Expected empty list for designated aliases when no credentials are found'
-
-
-def test_generate_did_doc_with_delegator_shows_service_delegator_section():
-    pass
 
 
 def test_gen_delegation_service_generates_correctly():

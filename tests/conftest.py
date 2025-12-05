@@ -10,7 +10,7 @@ import json
 from collections import deque
 from contextlib import contextmanager
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 
 import pytest
 from hio.base import doing
@@ -41,7 +41,7 @@ def mock_helping_now_utc(monkeypatch):
 
 
 def assemble_did_webs_did(domain, aid, port=None, path=None):
-    did = f'did:webs:{domain}{port}'
+    did = f'did:webs:{domain}'
     if port:
         did += f'%3a{port}'
     if path:

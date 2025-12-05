@@ -366,18 +366,55 @@ def get_witness_list(baser: Baser, kever: Kever):
     return witness_list
 
 
-def get_equiv_aka_ids(did: str, aid: str, hby: habbing.Habery, rgy: credentialing.Regery):
+def gen_did_keri_did(hby: Habery, aid: str):
+    oobi = oobiing.generate_oobi(hby=hby, pre=aid)
+    if oobi is None:
+        # check if OOBI is in resolve OOBIs as this may be for a non-locally owned identifier, such as for a resolver
+        oobi = oobiing.get_resolved_oobi(hby, pre=aid)
+    if oobi == '' or oobi is None:
+        return f'did:keri:{aid}'
+    else:
+        return f'did:keri:{aid}?oobi={urllib.parse.quote(oobi)}'
+
+
+def get_equiv_aka_ids(did: str, aid: str, hby: Habery, rgy: Regery):
+    """
+    Adds the equivalent, resolvable did:webs and did:keri DIDs along with designated aliases DIDs to
+    equivalent DID and alsoKnownAs DID lists.
+    """
+    # Add designated aliases DIDs, if any
     equiv_ids = []
     aka_ids = []
     if did.startswith('did:webs') or did.startswith('did:web'):
-        for s in gen_designated_aliases(hby, rgy, aid):
-            if s.startswith('did:webs'):
-                equiv_ids.append(s)
-            aka_ids.append(s)
+        da_equiv_dids, da_aka_ids = get_designated_aliases_aka_dids(hby, rgy, aid)
+        equiv_ids.extend(da_equiv_dids)
+        aka_ids.extend(da_aka_ids)
+
+    # Add did:keri and did:webs DIDs
+    did_web_did = webs_to_web(strip_query(did))
+    aka_ids.append(gen_did_keri_did(hby, aid))
+
+    did_web_found = False
+    for aka in aka_ids:
+        if aka == did_web_did:
+            did_web_found = True
+            break
+    if not did_web_found:
+        aka_ids.append(did_web_did)
     return equiv_ids, aka_ids
 
 
-def generate_did_doc(hby: habbing.Habery, rgy: credentialing.Regery, did, aid, meta=False):
+def get_designated_aliases_aka_dids(hby: Habery, rgy: Regery, aid: str):
+    equiv_dids = []
+    aka_dids = []
+    for s in gen_designated_aliases(hby, rgy, aid):
+        if s.startswith('did:webs'):
+            equiv_dids.append(s)
+        aka_dids.append(s)
+    return equiv_dids, aka_dids
+
+
+def generate_did_doc(hby: Habery, rgy: Regery, did, aid, meta=False):
     """
     Generates a DID document for the given DID and AID.
 

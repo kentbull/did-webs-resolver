@@ -6,6 +6,7 @@ tests.core.didding module
 
 import os
 import sys
+import urllib.parse
 from unittest.mock import patch
 
 import pytest
@@ -272,7 +273,7 @@ def test_generate_did_doc_single_sig():
     hab.db = hab_db
     hab.delpre = None
     hby.habs = {aid: hab}
-    sner = mock()
+    sner = mock(basing.Baser)
     sner.num = 0
     kever.sner = sner
     hby.kevers = {aid: kever}
@@ -283,11 +284,15 @@ def test_generate_did_doc_single_sig():
     kever.tholder = tholder
     db.locs = locs
     hby.db = db
+    hby.db.roobi = mock(koming.Komer)
     wits = []
     kever.wits = wits
 
     loc = basing.LocationRecord(url='tcp://127.0.0.1:5634/')
     when(db.locs).getItemIter(keys=(aid,)).thenReturn([((aid, 'some_key'), loc)])
+    oobi = f'http://example.com/oobi/{aid}'
+    obr = basing.OobiRecord(cid=aid)
+    when(hby.db.roobi).getItemIter().thenReturn([((oobi,), obr)])
 
     when(hab).fetchRoleUrls(cid=aid).thenReturn(role_urls_fixture())
     when(hab).fetchWitnessUrls(cid=aid).thenReturn(witness_urls_fixture())
@@ -337,7 +342,10 @@ def test_generate_did_doc_single_sig():
                 'type': 'witness',
             },
         ],
-        'alsoKnownAs': [],
+        'alsoKnownAs': [
+            f'did:keri:{aid}?oobi={urllib.parse.quote(oobi)}',
+            'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4',
+        ],
     }
 
     unstub()
@@ -351,7 +359,7 @@ def test_generate_did_doc_single_sig_with_designated_alias(mock_helping_now_utc)
     kever = mock()
     verfer = mock()
     tholder = mock()
-    db = mock()
+    db = mock(basing.Baser)
     locs = mock()
 
     did = 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4'
@@ -371,11 +379,15 @@ def test_generate_did_doc_single_sig_with_designated_alias(mock_helping_now_utc)
     kever.tholder = tholder
     db.locs = locs
     hby.db = db
+    hby.db.roobi = mock(koming.Komer)
     wits = []
     kever.wits = wits
 
     loc = basing.LocationRecord(url='tcp://127.0.0.1:5634/')
     when(db.locs).getItemIter(keys=(aid,)).thenReturn([((aid, 'some_key'), loc)])
+    oobi = f'http://example.com/oobi/{aid}'
+    obr = basing.OobiRecord(cid=aid)
+    when(hby.db.roobi).getItemIter().thenReturn([((oobi,), obr)])
 
     when(hab).fetchRoleUrls(cid=aid).thenReturn(role_urls_fixture())
     when(hab).fetchWitnessUrls(cid=aid).thenReturn(witness_urls_fixture())
@@ -431,13 +443,25 @@ def test_generate_did_doc_single_sig_with_designated_alias(mock_helping_now_utc)
                 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'},
             },
         ],
-        'alsoKnownAs': ['designated_id_1', 'did:webs:foo:designated_id_2', 'designated_id_2_but_different'],
+        'alsoKnownAs': [
+            'designated_id_1',
+            'did:webs:foo:designated_id_2',
+            'designated_id_2_but_different',
+            f'did:keri:{aid}?oobi={urllib.parse.quote(oobi)}',
+            'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4',
+        ],
     }
 
     unstub()
 
     loc = basing.LocationRecord(url='tcp://127.0.0.1:5634/')
     when(db.locs).getItemIter(keys=(aid,)).thenReturn([((aid, 'some_key'), loc)])
+
+    hby.db = mock(basing.Baser)
+    hby.db.roobi = mock(koming.Komer)
+    oobi = f'http://example.com/oobi/{aid}'
+    obr = basing.OobiRecord(cid=aid)
+    when(hby.db.roobi).getItemIter().thenReturn([((oobi,), obr)])
 
     when(hab).fetchRoleUrls(cid=aid).thenReturn(role_urls_fixture())
     when(hab).fetchWitnessUrls(cid=aid).thenReturn(witness_urls_fixture())
@@ -488,7 +512,13 @@ def test_generate_did_doc_single_sig_with_designated_alias(mock_helping_now_utc)
                     'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'},
                 },
             ],
-            'alsoKnownAs': ['designated_id_1', 'did:webs:foo:designated_id_2', 'designated_id_2_but_different'],
+            'alsoKnownAs': [
+                'designated_id_1',
+                'did:webs:foo:designated_id_2',
+                'designated_id_2_but_different',
+                f'did:keri:{aid}?oobi={urllib.parse.quote(oobi)}',
+                'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4',
+            ],
         },
         'didResolutionMetadata': {'contentType': 'application/did+json', 'retrieved': '2021-01-01T00:00:00Z'},
         'didDocumentMetadata': {'witnesses': [], 'versionId': '0', 'equivalentId': ['did:webs:foo:designated_id_2']},
@@ -503,7 +533,7 @@ def test_generate_did_doc_single_sig_meta(mock_helping_now_utc):
     kever = mock()
     verfer = mock()
     tholder = mock()
-    db = mock()
+    db = mock(basing.Baser)
     locs = mock()
 
     did = 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4'
@@ -523,6 +553,7 @@ def test_generate_did_doc_single_sig_meta(mock_helping_now_utc):
     kever.tholder = tholder
     db.locs = locs
     hby.db = db
+    hby.db.roobi = mock(koming.Komer)
     kever.wits = ['witness1', 'witness2']
 
     loc = basing.LocationRecord(url='tcp://127.0.0.1:5632/')
@@ -531,6 +562,10 @@ def test_generate_did_doc_single_sig_meta(mock_helping_now_utc):
     when(db.locs).getItemIter(keys=('witness2',)).thenReturn([(('witness2', 'some_key_witness2'), loc)])
     loc = basing.LocationRecord(url='tcp://127.0.0.1:5634/')
     when(db.locs).getItemIter(keys=(aid,)).thenReturn([((aid, 'some_key'), loc)])
+
+    oobi = f'http://example.com/oobi/{aid}'
+    obr = basing.OobiRecord(cid=aid)
+    when(hby.db.roobi).getItemIter().thenReturn([((oobi,), obr)])
 
     when(hab).fetchRoleUrls(cid=aid).thenReturn(role_urls_fixture())
     when(hab).fetchWitnessUrls(cid=aid).thenReturn(witness_urls_fixture())
@@ -584,7 +619,10 @@ def test_generate_did_doc_single_sig_meta(mock_helping_now_utc):
                     'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'},
                 },
             ],
-            'alsoKnownAs': [],
+            'alsoKnownAs': [
+                f'did:keri:{aid}?oobi={urllib.parse.quote(oobi)}',
+                'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4',
+            ],
         },
         'didResolutionMetadata': {'contentType': 'application/did+json', 'retrieved': '2021-01-01T00:00:00Z'},
         'didDocumentMetadata': {
@@ -609,7 +647,7 @@ def test_generate_did_doc_multi_sig():
     verfer = mock()
     verfer_multi = mock()
     tholder = mock()
-    db = mock()
+    db = mock(basing.Baser)
     locs = mock()
 
     did = 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4'
@@ -631,11 +669,16 @@ def test_generate_did_doc_multi_sig():
     kever.tholder = tholder
     db.locs = locs
     hby.db = db
+    hby.db.roobi = mock(koming.Komer)
     wits = []
     kever.wits = wits
 
     loc = basing.LocationRecord(url='tcp://127.0.0.1:5634/')
     when(db.locs).getItemIter(keys=(aid,)).thenReturn([((aid, 'some_key'), loc)])
+
+    oobi = f'http://example.com/oobi/{aid}'
+    obr = basing.OobiRecord(cid=aid)
+    when(hby.db.roobi).getItemIter().thenReturn([((oobi,), obr)])
 
     when(hab).fetchRoleUrls(cid=aid).thenReturn(role_urls_fixture())
     when(hab).fetchWitnessUrls(cid=aid).thenReturn(witness_urls_fixture())
@@ -706,14 +749,23 @@ def test_generate_did_doc_multi_sig():
                 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'},
             },
         ],
-        'alsoKnownAs': [],
+        'alsoKnownAs': [
+            f'did:keri:{aid}?oobi={urllib.parse.quote(oobi)}',
+            'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4',
+        ],
     }
 
     unstub()
 
     kever.tholder = coring.Tholder(sith=['1/2', '1/2'])
 
+    hby.db = mock(basing.Baser)
+    hby.db.roobi = mock(koming.Komer)
     when(db.locs).getItemIter(keys=(aid,)).thenReturn([((aid, 'some_key'), loc)])
+
+    oobi = f'http://example.com/oobi/{aid}'
+    obr = basing.OobiRecord(cid=aid)
+    when(hby.db.roobi).getItemIter().thenReturn([((oobi,), obr)])
 
     when(hab).fetchRoleUrls(cid=aid).thenReturn(role_urls_fixture())
     when(hab).fetchWitnessUrls(cid=aid).thenReturn(witness_urls_fixture())
@@ -775,7 +827,10 @@ def test_generate_did_doc_multi_sig():
                 'serviceEndpoint': {'http': 'http://localhost:8080/witness/wok'},
             },
         ],
-        'alsoKnownAs': [],
+        'alsoKnownAs': [
+            f'did:keri:{aid}?oobi={urllib.parse.quote(oobi)}',
+            'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4',
+        ],
     }
 
     unstub()
@@ -1021,3 +1076,9 @@ def test_gen_service_endpoints_when_del_serv_end_is_none_does_not_include_delega
     serv_endpoints = didding.gen_service_endpoints(hby=hby, hab=hab, kever=kever, aid='delegate_aid')
     assert len(serv_endpoints) > 0, 'Service endpoints should not be empty'
     assert 'DelegatorOOBI' not in [service['type'] for service in serv_endpoints], 'Delegator service should not be included'
+
+
+def test_web_to_webs_with_webs_returns_original():
+    did_webs = 'did:webs:example.com:1234:my:path:components:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4?meta=true'
+    result = didding.web_to_webs(did_webs)
+    assert result == did_webs, f'Expected {did_webs}, but got {result}'

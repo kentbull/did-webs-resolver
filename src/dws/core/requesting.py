@@ -109,7 +109,12 @@ def load_url_with_hio_clienter(url: str, timeout: float = 5.0, method: str = 'GE
     if len(client.responses) != 0:
         rep = client.respond()
         return bytes(rep.body)
+    elif clienter.timed_out:
+        raise ArtifactResolveError(f'Failed to load URL {url}, request timed out after {timeout}s')
     else:
+        # Check if client was removed due to timeout or just no response yet
+        # If the monitor is still tracking clients, it means they haven't timed out yet
+        # If the monitor has no clients left and we have no response, it timed out
         raise ArtifactResolveError(f'Failed to load URL {url}, no responses received')
 
 
@@ -134,6 +139,7 @@ class HTTPClienter(doing.DoDoer):
         self.clients: List[(http.clienting.Client, http.ClientDoer, datetime)] = []
         self.always = False
         self.tymth = tymth
+        self.timed_out = False  # Track if any client timed out
         client_worker = HTTPClientMonitor(clients=self.clients, clienter=self, timeout=timeout)
         self.doers = [client_worker]
         super(HTTPClienter, self).__init__(doers=self.doers)
@@ -205,11 +211,13 @@ class HTTPClientMonitor(doing.Doer):
                     to_remove.append(
                         (client, doer, dt)
                     )  # remove client if it has not received a response in the timeout period
-                if client.responses:  # a response has been received so close down its Doer
+                elif client.responses:  # a response has been received so close down its Doer
                     to_remove.append((client, doer, dt))
                 yield self.tock  # yielding the tock is necessary to allow precise time control for this Doer.
 
             for client, doer, dt in to_remove:
+                if (helping.nowUTC() - dt) > datetime.timedelta(seconds=self.TimeoutClient):
+                    self.clienter.timed_out = True  # Mark that this client timed out
                 self.clients.remove((client, doer, dt))  # allows this Doer to eventually exit
                 self.clienter.remove([doer])  # removes the ClientDoer from the DoDoer's doers and deeds
 

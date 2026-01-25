@@ -45,12 +45,13 @@ def test_create_http_client_with_body_encodes():
 
 
 def test_load_url_with_hio_timeout_causes_hio_error():
-    bad_url = 'https://example.com/oobi/EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5/'
+    # Use TEST-NET-1 (192.0.2.0/24) - a non-routable address reserved for documentation
+    # This guarantees a timeout since no server exists at this address
+    timeout_url = 'http://192.0.2.1/oobi/EN6Oh5XSD5_q2Hgu-aqpdfbVepdpYpFlgz6zvJL5b_r5/'
     with pytest.raises(ArtifactResolveError) as exc_info:
-        requesting.load_url_with_hio(bad_url, timeout=0.1)
-    assert 'Failed to load URL' in str(exc_info.value), 'Should raise HioError on timeout'
+        requesting.load_url_with_hio(timeout_url, timeout=0.1)
+    assert 'Failed to load URL' in str(exc_info.value), 'Should raise ArtifactResolveError on timeout'
 
-    # requesting.load_url_with_hio_clienter(bad_url, timeout=1.0)
     with pytest.raises(ArtifactResolveError) as exc_info:
-        requesting.load_url_with_hio_clienter(bad_url, timeout=0.1)
-    assert 'Failed to load URL' in str(exc_info.value), 'Should raise HioError on timeout'
+        requesting.load_url_with_hio_clienter(timeout_url, timeout=0.1)
+    assert 'Failed to load URL' in str(exc_info.value), 'Should raise ArtifactResolveError on timeout'

@@ -16,10 +16,16 @@ import pytest
 from hio.base import doing
 from hio.help import decking
 from keri import core
-from keri.app import agenting, delegating, forwarding, grouping, habbing, indirecting, keeping
+from keri.app import delegating, grouping, habbing, indirecting, keeping
+from keri.app.agenting import Receiptor, WitnessReceiptor
+from keri.app.delegating import Anchorer
+from keri.app.forwarding import Poster
 from keri.app.habbing import HaberyDoer, openHby
+from keri.app.indirecting import MailboxDirector
+from keri.app.notifying import Notifier
 from keri.core import coring, eventing, scheming, serdering
 from keri.help import helping
+from keri.peer.exchanging import Exchanger
 from keri.vdr import credentialing, verifying
 from keri.vdr.credentialing import Regery
 
@@ -220,14 +226,17 @@ class HabbingHelpers:
 
         Useful for running a Controller in a test.
         """
-        hby_doer = habbing.HaberyDoer(habery=hby)
-        anchorer = delegating.Anchorer(hby=hby, proxy=None)
-        postman = forwarding.Poster(hby=hby)
-        mbx = indirecting.MailboxDirector(hby=hby, topics=['/receipt', '/replay', '/reply'])
-        wit_rcptr_doer = agenting.WitnessReceiptor(hby=hby)
-        receiptor = agenting.Receiptor(hby=hby)
-        doers = [hby_doer, anchorer, postman, mbx, wit_rcptr_doer, receiptor]
-        return doers, hby_doer, wit_rcptr_doer
+        hby_doer = HaberyDoer(habery=hby)
+        anchorer = Anchorer(hby=hby, proxy=None)
+        postman = Poster(hby=hby)
+        exc = Exchanger(hby=hby, handlers=[])
+        notifier = Notifier(hby=hby)
+        delegating.loadHandlers(hby=hby, exc=exc, notifier=notifier)
+        mbx = MailboxDirector(hby=hby, topics=['/receipt', '/replay', '/reply', '/delegate', '/multisig'], exc=exc)
+        wit_receiptor = WitnessReceiptor(hby=hby)
+        receiptor = Receiptor(hby=hby)
+        doers = [hby_doer, anchorer, postman, mbx, wit_receiptor, receiptor]
+        return doers, hby_doer, wit_receiptor
 
 
 def self_attested_aliases_cred_subj(domain: str, aid: str, port: str = None, path: str = None):

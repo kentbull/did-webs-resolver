@@ -94,18 +94,6 @@ class HabHelpers:
         return dlgs
 
 
-class DelegationAutoApprover(doing.Doer):
-    """
-    Automatically approves delegation requests for testing purposes.
-    """
-
-    def __init__(self):
-        super(DelegationAutoApprover, self).__init__()
-
-    def recur(self, tock=0.0, **opts):
-        pass
-
-
 class Dipper(doing.DoDoer):
     """
     Handles the delegation lifecycle for single-sig identifiers from the perspective of the delegate.

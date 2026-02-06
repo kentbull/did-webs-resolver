@@ -12,8 +12,8 @@ RUN apk --no-cache add \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Copy in KERIpy from weboftrust image
-COPY --from=weboftrust/keri:1.2.6 /keripy /keripy
-COPY --from=weboftrust/keri:1.2.6 /keripy/src /keripy/src
+COPY --from=weboftrust/keri:1.2.7 /keripy /keripy
+COPY --from=weboftrust/keri:1.2.7 /keripy/src /keripy/src
 
 ENV PATH="/keripy/venv/bin:${PATH}"
 # Ignore the syntax warning for KERIpy's old regex usage

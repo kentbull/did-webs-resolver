@@ -2,7 +2,9 @@
 
 ## Version History
 
-### Versions prior to 0.3.0 (hyperledger-labs/did-webs-resolver history)
+### 0.3.3 Bumped version for image release on docker hub
+
+- bumped from 0.3.2 to 0.3.3 for image release on docker hub.
 
 ### 0.3.2 Delegation and alsoKnownAs features
 
@@ -48,6 +50,8 @@
 - Fix the docker compose setup to work with local test did:webs resolutions.
 - `X-Forwarded-Port` for supporting resolver deployments behind HTTP proxies.
 - Fix Location Scheme record save bug.
+
+### Versions prior to 0.3.0 (hyperledger-labs/did-webs-resolver history)
 
 #### 0.0.7 and before
 

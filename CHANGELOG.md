@@ -4,6 +4,10 @@
 
 ### Versions prior to 0.3.0 (hyperledger-labs/did-webs-resolver history)
 
+### 0.3.5 Remove unneeded vgate dependency
+
+The vgate dependency was never used so removing it simplifies things.
+
 ### 0.3.4 Upgrade to KERIpy 1.2.12 and test fixes
 
 Just a few test fixes to get test coverage back to 100%, a quoting fix on re-encoding invalid did:webs DIDs, and upgrade to KERIpy 1.2.12, the latest release.

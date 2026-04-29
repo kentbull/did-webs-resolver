@@ -1,0 +1,1 @@
+"""Packaged dws resource files."""

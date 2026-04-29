@@ -20,7 +20,7 @@ from keri.vdr import credentialing, verifying
 from mockito import mock, when
 
 from dws import ArtifactResolveError, log_name, ogler, set_log_level
-from dws.core import artifacting, didding, generating, requesting, resolving
+from dws.core import artifacting, didding, generating, requesting, resolving, schemaing
 from dws.core.didkeri import KeriResolver
 from dws.core.ends import monitoring
 from tests import conftest, keri_api
@@ -652,6 +652,60 @@ def test_get_serve_dir():
     with tempfile.TemporaryDirectory() as temp_did_doc_dir:
         dir = resolving.get_serve_dir(None, temp_did_doc_dir)
         assert dir == temp_did_doc_dir, 'Serve directory path should match the provided directory when no static path is given'
+
+
+def test_save_cesr_pins_designated_alias_schema_for_nonlocal_aid():
+    """
+    Verify a resolver Habery can parse designated-alias ACDCs without an operator resolving the schema first.
+    """
+    salt = b'0ACB-gtnUTQModt9u_UC3LFQ'
+    registry_nonce = '0AC-D5XhLUkO-ODnrJMSRPqv'
+    host = '127.0.0.1'
+    port = '7677'
+    did_path = 'dws'
+
+    with habbing.openHab(salt=salt, name='water', transferable=True, temp=True) as (issuer_hby, hab):
+        hby_doer = habbing.HaberyDoer(habery=issuer_hby)
+        issuer_rgy = credentialing.Regery(hby=issuer_hby, name=hab.name, temp=issuer_hby.temp)
+        aid = hab.pre
+        schema_json = conftest.Schema.designated_aliases_schema()
+        subject_data = self_attested_aliases_cred_subj(host, aid, port, did_path)
+        CredentialHelpers.add_cred_to_aid(
+            hby=issuer_hby,
+            hby_doer=hby_doer,
+            regery=issuer_rgy,
+            hab=hab,
+            schema_said=didding.DES_ALIASES_SCHEMA,
+            schema_json=schema_json,
+            subject_data=subject_data,
+            rules_json=conftest.Schema.designated_aliases_rules(),
+            recp=None,
+            registry_nonce=registry_nonce,
+        )
+
+        keri_cesr = bytearray()
+        keri_cesr.extend(artifacting.gen_kel_cesr(hab, aid))
+        keri_cesr.extend(artifacting.gen_loc_schemes_cesr(hab, aid))
+        keri_cesr.extend(artifacting.gen_des_aliases_cesr(hab, issuer_rgy.reger, aid))
+
+        with habbing.openHby(name='resolver-schema', temp=True) as resolver_hby:
+            resolver_rgy = credentialing.Regery(hby=resolver_hby, name=resolver_hby.name, temp=resolver_hby.temp)
+            assert resolver_hby.db.schema.get(keys=(didding.DES_ALIASES_SCHEMA,)) is None
+
+            resolving.save_cesr(hby=resolver_hby, rgy=resolver_rgy, kc_res=keri_cesr, aid=aid)
+
+            assert resolver_hby.db.schema.get(keys=(didding.DES_ALIASES_SCHEMA,)) is not None
+            assert didding.gen_designated_aliases(resolver_hby, resolver_rgy, aid) == subject_data['ids']
+
+
+def test_pin_designated_aliases_schema_is_idempotent():
+    with habbing.openHby(name='resolver-schema-idempotent', temp=True) as hby:
+        first = schemaing.pin_designated_aliases_schema(hby)
+        second = schemaing.pin_designated_aliases_schema(hby)
+
+        assert first.said == didding.DES_ALIASES_SCHEMA
+        assert second.said == didding.DES_ALIASES_SCHEMA
+        assert first.raw == second.raw
 
 
 def test_resolver_with_did_webs_did_returns_correct_doc():

@@ -2,7 +2,15 @@
 
 ## Version History
 
-### Versions prior to 0.3.0 (hyperledger-labs/did-webs-resolver history)
+
+### 0.3.6 Pinned Designated Aliases Schema
+
+Make did-webs-resolver usage painless and turnkey by pinning the designated aliases ACDC schema
+so users of the did:webs resolver do not have to have their AID resolve the designated aliases
+ACDC schema OOBI prior to being able to successfully resolve a `did:webs` DID.
+
+This really simplifies did-webs-resolver usage as it removes a step everyone using it would have
+to do. And this is easy to forget during development, so it saves a bunch of dev time.
 
 ### 0.3.5 Remove unneeded vgate dependency
 
@@ -21,6 +29,7 @@ Just a few test fixes to get test coverage back to 100%, a quoting fix on re-enc
 
 - fix HTTP stream consumption in logger middleware
 - add some test fixtures for ACDC schemas
+
 
 ### 0.3.0 First release under GLEIF-IT/did-webs-resolver
 
@@ -56,6 +65,8 @@ Just a few test fixes to get test coverage back to 100%, a quoting fix on re-enc
 - Fix the docker compose setup to work with local test did:webs resolutions.
 - `X-Forwarded-Port` for supporting resolver deployments behind HTTP proxies.
 - Fix Location Scheme record save bug.
+
+## Versions prior to 0.3.0 (hyperledger-labs/did-webs-resolver history)
 
 #### 0.0.7 and before
 

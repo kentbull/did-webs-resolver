@@ -2,6 +2,9 @@
 
 ## Version History
 
+### 0.3.7 Upgrade KERIpy to 1.2.13
+
+There was an important LMDB bugfix in KERIpy 1.2.13 that we pull in here.
 
 ### 0.3.6 Pinned Designated Aliases Schema
 

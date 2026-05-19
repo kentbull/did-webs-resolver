@@ -28,6 +28,13 @@ from tests.conftest import CredentialHelpers, HabbingHelpers, WitnessContext, se
 from tests.keri_api import HabHelpers
 
 
+@pytest.fixture
+def mismatched_designated_aliases_schema():
+    schema = conftest.Schema.designated_aliases_schema()
+    schema['title'] = f'{schema["title"]} SAID mismatch fixture'
+    return schema
+
+
 def test_health_end():
     """Simple test to demonstrate Falcon HTTP endpoint testing."""
     app = resolving.falcon_app()
@@ -706,6 +713,23 @@ def test_pin_designated_aliases_schema_is_idempotent():
         assert first.said == didding.DES_ALIASES_SCHEMA
         assert second.said == didding.DES_ALIASES_SCHEMA
         assert first.raw == second.raw
+
+
+def test_pin_designated_aliases_schema_rejects_mismatched_embedded_said(monkeypatch, mismatched_designated_aliases_schema):
+    bad_schemer = scheming.Schemer(sed=mismatched_designated_aliases_schema)
+    assert bad_schemer.said != didding.DES_ALIASES_SCHEMA
+
+    def load_mismatched_schema():
+        return json.loads(json.dumps(mismatched_designated_aliases_schema))
+
+    monkeypatch.setattr(schemaing, 'load_designated_aliases_schema', load_mismatched_schema)
+
+    with habbing.openHby(name='resolver-schema-mismatch', temp=True) as hby:
+        with pytest.raises(kering.ConfigurationError) as excinfo:
+            schemaing.pin_designated_aliases_schema(hby)
+
+        assert str(excinfo.value) == f'embedded designated-alias schema SAID mismatch: {bad_schemer.said}'
+        assert hby.db.schema.get(keys=(didding.DES_ALIASES_SCHEMA,)) is None
 
 
 def test_resolver_with_did_webs_did_returns_correct_doc():

@@ -321,8 +321,9 @@ def generate_weighted_threshold_proof(thold, verfers, vms, did, aid):
         did (str): The DID to associate with the weighted threshold proof.
         aid (str): The controlling AID to associate with the weighted threshold proof.
     """
+    # LCD = LCM of denominators. Threshold is LCD
     lcd = int(math.lcm(*[fr.denominator for fr in thold[0]]))
-    threshold = float(lcd / 2)
+    threshold = lcd
     numerators = [int(fr.numerator * lcd / fr.denominator) for fr in thold[0]]
     conditions = []
     for idx, verfer in enumerate(verfers):

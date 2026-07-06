@@ -756,7 +756,7 @@ def test_generate_did_doc_multi_sig():
                 'id': '#EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4',
                 'type': 'ConditionalProof2022',
                 'controller': 'did:web:127.0.0.1%3A7676:EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4',
-                'threshold': 1.0,
+                'threshold': 2.0,
                 'conditionWeightedThreshold': [
                     {'condition': '#DHGb2qY9WwZ1sBnC9Ip0F-M8QjTM27ftI-3jTGF9mc6K', 'weight': 1},
                     {'condition': '#DOZlWGPfDHLMf62zSFzE8thHmnQUOgA3_Y-KpOyF9ScG', 'weight': 1},

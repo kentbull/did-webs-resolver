@@ -27,7 +27,7 @@ from keri.vdr import eventing as teventing
 from keri.vdr.credentialing import Regery
 
 from dws import ArtifactResolveError, log_name, ogler
-from dws.core import didding, ends, requesting
+from dws.core import didding, ends, requesting, schemaing
 from dws.core.requesting import load_url_with_requests
 
 logger = ogler.getLogger(log_name)
@@ -99,6 +99,8 @@ def save_cesr(hby: Habery, rgy: Regery, kc_res: bytes, aid: str = None):
         aid (str): The AID of the identifier to which the CESR belongs. If None, it will be derived from the CESR.
     """
     logger.debug('Saving KERI CESR to hby: %s', kc_res.decode('utf-8'))
+    schemaing.pin_designated_aliases_schema(hby)
+
     # CESR message handlers
     rtr = routing.Router()
     rvy = routing.Revery(db=hby.db, rtr=rtr)  # Have to create the Revery before Kevery so the Kevery.kvr is set.
@@ -417,6 +419,8 @@ def setup_resolver(
         list: list of Doers to run in the Tymist
     """
     logger.info(f'Setting up Resolver HTTP server Doers on port {http_port}')
+    schemaing.pin_designated_aliases_schema(hby)
+
     app = falcon_app()
 
     server = tls_falcon_server(app, http_port=http_port, keypath=keypath, certpath=certpath, cafilepath=cafilepath)

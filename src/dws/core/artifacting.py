@@ -1,7 +1,6 @@
 import json
 import os
 
-import vgate
 from hio.core import http
 from keri import kering
 from keri.app import habbing, signing
@@ -237,9 +236,7 @@ def dyn_artifact_svr_doers(
     doers = []
     app = resolving.falcon_app()
     webbing.load_endpoints(app, hby=hby, rgy=rgy, did_path=did_path, meta=meta)
-    voodoers = vgate.setup(hby=hby, alias=alias)
     server = resolving.tls_falcon_server(app, http_port, keypath, certpath, cafilepath)
     http_server_doer = http.ServerDoer(server=server)
     doers.extend([http_server_doer])
-    doers += voodoers
     return doers

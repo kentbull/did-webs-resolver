@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 from hio.help.hicting import Mict
-from keri.app import tocking, habbing
+from keri.app import habbing, tocking
 from keri.core import coring, eventing, serdering
 from keri.db import basing, koming, subing
 from keri.vdr import credentialing, verifying

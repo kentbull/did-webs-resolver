@@ -8,7 +8,7 @@ import falcon
 import pytest
 from hio.base import doing
 from keri import core
-from keri.app import tocking, configing, habbing, oobiing
+from keri.app import configing, habbing, oobiing, tocking
 from keri.vdr import credentialing
 from mockito import mock
 

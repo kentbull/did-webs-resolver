@@ -12,8 +12,8 @@ authors = [
 keywords = ["did:webs", "did", "resolver", "webs", "keri", "acdc", "cesr", "vlei"]
 
 dependencies = [
-    "gleif_keri==1.2.15",
-    "gleif_hio==0.6.20",
+    "gleif_keri==1.2.16",
+    "gleif_hio==0.6.21",
     "multicommand>=1.0.0",
     "falcon>=4.2.0",
     "requests>=2.33.1"
